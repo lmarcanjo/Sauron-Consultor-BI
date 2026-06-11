@@ -1,0 +1,6 @@
+{
+  "name": "Sauron",
+  "description": "Agente consultivo de inteligência de negócios para grupos com múltiplos CNPJs, marcas e filiais.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
