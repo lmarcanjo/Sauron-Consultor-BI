@@ -18,6 +18,9 @@ export interface LancamentoFinanceiro {
   Despesa: number;
   Lucro: number;
   Margem: number;
+  Departamento?: string;
+  ContaContabil?: string;
+  Orcamento?: number;
 }
 
 export interface MetricasConsolidadas {

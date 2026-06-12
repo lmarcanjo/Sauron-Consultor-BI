@@ -59,6 +59,7 @@ export function parseCSV(text: string): { data: LancamentoFinanceiro[]; missingF
     // Dynamic fallback for Lucro and Margem
     const lucro = row["Lucro"] !== undefined ? parseNum(row["Lucro"]) : Math.round((receita - custo - despesa) * 100) / 100;
     const margem = row["Margem"] !== undefined ? parseNum(row["Margem"]) : (receita > 0 ? Math.round((lucro / receita) * 100 * 100) / 100 : 0);
+    const orcamento = row["Orçamento"] !== undefined ? parseNum(row["Orçamento"]) : (row["Orcamento"] !== undefined ? parseNum(row["Orcamento"]) : Math.round((receita * 0.95) * 100) / 100);
     
     result.push({
       Grupo: row["Grupo"] || "Geral",
@@ -73,7 +74,8 @@ export function parseCSV(text: string): { data: LancamentoFinanceiro[]; missingF
       Custo: custo,
       Despesa: despesa,
       Lucro: lucro,
-      Margem: margem
+      Margem: margem,
+      Orcamento: orcamento
     });
   }
   

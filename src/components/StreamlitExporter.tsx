@@ -85,20 +85,20 @@ export const StreamlitExporter: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 font-sans hover:shadow-md transition-all duration-150">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-slate-100">
+    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 font-sans hover:shadow-md transition-all duration-150">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-850">
         <div>
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-            <Terminal size={14} className="text-indigo-600 stroke-[2.5]" />
-            <span>Código de Exportação Python & Streamlit</span>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-white flex items-center gap-1.5">
+            <Terminal size={14} className="text-indigo-600 dark:text-indigo-400 stroke-[2.5]" />
+            <span>Código de Exportação Python &amp; Streamlit</span>
           </h3>
-          <p className="text-[10px] text-slate-400 mt-0.5">Guarde e execute os arquivos solicitados de forma totalmente independente no seu ambiente local</p>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Guarde e execute os arquivos solicitados de forma totalmente independente no seu ambiente local</p>
         </div>
         <div className="flex gap-1.5 self-stretch sm:self-auto">
           <button
             onClick={handleCopy}
             disabled={loading}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 text-[10px] uppercase tracking-wide font-bold rounded transition-colors cursor-pointer"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 text-[10px] uppercase tracking-wide font-bold rounded transition-colors cursor-pointer"
           >
             {copied ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
             <span>{copied ? "Copiado!" : "Copiar"}</span>
@@ -106,7 +106,7 @@ export const StreamlitExporter: React.FC = () => {
           <button
             onClick={handleDownload}
             disabled={loading}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 text-[10px] uppercase tracking-wide font-bold rounded transition-all cursor-pointer"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white disabled:opacity-50 text-[10px] uppercase tracking-wide font-bold rounded transition-all cursor-pointer"
           >
             <Download size={12} />
             <span>Baixar</span>
@@ -114,11 +114,11 @@ export const StreamlitExporter: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex border-b border-slate-100 mt-3 overflow-x-auto gap-0.5">
+      <div className="flex border-b border-slate-100 dark:border-slate-850 mt-3 overflow-x-auto gap-0.5">
         <button
           onClick={() => setActiveTab("app")}
           className={`px-3 py-2 text-[10px] uppercase tracking-wider font-bold transition-all border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-            activeTab === "app" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-indigo-500"
+            activeTab === "app" ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-450" : "border-transparent text-slate-500 dark:text-slate-405 hover:text-indigo-500"
           }`}
         >
           <FileText size={12} />
@@ -128,7 +128,7 @@ export const StreamlitExporter: React.FC = () => {
         <button
           onClick={() => setActiveTab("req")}
           className={`px-3 py-2 text-[10px] uppercase tracking-wider font-bold transition-all border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-            activeTab === "req" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-indigo-500"
+            activeTab === "req" ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-450" : "border-transparent text-slate-500 dark:text-slate-405 hover:text-indigo-500"
           }`}
         >
           <Settings size={12} />
@@ -138,7 +138,7 @@ export const StreamlitExporter: React.FC = () => {
         <button
           onClick={() => setActiveTab("instructions")}
           className={`px-3 py-2 text-[10px] uppercase tracking-wider font-bold transition-all border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-            activeTab === "instructions" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-500 hover:text-indigo-500"
+            activeTab === "instructions" ? "border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-450" : "border-transparent text-slate-400 hover:text-indigo-500"
           }`}
         >
           <BookOpen size={12} />
@@ -152,7 +152,7 @@ export const StreamlitExporter: React.FC = () => {
             Drenando códigos corporativos da base...
           </div>
         ) : error ? (
-          <div className="h-40 flex flex-col items-center justify-center text-rose-400 text-xs text-center p-4">
+          <div className="h-40 flex flex-col items-center justify-center text-rose-450 text-xs text-center p-4">
             <p className="font-bold">{error}</p>
           </div>
         ) : (

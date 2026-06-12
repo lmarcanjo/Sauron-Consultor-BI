@@ -82,6 +82,47 @@ export function gerarDadosSimulados(): LancamentoFinanceiro[] {
             
             const lucro = Math.round((receita - custo - despesa) * 100) / 100;
             const margem = receita > 0 ? Math.round((lucro / receita) * 100 * 100) / 100 : 0;
+
+            let depto = "Geral";
+            let ctc = "3.1.04.10000.10 - Combustível";
+
+            if (razao.includes("Ocupação")) {
+              depto = "Administrativo";
+              ctc = "3.1.04.30000.30 - Custos Prediais";
+            } else if (razao.includes("Pessoal de Vendas")) {
+              depto = "Comercial";
+              ctc = "3.1.03.11100.05 - Comissão de Vendas";
+            } else if (razao.includes("Pessoal Administrativo")) {
+              depto = "Diretoria e Gestão";
+              ctc = "3.1.04.10000.15 - Salários e Encargos";
+            } else if (razao.includes("Propaganda")) {
+              depto = "Marketing";
+              ctc = "3.1.04.20000.22 - Propaganda Mídias";
+            } else if (razao.includes("Sistemas de TI")) {
+              depto = "Tecnologia";
+              ctc = "3.1.04.10000.25 - Suporte e Licenças";
+            } else if (razao.includes("Material de Consumo")) {
+              depto = "Administrativo";
+              ctc = "3.1.04.10000.12 - Consumo Geral";
+            } else if (razao.includes("Viagens")) {
+              depto = "Comercial";
+              ctc = "3.1.04.10000.11 - Despesas de Viagens";
+            } else if (razao.includes("Serviços Terceirizados")) {
+              depto = "Segurança e Apoio";
+              ctc = "3.1.04.10000.14 - Serviços de Terceiros";
+            } else if (razao.includes("Veículos")) {
+              depto = "Vendas Novos";
+              ctc = "3.0.0.1 - Venda de Veículos";
+            } else if (razao.includes("Acessórios")) {
+              depto = "Pós-Venda";
+              ctc = "3.0.1.1 - Venda de Acessórios";
+            } else if (razao.includes("Peças")) {
+              depto = "Peças";
+              ctc = "3.0.2.1 - Peças e Pós-vendas";
+            } else if (razao.includes("Oficina")) {
+              depto = "Pós-Venda (Oficina)";
+              ctc = "3.0.3.1 - Serviços de Oficina";
+            }
             
             list.push({
               Grupo: grupo,
@@ -96,7 +137,10 @@ export function gerarDadosSimulados(): LancamentoFinanceiro[] {
               Custo: custo,
               Despesa: despesa,
               Lucro: lucro,
-              Margem: margem
+              Margem: margem,
+              Departamento: depto,
+              ContaContabil: ctc,
+              Orcamento: Math.round((receita * random(0.88, 1.12)) * 100) / 100
             });
           });
         });
