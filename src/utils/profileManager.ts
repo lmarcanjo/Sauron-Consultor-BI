@@ -54,3 +54,36 @@ export function getStoredProfiles(): CorporateProfile[] {
 export function saveStoredProfiles(profiles: CorporateProfile[]) {
   localStorage.setItem("sauron_profiles", JSON.stringify(profiles));
 }
+
+export interface LgpdLog {
+  timestamp: string;
+  user: string;
+  action: string;
+  details: string;
+  ip: string;
+}
+
+export function auditLog(action: string, details: string, user = "Sistema Sauron (Automático)") {
+  try {
+    const savedLogs = localStorage.getItem("sauron_lgpd_logs");
+    let logs: LgpdLog[] = [];
+    if (savedLogs) {
+      try {
+        logs = JSON.parse(savedLogs);
+      } catch (e) {
+        logs = [];
+      }
+    }
+    const newLog: LgpdLog = {
+      timestamp: new Date().toISOString(),
+      user,
+      action,
+      details,
+      ip: "192.168.3.112" // IP do dispositivo cliente do colaborador
+    };
+    const updated = [newLog, ...logs].slice(0, 100); // Guardar os últimos 100 eventos
+    localStorage.setItem("sauron_lgpd_logs", JSON.stringify(updated));
+  } catch (e) {
+    console.warn("Falha no log corporativo de conformidade:", e);
+  }
+}

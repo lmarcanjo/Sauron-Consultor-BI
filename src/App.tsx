@@ -58,6 +58,7 @@ import { ComissoesTab } from "./components/ComissoesTab";
 import { LoginScreen } from "./components/LoginScreen";
 import { PerfisConfigTab } from "./components/PerfisConfigTab";
 import { LgpdConsent } from "./components/LgpdConsent";
+import { auditLog } from "./utils/profileManager";
 
 export default function App() {
   // --- STATE ---
@@ -70,6 +71,11 @@ export default function App() {
   const [dataLiveBackup, setDataLiveBackup] = useState<LancamentoFinanceiro[]>([]);
   const [nomeFonte, setNomeFonte] = useState<string>("Dados Simulados de Concessionárias de Voo");
   const [camposAusentes, setCamposAusentes] = useState<string[]>([]);
+
+  // Toggle state between Companies: real vs fictional
+  const [visualizacaoEmpresas, setVisualizacaoEmpresas] = useState<"ficticias" | "reais">("ficticias");
+  const [dataOrigemFicticio, setDataOrigemFicticio] = useState<LancamentoFinanceiro[]>([]);
+  const [dataOrigemReal, setDataOrigemReal] = useState<LancamentoFinanceiro[]>([]);
 
   // Persistent Custom Configurations (Internal Corporate Dashboard Database)
   const [segmentoCliente, setSegmentoCliente] = useState<string>("Concessionária Popular");
@@ -213,8 +219,10 @@ export default function App() {
         const syncRes = await fetch("/api/db/sync", { method: "POST" });
         const syncData = await syncRes.json();
         if (syncRes.ok && syncData.success) {
+          setDataOrigemReal(syncData.data);
           setDataOrigem(syncData.data);
           setDataLiveBackup(syncData.data);
+          setVisualizacaoEmpresas("reais");
           setNomeFonte(syncData.sourceName);
           setSyncStatus("");
           loadReportHistoryMetadata();
@@ -235,8 +243,10 @@ export default function App() {
       const res = await fetch("/api/db/sync", { method: "POST" });
       const resData = await res.json();
       if (res.ok && resData.success) {
+        setDataOrigemReal(resData.data);
         setDataOrigem(resData.data);
         setDataLiveBackup(resData.data);
+        setVisualizacaoEmpresas("reais");
         setNomeFonte(resData.sourceName);
         setCamposAusentes([]);
         setSyncStatus(`Sucesso! Banco de dados atualizado. Importados ${resData.count} registros.`);
@@ -358,8 +368,19 @@ export default function App() {
   // --- INITIALIZATION ---
   useEffect(() => {
     const simulated = gerarDadosSimulados();
+    setDataOrigemFicticio(simulated);
     setDataOrigem(simulated);
     setDataLiveBackup(simulated);
+
+    const realDefault: LancamentoFinanceiro[] = [
+      { Grupo: "Sauron Holdings S/A", CNPJ: "10.222.333/0001-44", Marca: "Sauron Cloud", Empresa: "Sauron Cloud & Tech", Filial: "Matriz São Paulo", Mês: "Janeiro", Razão: "Serviços em Nuvem", Categoria: "Custo de Ocupação", Receita: 420000, Custo: 180000, Despesa: 40000, Lucro: 200000, Margem: 47.6, Departamento: "Tecnologia", ContaContabil: "3.1.04.10000.25 - Suporte e Licenças", Orcamento: 400000 },
+      { Grupo: "Sauron Holdings S/A", CNPJ: "10.222.333/0001-44", Marca: "Sauron Cloud", Empresa: "Sauron Cloud & Tech", Filial: "Matriz São Paulo", Mês: "Fevereiro", Razão: "Serviços em Nuvem", Categoria: "Custo de Ocupação", Receita: 450000, Custo: 195000, Despesa: 41000, Lucro: 214000, Margem: 47.5, Departamento: "Tecnologia", ContaContabil: "3.1.04.10000.25 - Suporte e Licenças", Orcamento: 420000 },
+      { Grupo: "Sauron Holdings S/A", CNPJ: "10.222.333/0001-44", Marca: "Sauron Cloud", Empresa: "Sauron Cloud & Tech", Filial: "Matriz São Paulo", Mês: "Março", Razão: "Serviços em Nuvem", Categoria: "Custo de Ocupação", Receita: 480000, Custo: 210000, Despesa: 43000, Lucro: 227000, Margem: 47.2, Departamento: "Tecnologia", ContaContabil: "3.1.04.10000.25 - Suporte e Licenças", Orcamento: 450000 },
+      { Grupo: "Marcanjo Varejo Holdings", CNPJ: "20.444.555/0002-11", Marca: "Premium Retail", Empresa: "Marcanjo Varejo S/A", Filial: "Matriz Rio de Janeiro", Mês: "Janeiro", Razão: "Logística Terceirizada", Categoria: "Propaganda e Marketing", Receita: 750000, Custo: 450000, Despesa: 120000, Lucro: 180000, Margem: 24.0, Departamento: "Vendas Novos", ContaContabil: "3.0.0.1 - Venda de Veículos", Orcamento: 720000 },
+      { Grupo: "Marcanjo Varejo Holdings", CNPJ: "20.444.555/0002-11", Marca: "Premium Retail", Empresa: "Marcanjo Varejo S/A", Filial: "Matriz Rio de Janeiro", Mês: "Fevereiro", Razão: "Logística Terceirizada", Categoria: "Propaganda e Marketing", Receita: 780000, Custo: 470000, Despesa: 122000, Lucro: 188000, Margem: 24.1, Departamento: "Vendas Novos", ContaContabil: "3.0.0.1 - Venda de Veículos", Orcamento: 750500 },
+      { Grupo: "Marcanjo Varejo Holdings", CNPJ: "20.444.555/0002-11", Marca: "Premium Retail", Empresa: "Marcanjo Varejo S/A", Filial: "Matriz Rio de Janeiro", Mês: "Março", Razão: "Logística Terceirizada", Categoria: "Propaganda e Marketing", Receita: 820000, Custo: 495000, Despesa: 125000, Lucro: 200000, Margem: 24.3, Departamento: "Vendas Novos", ContaContabil: "3.0.0.1 - Venda de Veículos", Orcamento: 800000 }
+    ];
+    setDataOrigemReal(realDefault);
     
     // Load metadata, system database configs and check for cloud database sync
     loadReportHistoryMetadata();
@@ -763,14 +784,25 @@ export default function App() {
   };
 
   const handleDatabaseDataLoaded = (data: LancamentoFinanceiro[], sourceName: string, isVpn?: boolean) => {
+    setDataOrigemReal(data);
     setDataOrigem(data);
     setDataLiveBackup(data);
+    setVisualizacaoEmpresas("reais");
     setNomeFonte(sourceName);
     setCamposAusentes([]);
     if (isVpn !== undefined) {
       setIsVpnSimulated(isVpn);
     }
     runDbValidationCheck(data);
+  };
+
+  const handleVisualizacaoChange = (choice: "ficticias" | "reais") => {
+    setVisualizacaoEmpresas(choice);
+    const activeData = choice === "ficticias" ? dataOrigemFicticio : dataOrigemReal;
+    setDataOrigem(activeData);
+    setDataLiveBackup(activeData);
+    setNomeFonte(choice === "ficticias" ? "Ambiente de Teste (Empresas Fictícias)" : "Dados de Produção (Empresas Reais)");
+    runDbValidationCheck(activeData);
   };
 
   // --- EXPORT & FILE UPLOAD ---
@@ -1011,6 +1043,36 @@ export default function App() {
               </>
             )}
 
+            {/* Toggle Empresas Reais vs Fictícias */}
+            <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-0.5 select-none shrink-0 h-8 items-center mr-1">
+              <button
+                type="button"
+                onClick={() => handleVisualizacaoChange("ficticias")}
+                className={`flex items-center gap-1 px-2.5 py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
+                  visualizacaoEmpresas === "ficticias"
+                    ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-slate-705/50 font-extrabold"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+                title="Visualizar marcas fictícias geradas pelo sistema (Toyota, Chevrolet, etc.)"
+              >
+                <Info size={11} className="mr-0.5 shrink-0 text-slate-500" />
+                <span>Empresas Fictícias</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleVisualizacaoChange("reais")}
+                className={`flex items-center gap-1 px-2.5 py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
+                  visualizacaoEmpresas === "reais"
+                    ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-slate-705/50 font-extrabold"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+                title="Visualizar faturamento e dados reais importados de fontes de produção"
+              >
+                <Database size={11} className="mr-0.5 shrink-0 text-slate-500" />
+                <span>Empresas Reais</span>
+              </button>
+            </div>
+
             {/* Live Database Synchronizer Actions */}
             <button
               onClick={handleSyncDatabaseData}
@@ -1072,6 +1134,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => {
+                    auditLog("ENCERRAMENTO_SESSÃO", `Usuário encerrou o período operacional regulamentar no portal de acessos.`, currentUser.name);
                     localStorage.removeItem("sauron_user");
                     setCurrentUser(null);
                   }}

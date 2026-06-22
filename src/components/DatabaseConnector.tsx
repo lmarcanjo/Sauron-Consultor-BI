@@ -265,7 +265,14 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
 
   // Automatically map columns based on exact or semantic match in lowercase
   const autoMapColumns = (table: string, columnsMap: Record<string, { name: string; type: string }[]>) => {
-    const cols = columnsMap[table] || [];
+    let targetTable = table;
+    if (targetTable === "__ALL_TABLES__") {
+      const keys = Object.keys(columnsMap);
+      if (keys.length > 0) {
+        targetTable = keys[0];
+      }
+    }
+    const cols = columnsMap[targetTable] || [];
     const newMappings = { ...mappings };
 
     const searchSynonyms: Record<string, string[]> = {
@@ -424,7 +431,9 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
 
   // Helper check to display column dropdowns
   const availableColumns = testResult?.tableColumns && selectedTable 
-    ? testResult.tableColumns[selectedTable] || [] 
+    ? (selectedTable === "__ALL_TABLES__" 
+        ? (testResult.tables && testResult.tables.length > 0 ? testResult.tableColumns[testResult.tables[0]] || [] : [])
+        : testResult.tableColumns[selectedTable] || [])
     : [];
 
   return (
@@ -1155,6 +1164,11 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                       onChange={(e) => handleTableChange(e.target.value)}
                       className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 font-bold text-[11px] text-slate-700 dark:text-white cursor-pointer focus:outline-none focus:border-blue-500"
                     >
+                      {testResult.tables.length > 1 && (
+                        <option value="__ALL_TABLES__" className="bg-blue-50 dark:bg-blue-950 font-bold text-blue-800 dark:text-blue-300">
+                          ⚡️ -- PUXAR E CONSOLIDAR TODAS AS TABELAS ENCONTRADAS --
+                        </option>
+                      )}
                       {testResult.tables.map((t) => (
                         <option key={t} value={t} className="bg-white dark:bg-slate-800 text-slate-705 dark:text-white">
                           {t}

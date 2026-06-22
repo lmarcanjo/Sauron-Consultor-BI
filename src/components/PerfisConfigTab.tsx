@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Shield, BarChart3, Sliders, BookOpen, Save, RotateCcw, Plus, Trash2, ShieldCheck, Eye, EyeOff } from "lucide-react";
-import { getStoredProfiles, saveStoredProfiles, CorporateProfile, DEFAULT_PRESETS } from "../utils/profileManager";
+import { getStoredProfiles, saveStoredProfiles, CorporateProfile, DEFAULT_PRESETS, auditLog } from "../utils/profileManager";
 
 interface LgpdLog {
   timestamp: string;
@@ -43,16 +43,15 @@ export const PerfisConfigTab: React.FC = () => {
   }, []);
 
   const addLog = (action: string, details: string) => {
-    const newLog: LgpdLog = {
-      timestamp: new Date().toISOString(),
-      user: "Consultor Técnico (Sessão Ativa)",
-      action,
-      details,
-      ip: "192.168.1.15"
-    };
-    const updated = [newLog, ...lgpdLogs].slice(0, 50); // Keep last 50
-    setLgpdLogs(updated);
-    localStorage.setItem("sauron_lgpd_logs", JSON.stringify(updated));
+    auditLog(action, details, "Consultor Técnico (Sessão Ativa)");
+    try {
+      const savedLogs = localStorage.getItem("sauron_lgpd_logs");
+      if (savedLogs) {
+        setLgpdLogs(JSON.parse(savedLogs));
+      }
+    } catch (e) {
+      console.warn("Falha ao sincronizar logs locais:", e);
+    }
   };
 
   const handleSave = () => {

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Shield, Coins, Sliders, BookOpen, Lock, Sparkles, Building, BarChart3, Sun, Moon } from "lucide-react";
-import { getStoredProfiles, CorporateProfile } from "../utils/profileManager";
+import { getStoredProfiles, CorporateProfile, auditLog } from "../utils/profileManager";
 
 interface LoginScreenProps {
   onLogin: (user: { name: string; email: string; role: "consultor" | "diretor" | "gerente" | "analista" }) => void;
@@ -50,13 +50,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
     );
 
     if (matched) {
+      auditLog("AUTENTICAÇÃO_CONCEDIDA", `Acesso concedido com sucesso para o perfil de ${matched.role} (${matched.email}).`, matched.name);
       onLogin({
         name: matched.name,
         email: matched.email,
         role: matched.role
       });
     } else {
-      setError("Credenciais incorretas para teste seguro. Verifique ou selecione um perfil acima.");
+      auditLog("TENTATIVA_REJEITADA", `Tentativa de login malsucedida usando o e-mail: ${email}. Verificação de senha secreta falhou.`, "Conexão Não Identificada");
+      setError("Credenciais incorretas para teste seguro. Verifique ou selecione um perfil acima de modo a preencher e conferir a senha.");
     }
   };
 
@@ -64,12 +66,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
     setEmail(p.email);
     setPassword(p.password);
     setError("");
-    // Instant login for super slick experience
-    onLogin({
-      name: p.name,
-      email: p.email,
-      role: p.role
-    });
   };
 
   return (
@@ -105,7 +101,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
             Portal de Acesso Consolidado
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
-            Selecione um perfil de acesso ou digite suas credenciais para navegar. O sistema separa automaticamente a aplicação de configuração técnica da aplicação do usuário operacional.
+            Selecione um perfil para carregar seus dados ou digite suas credenciais nos campos. O preenchimento e a validação de login e senha são obrigatórios para a segurança e auditoria da sessão de trabalho.
           </p>
         </div>
 
@@ -113,7 +109,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
           {/* LEFT: Preset profiles quick cards */}
           <div className="lg:col-span-7 space-y-3">
             <h3 className="text-xs font-extrabold uppercase text-slate-400 dark:text-slate-500 tracking-widest block pl-1">
-              Perfis Corporativos Disponíveis para Autenticação
+              Perfis Disponíveis (Clique para Preencher o Formulário)
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -154,7 +150,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
                     </p>
 
                     <div className="pt-2 text-[9px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-1 transition-transform relative">
-                      <span>Entrar neste perfil</span>
+                      <span>Preencher dados de perfil</span>
                       <span>&rarr;</span>
                     </div>
                   </button>

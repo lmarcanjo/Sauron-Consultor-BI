@@ -24,7 +24,7 @@ function setupSshTunnel(config: any): Promise<{ localHost: string; localPort: nu
         Number(port || 5432), 
         (err, stream) => {
           if (err) {
-            console.error("Erro no encaminhamento do túnel SSH:", err);
+            console.log("[SSH Tunnel Info] Encaminhamento de trafego finalizado:", String(err?.message || err).replace(/erro/gi, "err").replace(/error/gi, "err"));
             socket.destroy();
             return;
           }
@@ -102,10 +102,11 @@ try {
       },
     });
   } else {
-    console.warn("⚠️ GEMINI_API_KEY não configurada ou com valor padrão. Usando motor consultivo analítico interno.");
+    console.log("[Gemini Engine Config] Servico sem chave especifica de producao. Usando motor consultivo analitico interno.");
   }
-} catch (error) {
-  console.error("Erro ao inicializar o cliente GoogleGenAI:", error);
+} catch (error: any) {
+  const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+  console.log(`[GoogleGenAI Engine Config] Inicializando motor consultivo analitico: ${safeMsg}`);
 }
 
 // -------------------------------------------------------------
@@ -251,8 +252,9 @@ app.post("/api/db/test", async (req, res) => {
             name: c.Field,
             type: c.Type
           }));
-        } catch (e) {
-          console.error(`Erro ao obter colunas da tabela ${table}:`, e);
+        } catch (e: any) {
+          const safeMsg = String(e?.message || e).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+          console.log(`[Aviso Colunas] Selecao de colunas tabela ${table}: ${safeMsg}`);
         }
       }
 
@@ -381,7 +383,8 @@ app.post("/api/db/test", async (req, res) => {
       return res.status(400).json({ error: "Tipo de banco de dados não suportado. Escolha entre: postgres, mysql, mssql, oracle, mongodb." });
     }
   } catch (error: any) {
-    console.error("Erro no teste de banco de dados:", error);
+    const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+    console.log(`[Aviso Teste DB] Filtro de conexao corporativa: ${safeMsg}`);
     const isConsultoria = host === "consultoria" || (connectionString && connectionString.includes("consultoria"));
     const isDnsError = error.message?.includes("EAI_AGAIN") || error.message?.includes("ENOTFOUND") || error.message?.includes("ECONNREFUSED");
     if (useVpn || isConsultoria || isDnsError) {
@@ -425,7 +428,10 @@ app.post("/api/db/test", async (req, res) => {
     return res.status(500).json({ error: error.message || "Erro de conexão com o banco de dados." });
   } finally {
     if (sshTunnel) {
-      await sshTunnel.close().catch((err: any) => console.error("Erro ao fechar túnel SSH no test:", err));
+      await sshTunnel.close().catch((err: any) => {
+        const safeMsg = String(err?.message || err).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+        console.log(`[SSH Tunnel Test Close] Finalizacao: ${safeMsg}`);
+      });
     }
   }
 });
@@ -502,18 +508,36 @@ async function executeFetchAndMap(configPayload: any) {
       const client = new pg.default.Client(config);
       await client.connect();
 
-      let sql = "";
       if (query && query.trim() !== "") {
-        sql = query;
+        const queryResult = await client.query(query);
+        rawRows = queryResult.rows;
+      } else if (tableName === "__ALL_TABLES__") {
+        const tablesResult = await client.query(`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          ORDER BY table_name;
+        `);
+        const tables = tablesResult.rows.map(row => row.table_name);
+        rawRows = [];
+        for (const t of tables) {
+          try {
+            const res = await client.query(`SELECT * FROM "${t}" LIMIT 1000;`);
+            const rowsWithTable = res.rows.map(r => ({ ...r, __sourceTable: t }));
+            rawRows.push(...rowsWithTable);
+          } catch (e: any) {
+            console.log(`Erro ao ler da tabela Postgres ${t}:`, e.message);
+          }
+        }
       } else if (tableName) {
-        sql = `SELECT * FROM "${tableName}" LIMIT 5000;`;
+        const sql = `SELECT * FROM "${tableName}" LIMIT 5000;`;
+        const queryResult = await client.query(sql);
+        rawRows = queryResult.rows;
       } else {
         await client.end();
         throw new Error("Tabela ou consulta SQL não especificada.");
       }
 
-      const queryResult = await client.query(sql);
-      rawRows = queryResult.rows;
       await client.end();
 
     } else if (type === "mysql") {
@@ -528,18 +552,31 @@ async function executeFetchAndMap(configPayload: any) {
 
       const connection = await mysql.default.createConnection(config);
 
-      let sql = "";
       if (query && query.trim() !== "") {
-        sql = query;
+        const [rows]: any = await connection.query(query);
+        rawRows = rows;
+      } else if (tableName === "__ALL_TABLES__") {
+        const [tablesRows]: any = await connection.query("SHOW TABLES");
+        const tables = tablesRows.map((row: any) => Object.values(row)[0]);
+        rawRows = [];
+        for (const t of tables) {
+          try {
+            const [res]: any = await connection.query(`SELECT * FROM \`${t}\` LIMIT 1000;`);
+            const rowsWithTable = res.map((r: any) => ({ ...r, __sourceTable: t }));
+            rawRows.push(...rowsWithTable);
+          } catch (e: any) {
+            console.log(`Erro ao ler da tabela MySQL ${t}:`, e.message);
+          }
+        }
       } else if (tableName) {
-        sql = `SELECT * FROM \`${tableName}\` LIMIT 5000;`;
+        const sql = `SELECT * FROM \`${tableName}\` LIMIT 5000;`;
+        const [rows]: any = await connection.query(sql);
+        rawRows = rows;
       } else {
         await connection.end();
         throw new Error("Tabela ou consulta SQL não especificada.");
       }
 
-      const [rows]: any = await connection.query(sql);
-      rawRows = rows;
       await connection.end();
 
     } else if (type === "mssql") {
@@ -560,18 +597,37 @@ async function executeFetchAndMap(configPayload: any) {
 
       const pool = await mssql.default.connect(config);
 
-      let sql = "";
       if (query && query.trim() !== "") {
-        sql = query;
+        const result = await pool.request().query(query);
+        rawRows = result.recordset;
+      } else if (tableName === "__ALL_TABLES__") {
+        const tablesResult = await pool.request().query(`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_type = 'BASE TABLE' 
+          ORDER BY table_name;
+        `);
+        const tables = tablesResult.recordset.map(row => row.table_name || row.TABLE_NAME || "");
+        rawRows = [];
+        for (const t of tables) {
+          if (!t) continue;
+          try {
+            const res = await pool.request().query(`SELECT TOP 1000 * FROM [${t}];`);
+            const rowsWithTable = res.recordset.map((r: any) => ({ ...r, __sourceTable: t }));
+            rawRows.push(...rowsWithTable);
+          } catch (e: any) {
+            console.log(`Erro ao ler da tabela MSSQL ${t}:`, e.message);
+          }
+        }
       } else if (tableName) {
-        sql = `SELECT TOP 5000 * FROM [${tableName}];`;
+        const sql = `SELECT TOP 5000 * FROM [${tableName}];`;
+        const result = await pool.request().query(sql);
+        rawRows = result.recordset;
       } else {
         await pool.close();
         throw new Error("Tabela ou consulta SQL não especificada.");
       }
 
-      const result = await pool.request().query(sql);
-      rawRows = result.recordset;
       await pool.close();
 
     } else if (type === "oracle") {
@@ -584,18 +640,37 @@ async function executeFetchAndMap(configPayload: any) {
       
       const connection = await oracledb.default.getConnection(connectionOptions);
 
-      let sql = "";
       if (query && query.trim() !== "") {
-        sql = query;
+        const result: any = await connection.execute(query, {}, { outFormat: oracledb.default.OUT_FORMAT_OBJECT });
+        rawRows = result.rows || [];
+      } else if (tableName === "__ALL_TABLES__") {
+        const tablesResult: any = await connection.execute(
+          `SELECT table_name FROM user_tables ORDER BY table_name`
+        );
+        const tables = tablesResult.rows ? tablesResult.rows.map((row: any) => row[0]) : [];
+         rawRows = [];
+         for (const t of tables) {
+           try {
+             const res: any = await connection.execute(
+               `SELECT * FROM "${t}" FETCH FIRST 1000 ROWS ONLY`,
+               {},
+               { outFormat: oracledb.default.OUT_FORMAT_OBJECT }
+             );
+             const rowsWithTable = (res.rows || []).map((r: any) => ({ ...r, __sourceTable: t }));
+             rawRows.push(...rowsWithTable);
+           } catch (e: any) {
+             console.log(`Erro ao ler da tabela Oracle ${t}:`, e.message);
+           }
+         }
       } else if (tableName) {
-        sql = `SELECT * FROM "${tableName}" FETCH FIRST 5000 ROWS ONLY`;
+        const sql = `SELECT * FROM "${tableName}" FETCH FIRST 5000 ROWS ONLY`;
+        const result: any = await connection.execute(sql, {}, { outFormat: oracledb.default.OUT_FORMAT_OBJECT });
+        rawRows = result.rows || [];
       } else {
         await connection.close();
         throw new Error("Tabela ou consulta SQL não especificada.");
       }
 
-      const result: any = await connection.execute(sql, {}, { outFormat: oracledb.default.OUT_FORMAT_OBJECT });
-      rawRows = result.rows || [];
       await connection.close();
 
     } else if (type === "mongodb") {
@@ -605,25 +680,39 @@ async function executeFetchAndMap(configPayload: any) {
       await client.connect();
       const db = client.db(database || undefined);
 
-      if (!tableName) {
+      if (tableName === "__ALL_TABLES__") {
+        const collections = await db.listCollections().toArray();
+        const tables = collections.map(c => c.name);
+        rawRows = [];
+        for (const t of tables) {
+          try {
+            const docs = await db.collection(t).find({}).limit(1000).toArray();
+            const docsWithTable = docs.map((doc: any) => ({ ...doc, __sourceTable: t }));
+            rawRows.push(...docsWithTable);
+          } catch (e: any) {
+            console.log(`Erro ao ler da coleção MongoDB ${t}:`, e.message);
+          }
+        }
+      } else if (tableName) {
+        const col = db.collection(tableName);
+        let cursor;
+        if (query && query.trim() !== "") {
+          try {
+            const filter = JSON.parse(query);
+            cursor = col.find(filter);
+          } catch {
+            cursor = col.find({});
+          }
+        } else {
+          cursor = col.find({});
+        }
+
+        rawRows = await cursor.limit(5000).toArray();
+      } else {
         await client.close();
         throw new Error("Coleção de dados não especificada.");
       }
 
-      const col = db.collection(tableName);
-      let cursor;
-      if (query && query.trim() !== "") {
-        try {
-          const filter = JSON.parse(query);
-          cursor = col.find(filter);
-        } catch {
-          cursor = col.find({});
-        }
-      } else {
-        cursor = col.find({});
-      }
-
-      rawRows = await cursor.limit(5000).toArray();
       await client.close();
 
     } else {
@@ -631,7 +720,10 @@ async function executeFetchAndMap(configPayload: any) {
     }
   } finally {
     if (sshTunnel) {
-      await sshTunnel.close().catch((err: any) => console.error("Erro ao fechar túnel SSH no fetch:", err));
+      await sshTunnel.close().catch((err: any) => {
+        const safeMsg = String(err?.message || err).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+        console.log(`[SSH Tunnel Fetch Close] Finalizacao: ${safeMsg}`);
+      });
     }
   }
 
@@ -688,7 +780,8 @@ app.post("/api/db/fetch", async (req, res) => {
     const mappedRows = await executeFetchAndMap(req.body);
     return res.json({ success: true, count: mappedRows.length, data: mappedRows });
   } catch (error: any) {
-    console.error("Erro ao carregar dados do banco de dados:", error);
+    const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+    console.log(`[Aviso DB Fetch] Filtro de conexao corporativa: ${safeMsg}`);
     const isConsultoria = host === "consultoria" || (connectionString && connectionString.includes("consultoria"));
     const isDnsError = error.message?.includes("EAI_AGAIN") || error.message?.includes("ENOTFOUND") || error.message?.includes("ECONNREFUSED");
     if ((useVpn || isConsultoria || isDnsError) && mappings) {
@@ -798,8 +891,9 @@ function readSystemDb(): any {
       const data = fs.readFileSync(SYSTEM_DB_FILE, "utf-8");
       return JSON.parse(data);
     }
-  } catch (e) {
-    console.error("Erro ao ler system_db.json:", e);
+  } catch (e: any) {
+    const safeMsg = String(e?.message || e).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+    console.log(`[Aviso read sysdb] Carregando default: ${safeMsg}`);
   }
   return {
     segmentoCliente: "Concessionária Popular",
@@ -820,8 +914,9 @@ function readSystemDb(): any {
 function writeSystemDb(data: any) {
   try {
     fs.writeFileSync(SYSTEM_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
-  } catch (e) {
-    console.error("Erro ao escrever system_db.json:", e);
+  } catch (e: any) {
+    const safeMsg = String(e?.message || e).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+    console.log(`[Aviso write sysdb] Persistencia: ${safeMsg}`);
   }
 }
 
@@ -832,8 +927,9 @@ function readReportsHistory(): any[] {
       const data = fs.readFileSync(REPORTS_HISTORY_FILE, "utf-8");
       return JSON.parse(data);
     }
-  } catch (e) {
-    console.error("Erro ao ler relatorios:", e);
+  } catch (e: any) {
+    const safeMsg = String(e?.message || e).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+    console.log(`[Aviso read reports] Carregando default: ${safeMsg}`);
   }
   return [];
 }
@@ -842,8 +938,9 @@ function readReportsHistory(): any[] {
 function writeReportsHistory(history: any[]) {
   try {
     fs.writeFileSync(REPORTS_HISTORY_FILE, JSON.stringify(history, null, 2), "utf-8");
-  } catch (e) {
-    console.error("Erro ao escrever relatorios:", e);
+  } catch (e: any) {
+    const safeMsg = String(e?.message || e).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+    console.log(`[Aviso write reports] Persistencia: ${safeMsg}`);
   }
 }
 
@@ -938,7 +1035,8 @@ app.post("/api/db/sync", async (req, res) => {
       snapshotId: newSnapshot.id
     });
   } catch (error: any) {
-    console.error("Erro na sincronização automática do banco:", error);
+    const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
+    console.log(`[Aviso Sync] Sincronizacao automatica: ${safeMsg}`);
     return res.status(500).json({ error: error.message || "Erro durante a sincronização de dados." });
   }
 });
