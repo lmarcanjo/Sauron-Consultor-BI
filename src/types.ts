@@ -5,11 +5,12 @@
 
 export interface LancamentoFinanceiro {
   id?: string;
+  // Common mandatory / legacy fields
   Grupo: string;
   CNPJ: string;
   Marca: string;
   Empresa: string;
-  Filial: string;
+  Filial?: string; // Legacy
   Vendedor?: string;
   Mês: string;
   Razão: string;
@@ -22,6 +23,21 @@ export interface LancamentoFinanceiro {
   Departamento?: string;
   ContaContabil?: string;
   Orcamento?: number;
+
+  // New Intelligent DRE / Multi-segment mandatory fields (optional to keep compatibility for old data)
+  Data?: string;
+  Loja?: string;
+  CentroDeCusto?: string;
+  CodigoConta?: string;
+  NomeConta?: string;
+  DescricaoLancamento?: string;
+  Valor?: number;
+  Origem?: string;
+  DocumentoFiscal?: string;
+  Usuario?: string;
+  Competencia?: string;
+  TipoMovimento?: string;
+  Observacoes?: string;
 }
 
 export interface MetricasConsolidadas {

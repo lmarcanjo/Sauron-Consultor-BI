@@ -143,6 +143,11 @@ export function gerarDadosSimulados(): LancamentoFinanceiro[] {
             const vendedor =
               branchSellers[Math.floor(random(0, branchSellers.length))] || "";
 
+            let cc = "cc_veiculos_novos";
+            if (depto === "Pós-Venda (Oficina)") cc = "cc_mecanica";
+            else if (depto === "Tecnologia" || depto === "Administrativo") cc = "cc_administrativo";
+            else if (depto.includes("Novos")) cc = "cc_veiculos_novos";
+            
             list.push({
               id: `${cnpj}-${filial}-${mes}-${razao}-${Math.random()}`,
               Grupo: grupo,
@@ -150,9 +155,14 @@ export function gerarDadosSimulados(): LancamentoFinanceiro[] {
               Marca: marca,
               Empresa: empresa,
               Filial: filial,
+              Loja: filial,
               Vendedor: vendedor,
               Mês: mes,
+              Data: `2024-${String(mesIdx + 1).padStart(2, '0')}-01`,
+              Competencia: `2024-${String(mesIdx + 1).padStart(2, '0')}`,
               Razão: razao,
+              NomeConta: razao,
+              CodigoConta: ctc.split(" - ")[0],
               Categoria: categoria,
               Receita: receita,
               Custo: custo,
@@ -161,6 +171,7 @@ export function gerarDadosSimulados(): LancamentoFinanceiro[] {
               Margem: margem,
               Departamento: depto,
               ContaContabil: ctc,
+              CentroDeCusto: cc,
               Orcamento: Math.round(receita * random(0.88, 1.12) * 100) / 100,
             } as any); // Using "as any" broadly here because the previous interface mapped to camelCase vs PascalCase properties
           });

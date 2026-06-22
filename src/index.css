@@ -2,6 +2,16 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --color-sauron-navy: #0A2540;
+  --color-sauron-dark: #163E72;
+  --color-sauron-blue: #2563EB;
+  --color-sauron-light: #93C5FD;
+  --color-sauron-green-cane: #86EFAC;
+  --color-sauron-green-light: #BBF7D0;
+  --color-sauron-gray: #F3F4F6;
+}
+
 @layer utilities {
   .hide-scrollbar {
     -ms-overflow-style: none;  /* IE and Edge */

@@ -4,38 +4,44 @@ import {
   FileText, Award, BookMarked, ShieldAlert, Settings, BrainCircuit, ChevronRight
 } from 'lucide-react';
 
-export const AppSidebar = ({ activePage, setActivePage }: { activePage: string, setActivePage: (p: string) => void }) => {
+export const AppSidebar = ({ activePage, setActivePage, activeIndustryTemplateId = "automotive" }: { activePage: string, setActivePage: (p: string) => void, activeIndustryTemplateId?: string }) => {
+  const isAutomotive = activeIndustryTemplateId === "automotive";
+  
   const menuItems = [
     { title: "Dashboard Executivo", id: "resumo", icon: BarChart3 },
-    { title: "Central de Dados", id: "central_dados", icon: Database },
-    { title: "VPN Gateway", id: "vpn_gateway", icon: ShieldAlert },
-    { title: "Importação de Tabelas", id: "importacao", icon: Database },
+    { title: "DRE Inteligente Gerencial", id: "dre_inteligente", icon: Calculator },
+    { title: "Contábil & Filiais", id: "contabil", icon: Database },
+    { title: "Importação de Arquivos", id: "importacao", icon: Database },
     { title: "Fechamento Mensal", id: "fechamento_mensal", icon: Calculator },
+    { title: "VPN Gateway", id: "vpn_gateway", icon: ShieldAlert },
     { title: "Apresentações", id: "apresentacoes", icon: Presentation },
     { title: "Modo Reunião", id: "modo_reuniao", icon: MonitorPlay },
     { title: "Consultor IA", id: "consultor_ia", icon: BrainCircuit },
     { 
-      title: "Análise Comercial", 
+      title: "Análise Comercial e Operação", 
       id: "analise_comercial",
       subItems: [
+        { title: "Comercial e Vendas", id: "comercial", icon: Store },
         { title: "Vendedores", id: "vendedores", icon: Users },
-        { title: "Lojas", id: "lojas", icon: Store },
-        { title: "Marcas", id: "marcas", icon: Tag },
+        { title: "Comissões", id: "comissoes", icon: Calculator },
+        // Conditional specific items
+        ...(isAutomotive ? [
+          { title: "Pós-Vendas (Oficina)", id: "posvendas", icon: Target },
+          { title: "Peças & Acessórios", id: "pecas", icon: Target },
+          { title: "Gestão de Estoque", id: "estoque", icon: Target },
+        ] : [])
       ]
     },
     { 
-      title: "Análise Financeira", 
-      id: "analise_financeira",
+      title: "Controladoria", 
+      id: "controladoria",
       subItems: [
-        { title: "Razões", id: "razoes", icon: Tag },
-        { title: "Custos", id: "custos", icon: Target },
-        { title: "Margens", id: "margens", icon: Calculator },
+        { title: "Financeiro & Tesouraria", id: "financeiro", icon: Calculator },
       ]
     },
-    { title: "Relatórios", id: "relatorios", icon: FileText },
+    { title: "Modelo Consultivo", id: "modelo_consultivo", icon: FileText },
     { title: "Área do Consultor", id: "area_consultor", icon: Award },
-    { title: "Memória Consultiva", id: "memoria_consultiva", icon: BookMarked },
-    { title: "Auditoria", id: "auditoria", icon: ShieldAlert },
+    { title: "Diag. Obstáculos", id: "obstaculos", icon: ShieldAlert },
     { title: "Configurações", id: "perfis", icon: Settings },
   ];
 

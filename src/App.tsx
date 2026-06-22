@@ -66,6 +66,7 @@ import { auditLog } from "./utils/profileManager";
 
 // Sauron Consulting OS Agent Modules
 import { CentralDadosTab } from "./components/CentralDadosTab";
+import { IntelligentDRETab } from "./components/IntelligentDRETab";
 import { ModeloConsultivoTab } from "./components/ModeloConsultivoTab";
 import { ConsultorAreaTab } from "./components/ConsultorAreaTab";
 import { VendedoresTab } from "./components/VendedoresTab";
@@ -77,14 +78,12 @@ import { ModoReuniaoTab } from "./components/ModoReuniaoTab";
 import { VpnGatewayTab } from "./components/VpnGatewayTab";
 
 import { AppSidebar } from "./components/AppSidebar";
-import { 
-  LojasTab, MarcasTab, RelatoriosTab, MemoriaConsultivaTab, 
-  AuditoriaTab, RazoesTab, CustosTab, MargensTab 
-} from "./components/Placeholders";
+import { availableTemplates } from "./utils/industryTemplates";
 
 export default function App() {
   // --- STATE ---
   const [activeTab, setActiveTab] = useState<string>("resumo");
+  const [activeIndustryTemplateId, setActiveIndustryTemplateId] = useState<string>("automotive");
   const [selectedContaContabil, setSelectedContaContabil] = useState<string>("");
   const [selectedDepartamento, setSelectedDepartamento] = useState<string>("");
   const [selectedConta, setSelectedConta] = useState<string>("");
@@ -850,27 +849,43 @@ export default function App() {
   };
 
   // --- EXPORT & FILE UPLOAD ---
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (text) {
-        const { data, missingFields } = parseCSV(text);
-        if (data.length > 0) {
-          setDataOrigem(data);
-          setDataLiveBackup(data);
-          setNomeFonte(file.name);
-          setCamposAusentes(missingFields);
-          setAiAnalysis(""); // Clear stale analysis to trigger a fresh context
-        } else {
-          alert("Nenhuma linha válida pôde ser estruturada do arquivo CSV.");
-        }
+    try {
+      // Lazy load XLSX only when needed to keep bundle sizes smaller
+      const XLSX = await import("xlsx");
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Convert worksheet to CSV string with semicolons to reuse parseCSV logic
+      const csvStr = XLSX.utils.sheet_to_csv(worksheet, { FS: ";" });
+      
+      const { data, missingFields } = parseCSV(csvStr);
+      
+      if (data.length > 0) {
+        setDataOrigem(data);
+        setDataLiveBackup(data);
+        setNomeFonte(file.name);
+        setCamposAusentes(missingFields);
+        setAiAnalysis(""); // Clear stale analysis to trigger a fresh context
+      } else {
+        alert("Nenhuma linha válida pôde ser estruturada do arquivo de planilha.");
       }
-    };
-    reader.readAsText(file, "utf-8");
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro crítico ao ler o arquivo da planilha: " + err.message);
+    }
+    
+    // Clear input so same file can be uploaded again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const triggerFileSelect = () => {
@@ -1030,7 +1045,7 @@ export default function App() {
   }
 
   return (
-    <div className="bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 font-sans flex flex-col antialiased transition-colors duration-150">
+    <div className="bg-white dark:bg-slate-950 min-h-screen text-black dark:text-slate-100 font-sans flex flex-col antialiased transition-colors duration-150">
       {/* HEADER SECTION - High Density Style */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-3 px-4 md:px-6 shrink-0 shadow-sm z-20 sticky top-0">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -1068,13 +1083,26 @@ export default function App() {
           </div>
 
           <div className="flex gap-2 items-center w-full lg:w-auto overflow-x-auto hide-scrollbar pb-1">
+            {/* Segment Selector Dropdown */}
+            <select
+              value={activeIndustryTemplateId}
+              onChange={(e) => setActiveIndustryTemplateId(e.target.value)}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[11px] font-bold px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 h-8 uppercase tracking-wide"
+            >
+              {availableTemplates.map(template => (
+                <option key={template.id} value={template.id}>
+                  SEGMENTO: {template.name}
+                </option>
+              ))}
+            </select>
+
             {(currentUser?.role === "consultor" || currentUser?.role === "diretor") && (
               <>
                 <input
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept=".csv"
+                  accept=".csv, .xlsx, .xls"
                   className="hidden"
                 />
                 <button
@@ -1082,7 +1110,7 @@ export default function App() {
                   className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-900 text-slate-705 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-805 rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0"
                 >
                   <Upload size={11} className="text-slate-500" />
-                  <span className="hidden sm:inline">Importar CSV</span>
+                  <span className="hidden sm:inline">Importar Planilha</span>
                 </button>
               </>
             )}
@@ -1191,8 +1219,8 @@ export default function App() {
       </header>
 
       {/* WORKSPACE AREA - Modern Sidebar Navigation */}
-      <div className="flex bg-slate-50 dark:bg-slate-950 flex-1 relative">
-        <AppSidebar activePage={activeTab} setActivePage={setActiveTab} />
+      <div className="flex bg-white dark:bg-slate-950 flex-1 relative">
+        <AppSidebar activePage={activeTab} setActivePage={setActiveTab} activeIndustryTemplateId={activeIndustryTemplateId} />
         
         <main className="flex-1 lg:ml-64 w-full p-4 md:p-6 flex flex-col gap-5 min-h-[calc(100vh-68px)]">
           {/* Header/Breadcrumb local da página */}
@@ -1326,7 +1354,15 @@ export default function App() {
             </div>
           ) : (
             <>
-              {activeTab === "contabil" && (
+              {activeTab === "dre_inteligente" && (
+            <IntelligentDRETab
+              filteredData={filteredData}
+              formatCurrency={formatCurrencyValue}
+              activeIndustryTemplateId={activeIndustryTemplateId}
+            />
+          )}
+
+          {activeTab === "contabil" && (
             <ContabilTab
               dataOrigem={dataOrigem}
               filteredData={filteredData}
@@ -1341,14 +1377,7 @@ export default function App() {
               formatCurrency={formatCurrencyValue}
             />
           )}
-          {activeTab === "lojas" && <LojasTab />}
-          {activeTab === "marcas" && <MarcasTab />}
-          {activeTab === "razoes" && <RazoesTab />}
-          {activeTab === "custos" && <CustosTab />}
-          {activeTab === "margens" && <MargensTab />}
-          {activeTab === "relatorios" && <RelatoriosTab />}
-          {activeTab === "memoria_consultiva" && <MemoriaConsultivaTab />}
-          {activeTab === "auditoria" && <AuditoriaTab />}
+
           {activeTab === "importacao" && (
              <CentralDadosTab
               dataOrigem={dataOrigem}
@@ -1454,15 +1483,6 @@ export default function App() {
             <VpnGatewayTab />
           )}
 
-          {activeTab === "central_dados" && (
-            <CentralDadosTab
-              dataOrigem={dataOrigem}
-              onDataLoaded={handleDatabaseDataLoaded}
-              currentSource={nomeFonte}
-              camposAusentes={camposAusentes}
-            />
-          )}
-
           {activeTab === "modelo_consultivo" && (
             <ModeloConsultivoTab
               dataOrigem={dataOrigem}
@@ -1473,13 +1493,6 @@ export default function App() {
           {activeTab === "area_consultor" && (
             <ConsultorAreaTab
               dataOrigem={dataOrigem}
-            />
-          )}
-
-          {activeTab === "vendedores" && (
-            <VendedoresTab
-              dataOrigem={dataOrigem}
-              formatCurrency={formatCurrencyValue}
             />
           )}
 
@@ -1496,20 +1509,6 @@ export default function App() {
               filtros={filtros}
               formatCurrency={formatCurrencyValue}
             />
-          )}
-
-          {activeTab === "fechamento_mensal" && (
-            <FechamentoMensalTab
-              metrics={metrics}
-              filtros={filtros}
-              formatCurrency={formatCurrencyValue}
-            />
-          )}
-
-          {activeTab === "resumo" && (
-            <div className="space-y-4 animate-fade-in text-slate-800 dark:text-slate-150">
-              {/* OLD GOVERNANCE COMPONENT BODY EMBEDDED UNDER RESUMO TAB */}
-            </div>
           )}
 
           {activeTab === "resumo" && (
