@@ -10,6 +10,7 @@ export interface LancamentoFinanceiro {
   Marca: string;
   Empresa: string;
   Filial: string;
+  Vendedor?: string;
   Mês: string;
   Razão: string;
   Categoria: string;

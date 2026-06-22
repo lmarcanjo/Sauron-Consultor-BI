@@ -34,7 +34,11 @@ import {
   Sun,
   Moon,
   Volume2,
-  Sliders
+  Sliders,
+  BrainCircuit,
+  Users,
+  Award,
+  Presentation
 } from "lucide-react";
 
 import { LancamentoFinanceiro, FiltrosDashboard, MetricasConsolidadas } from "./types";
@@ -60,9 +64,26 @@ import { PerfisConfigTab } from "./components/PerfisConfigTab";
 import { LgpdConsent } from "./components/LgpdConsent";
 import { auditLog } from "./utils/profileManager";
 
+// Sauron Consulting OS Agent Modules
+import { CentralDadosTab } from "./components/CentralDadosTab";
+import { ModeloConsultivoTab } from "./components/ModeloConsultivoTab";
+import { ConsultorAreaTab } from "./components/ConsultorAreaTab";
+import { VendedoresTab } from "./components/VendedoresTab";
+import { DiagnosticoObstaculosTab } from "./components/DiagnosticoObstaculosTab";
+import { ConsultorIaTab } from "./components/ConsultorIaTab";
+import { FechamentoMensalTab } from "./components/FechamentoMensalTab";
+import { ApresentacoesTab } from "./components/ApresentacoesTab";
+import { ModoReuniaoTab } from "./components/ModoReuniaoTab";
+
+import { AppSidebar } from "./components/AppSidebar";
+import { 
+  LojasTab, MarcasTab, RelatoriosTab, MemoriaConsultivaTab, 
+  AuditoriaTab, RazoesTab, CustosTab, MargensTab 
+} from "./components/Placeholders";
+
 export default function App() {
   // --- STATE ---
-  const [activeTab, setActiveTab] = useState<"resumo" | "contabil" | "comercial" | "posvendas" | "pecas" | "estoque" | "financeiro" | "comissoes" | "perfis">("resumo");
+  const [activeTab, setActiveTab] = useState<string>("resumo");
   const [selectedContaContabil, setSelectedContaContabil] = useState<string>("");
   const [selectedDepartamento, setSelectedDepartamento] = useState<string>("");
   const [selectedConta, setSelectedConta] = useState<string>("");
@@ -372,15 +393,7 @@ export default function App() {
     setDataOrigem(simulated);
     setDataLiveBackup(simulated);
 
-    const realDefault: LancamentoFinanceiro[] = [
-      { Grupo: "Sauron Holdings S/A", CNPJ: "10.222.333/0001-44", Marca: "Sauron Cloud", Empresa: "Sauron Cloud & Tech", Filial: "Matriz São Paulo", Mês: "Janeiro", Razão: "Serviços em Nuvem", Categoria: "Custo de Ocupação", Receita: 420000, Custo: 180000, Despesa: 40000, Lucro: 200000, Margem: 47.6, Departamento: "Tecnologia", ContaContabil: "3.1.04.10000.25 - Suporte e Licenças", Orcamento: 400000 },
-      { Grupo: "Sauron Holdings S/A", CNPJ: "10.222.333/0001-44", Marca: "Sauron Cloud", Empresa: "Sauron Cloud & Tech", Filial: "Matriz São Paulo", Mês: "Fevereiro", Razão: "Serviços em Nuvem", Categoria: "Custo de Ocupação", Receita: 450000, Custo: 195000, Despesa: 41000, Lucro: 214000, Margem: 47.5, Departamento: "Tecnologia", ContaContabil: "3.1.04.10000.25 - Suporte e Licenças", Orcamento: 420000 },
-      { Grupo: "Sauron Holdings S/A", CNPJ: "10.222.333/0001-44", Marca: "Sauron Cloud", Empresa: "Sauron Cloud & Tech", Filial: "Matriz São Paulo", Mês: "Março", Razão: "Serviços em Nuvem", Categoria: "Custo de Ocupação", Receita: 480000, Custo: 210000, Despesa: 43000, Lucro: 227000, Margem: 47.2, Departamento: "Tecnologia", ContaContabil: "3.1.04.10000.25 - Suporte e Licenças", Orcamento: 450000 },
-      { Grupo: "Marcanjo Varejo Holdings", CNPJ: "20.444.555/0002-11", Marca: "Premium Retail", Empresa: "Marcanjo Varejo S/A", Filial: "Matriz Rio de Janeiro", Mês: "Janeiro", Razão: "Logística Terceirizada", Categoria: "Propaganda e Marketing", Receita: 750000, Custo: 450000, Despesa: 120000, Lucro: 180000, Margem: 24.0, Departamento: "Vendas Novos", ContaContabil: "3.0.0.1 - Venda de Veículos", Orcamento: 720000 },
-      { Grupo: "Marcanjo Varejo Holdings", CNPJ: "20.444.555/0002-11", Marca: "Premium Retail", Empresa: "Marcanjo Varejo S/A", Filial: "Matriz Rio de Janeiro", Mês: "Fevereiro", Razão: "Logística Terceirizada", Categoria: "Propaganda e Marketing", Receita: 780000, Custo: 470000, Despesa: 122000, Lucro: 188000, Margem: 24.1, Departamento: "Vendas Novos", ContaContabil: "3.0.0.1 - Venda de Veículos", Orcamento: 750500 },
-      { Grupo: "Marcanjo Varejo Holdings", CNPJ: "20.444.555/0002-11", Marca: "Premium Retail", Empresa: "Marcanjo Varejo S/A", Filial: "Matriz Rio de Janeiro", Mês: "Março", Razão: "Logística Terceirizada", Categoria: "Propaganda e Marketing", Receita: 820000, Custo: 495000, Despesa: 125000, Lucro: 200000, Margem: 24.3, Departamento: "Vendas Novos", ContaContabil: "3.0.0.1 - Venda de Veículos", Orcamento: 800000 }
-    ];
-    setDataOrigemReal(realDefault);
+    setDataOrigemReal([]);
     
     // Load metadata, system database configs and check for cloud database sync
     loadReportHistoryMetadata();
@@ -418,19 +431,49 @@ export default function App() {
     }
   }, [dataOrigem]);
 
-  // Unique elements for Sidebar choice indicators
+  // Unique elements for Sidebar choice indicators with standard contextual filtering (Requirement 7)
   const availableFilters = useMemo<FiltrosDashboard>(() => {
     if (dataOrigem.length === 0) {
       return { grupos: [], cnpjs: [], marcas: [], meses: [], razoes: [] };
     }
-    return {
-      grupos: Array.from(new Set(dataOrigem.map(d => d.Grupo))).sort(),
-      cnpjs: Array.from(new Set(dataOrigem.map(d => d.CNPJ))).sort(),
-      marcas: Array.from(new Set(dataOrigem.map(d => d.Marca))).sort(),
-      meses: Array.from(new Set(dataOrigem.map(d => d.Mês))),
-      razoes: Array.from(new Set(dataOrigem.map(d => d.Razão))).sort()
-    };
-  }, [dataOrigem]);
+
+    // 1. Grupos are always all available groups in the data set
+    const grupos = Array.from(new Set(dataOrigem.map(d => d.Grupo))).sort();
+
+    // 2. CNPJs are filtered based on selected groups
+    const selectedGrps = filtros.grupos || [];
+    const isGrpFiltered = selectedGrps.length > 0 && selectedGrps.length < grupos.length;
+    const recordsForCnpj = isGrpFiltered 
+      ? dataOrigem.filter(d => selectedGrps.includes(d.Grupo))
+      : dataOrigem;
+    const cnpjs = Array.from(new Set(recordsForCnpj.map(d => d.CNPJ))).sort();
+
+    // 3. Marcas are filtered based on selected groups AND selected CNPJs
+    const selectedCnpjs = filtros.cnpjs || [];
+    const isCnpjFiltered = selectedCnpjs.length > 0 && selectedCnpjs.length < cnpjs.length;
+    const recordsForMarca = dataOrigem.filter(d => {
+      const matchGrp = !isGrpFiltered || selectedGrps.includes(d.Grupo);
+      const matchCnpj = !isCnpjFiltered || selectedCnpjs.includes(d.CNPJ);
+      return matchGrp && matchCnpj;
+    });
+    const marcas = Array.from(new Set(recordsForMarca.map(d => d.Marca))).sort();
+
+    // 4. Meses and razoes likewise adapt contextually
+    const selectedMarcas = filtros.marcas || [];
+    const isMarcaFiltered = selectedMarcas.length > 0 && selectedMarcas.length < marcas.length;
+    
+    const recordsOthers = dataOrigem.filter(d => {
+      const matchGrp = !isGrpFiltered || selectedGrps.includes(d.Grupo);
+      const matchCnpj = !isCnpjFiltered || selectedCnpjs.includes(d.CNPJ);
+      const matchMarca = !isMarcaFiltered || selectedMarcas.includes(d.Marca);
+      return matchGrp && matchCnpj && matchMarca;
+    });
+
+    const meses = Array.from(new Set(recordsOthers.map(d => d.Mês)));
+    const razoes = Array.from(new Set(recordsOthers.map(d => d.Razão))).sort();
+
+    return { grupos, cnpjs, marcas, meses, razoes };
+  }, [dataOrigem, filtros.grupos, filtros.cnpjs, filtros.marcas]);
 
   // --- COMPARISON DRIFTS MATH ---
   const selectedComparisonSnapshot = useMemo(() => {
@@ -989,7 +1032,7 @@ export default function App() {
     <div className="bg-slate-50 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100 font-sans flex flex-col antialiased transition-colors duration-150">
       {/* HEADER SECTION - High Density Style */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-3 px-4 md:px-6 shrink-0 shadow-sm z-20 sticky top-0">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-[10px] bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-2 py-0.5 rounded font-mono font-bold tracking-wider uppercase">Sauron</span>
@@ -1004,26 +1047,26 @@ export default function App() {
               
               {/* Role Indicator Pill */}
               {currentUser?.role === "consultor" ? (
-                <span className="flex items-center gap-1 text-[10px] bg-amber-50 dark:bg-amber-950/40 border border-amber-200/50 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                <span className="flex items-center gap-1 text-[10px] bg-amber-50 dark:bg-amber-950/40 border border-amber-200/50 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
                   <Shield size={10} className="stroke-[2.5]" /> Configuração (Consultor)
                 </span>
               ) : currentUser?.role === "diretor" ? (
-                <span className="flex items-center gap-1 text-[10px] bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 text-indigo-700 dark:text-indigo-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                <span className="flex items-center gap-1 text-[10px] bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 text-indigo-700 dark:text-indigo-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
                   <BarChart3 size={10} /> Direção Regional (Executivo)
                 </span>
               ) : currentUser?.role === "gerente" ? (
-                <span className="flex items-center gap-1 text-[10px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/50 text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                <span className="flex items-center gap-1 text-[10px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/50 text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
                   <Sliders size={10} /> Controladoria (Gerente)
                 </span>
               ) : (
-                <span className="flex items-center gap-1 text-[10px] bg-slate-100 dark:bg-slate-800 border border-slate-200/50 text-slate-700 dark:text-slate-355 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                <span className="flex items-center gap-1 text-[10px] bg-slate-100 dark:bg-slate-800 border border-slate-200/50 text-slate-700 dark:text-slate-355 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
                   <BookOpen size={10} /> Leitura Segura (Analista)
                 </span>
               )}
             </div>
           </div>
 
-          <div className="flex gap-2 items-center w-full sm:w-auto justify-end">
+          <div className="flex gap-2 items-center w-full lg:w-auto overflow-x-auto hide-scrollbar pb-1">
             {(currentUser?.role === "consultor" || currentUser?.role === "diretor") && (
               <>
                 <input
@@ -1035,41 +1078,43 @@ export default function App() {
                 />
                 <button
                   onClick={triggerFileSelect}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-900 text-slate-705 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-805 rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8"
+                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-900 text-slate-705 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-805 rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0"
                 >
                   <Upload size={11} className="text-slate-500" />
-                  <span>Importar CSV</span>
+                  <span className="hidden sm:inline">Importar CSV</span>
                 </button>
               </>
             )}
 
             {/* Toggle Empresas Reais vs Fictícias */}
-            <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-0.5 select-none shrink-0 h-8 items-center mr-1">
+            <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-0.5 select-none shrink-0 items-center">
               <button
                 type="button"
                 onClick={() => handleVisualizacaoChange("ficticias")}
-                className={`flex items-center gap-1 px-2.5 py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
+                className={`flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
                   visualizacaoEmpresas === "ficticias"
-                    ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-slate-705/50 font-extrabold"
+                    ? "bg-amber-500 text-white shadow-md font-black"
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 }`}
-                title="Visualizar marcas fictícias geradas pelo sistema (Toyota, Chevrolet, etc.)"
+                title="Modo Demonstração: Marcas e dados fictícios gerados pelo Sauron"
               >
-                <Info size={11} className="mr-0.5 shrink-0 text-slate-500" />
-                <span>Empresas Fictícias</span>
+                <div className={`w-1.5 h-1.5 rounded-full ${visualizacaoEmpresas === "ficticias" ? "bg-white animate-pulse" : "bg-amber-500"}`} />
+                <span className="hidden md:inline">Modo Demonstração</span>
+                <span className="md:hidden">Demonstração</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleVisualizacaoChange("reais")}
-                className={`flex items-center gap-1 px-2.5 py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
+                className={`flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
                   visualizacaoEmpresas === "reais"
-                    ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-slate-705/50 font-extrabold"
+                    ? "bg-emerald-600 text-white shadow-md font-black"
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 }`}
-                title="Visualizar faturamento e dados reais importados de fontes de produção"
+                title="Modo Dados Reais: Registros reais vindos de conexões ativas ou planilhas importadas"
               >
-                <Database size={11} className="mr-0.5 shrink-0 text-slate-500" />
-                <span>Empresas Reais</span>
+                <div className={`w-1.5 h-1.5 rounded-full ${visualizacaoEmpresas === "reais" ? "bg-white animate-ping" : "bg-emerald-500"}`} />
+                <span className="hidden md:inline">Modo Dados Reais</span>
+                <span className="md:hidden">Reais</span>
               </button>
             </div>
 
@@ -1077,50 +1122,44 @@ export default function App() {
             <button
               onClick={handleSyncDatabaseData}
               disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer shadow-sm"
+              className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0 shadow-sm"
               title="Atualiza imediatamente as informações conectando ao banco de dados configurado"
             >
               <RefreshCw size={12} className={`${isSyncing ? "animate-spin" : ""}`} />
-              <span>Sincronizar Banco</span>
+              <span className="hidden sm:inline">Sincronizar Banco</span>
             </button>
 
             <button
               onClick={handleTriggerAnalysis}
               disabled={aiLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer shadow-sm"
+              className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0 shadow-sm"
             >
               {aiLoading ? (
                 <RefreshCw size={12} className="animate-spin" />
               ) : (
                 <Sparkles size={12} />
               )}
-              <span>Reanalisar com IA</span>
+              <span className="hidden sm:inline">Reanalisar com IA</span>
             </button>
 
             {/* Dark Mode Theme Selector */}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="flex items-center gap-1 px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 rounded text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-[10px] uppercase font-extrabold tracking-wide"
+              className="flex items-center justify-center gap-1 px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 rounded text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-[10px] uppercase font-extrabold tracking-wide h-8 shrink-0"
               title={darkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
             >
               {darkMode ? (
-                <>
-                  <Sun size={12} className="text-amber-500" />
-                  <span>Modo Claro</span>
-                </>
+                 <Sun size={12} className="text-amber-500" />
               ) : (
-                <>
-                  <Moon size={12} className="text-indigo-500" />
-                  <span>Modo Escuro</span>
-                </>
+                 <Moon size={12} className="text-indigo-500" />
               )}
             </button>
 
             {/* User session controls */}
             {currentUser && (
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-md text-left">
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-md text-left shrink-0 h-8">
                 <div className="flex flex-col">
-                  <span className="text-[9px] font-black leading-tight text-slate-800 dark:text-slate-100 uppercase truncate max-w-[120px]" title={currentUser.name}>
+                  <span className="text-[9px] font-black leading-tight text-slate-800 dark:text-slate-100 uppercase truncate max-w-[100px]" title={currentUser.name}>
                     {currentUser.name}
                   </span>
                   <span className={`text-[7px] font-black uppercase px-1 rounded font-mono w-fit ${
@@ -1138,11 +1177,11 @@ export default function App() {
                     localStorage.removeItem("sauron_user");
                     setCurrentUser(null);
                   }}
-                  className="px-1.5 py-1 text-[8px] uppercase font-black text-rose-600 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/45 rounded-md transition cursor-pointer"
+                  className="px-1.5 py-1 text-[8px] uppercase font-black text-rose-600 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/45 rounded-md transition cursor-pointer flex items-center justify-center"
                   title="Sair da sessão"
                 >
-                  <Lock size={10} className="inline mr-0.5" />
-                  Sair
+                  <Lock size={10} className="sm:mr-0.5" />
+                  <span className="hidden sm:inline">Sair</span>
                 </button>
               </div>
             )}
@@ -1150,53 +1189,57 @@ export default function App() {
         </div>
       </header>
 
-      {/* WORKSPACE AREA - High Density Compact Spacing */}
-      <main className="max-w-7xl w-full mx-auto p-4 md:p-5 flex-1 flex flex-col lg:flex-row gap-5">
-        {/* SIDEBAR FILTERS (SPAN 4 COLS) */}
-        <section className="w-full lg:w-64 shrink-0 lg:sticky lg:top-[68px] h-fit">
-          <SidebarFilters
-            available={availableFilters}
-            selected={filtros}
-            onChange={setFiltros}
-            onReset={handleResetFilters}
-          />
-        </section>
-
-        {/* ANALYTICS CONTAINER (SPAN 8 COLS) */}
-        <section className="flex-1 space-y-4 overflow-hidden">
-
-          {/* PAGES SELECTOR TABS BAR */}
-          <div className="flex flex-wrap gap-1 bg-slate-100/90 dark:bg-slate-900/60 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            {[
-              { id: "resumo", label: "Dashboard Geral", icon: BarChart3 },
-              { id: "contabil", label: "Análise Contábil", icon: BookOpen },
-              { id: "comercial", label: "Setor Comercial", icon: Coins },
-              { id: "posvendas", label: "Pós-Vendas (Oficina)", icon: Sliders },
-              { id: "pecas", label: "Setor Peças", icon: GitBranch },
-              { id: "estoque", label: "Controle de Estoque", icon: FolderOpen },
-              { id: "financeiro", label: "Contas a Receber", icon: Database },
-              { id: "comissoes", label: "Remuneração & Comissões", icon: Sparkles },
-              ...(currentUser?.role === "consultor" ? [{ id: "perfis", label: "Ajuste de Perfis", icon: Shield }] : [])
-            ].map((p) => {
-              const Icon = p.icon;
-              const isActive = activeTab === p.id;
-              return (
-                <button
-                  key={p.id}
-                  id={`tab-btn-${p.id}`}
-                  onClick={() => setActiveTab(p.id as any)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 md:py-2 text-[10px] uppercase tracking-wider font-extrabold rounded-lg border transition-all cursor-pointer ${
-                    isActive
-                      ? "bg-blue-600 border-blue-600 text-white shadow-sm"
-                      : "bg-white dark:bg-slate-900 border-slate-200/50 dark:border-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200"
-                  }`}
-                >
-                  <Icon size={11} className={isActive ? "text-white" : "text-blue-500"} />
-                  <span>{p.label}</span>
-                </button>
-              );
-            })}
+      {/* WORKSPACE AREA - Modern Sidebar Navigation */}
+      <div className="flex bg-slate-50 dark:bg-slate-950 flex-1 relative">
+        <AppSidebar activePage={activeTab} setActivePage={setActiveTab} />
+        
+        <main className="flex-1 lg:ml-64 w-full p-4 md:p-6 flex flex-col gap-5 min-h-[calc(100vh-68px)]">
+          {/* Header/Breadcrumb local da página */}
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+            <div>
+              <h2 className="text-xl font-black text-slate-800 dark:text-white capitalize">
+                {activeTab.replace(/_/g, " ")}
+              </h2>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Visão corporativa de painéis interativos.</p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => document.getElementById("filter-drawer")?.classList.toggle("translate-x-full")}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
+              >
+                <Sliders size={14} /> Filtros Ativos ({Object.keys(filtros).reduce((acc,k)=>filtros[k as keyof FiltrosDashboard]?acc+1:acc,0)})
+              </button>
+            </div>
           </div>
+          
+          <div className="flex-1 flex flex-col xl:flex-row gap-5">
+            {/* Filter Drawer (Hidden by default on mobile, right side) */}
+            <section 
+              id="filter-drawer" 
+              className="fixed xl:static top-0 right-0 h-screen xl:h-auto w-80 xl:w-72 bg-white dark:bg-slate-900 xl:bg-transparent shadow-2xl xl:shadow-none border-l xl:border-l-0 border-slate-200 dark:border-slate-800 p-4 xl:p-0 z-50 xl:z-0 translate-x-full xl:translate-x-0 transition-transform overflow-y-auto"
+            >
+              <div className="flex justify-between items-center xl:hidden mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <h3 className="text-sm font-black uppercase text-slate-800 dark:text-white flex items-center gap-2">
+                  <Sliders size={14} /> Filtros de Contexto
+                </h3>
+                <button 
+                  onClick={() => document.getElementById("filter-drawer")?.classList.add("translate-x-full")}
+                  className="p-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500"
+                >
+                  ✕
+                </button>
+              </div>
+              <SidebarFilters
+                available={availableFilters}
+                selected={filtros}
+                onChange={setFiltros}
+                onReset={handleResetFilters}
+              />
+            </section>
+
+            {/* ANALYTICS CONTAINER */}
+            <section className="flex-1 space-y-4 overflow-x-hidden">
 
           {/* DYNAMIC DB NOTIFICATIONS & SYNC BAR */}
           {syncStatus && (
@@ -1253,13 +1296,82 @@ export default function App() {
           )}
 
           {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
-          {activeTab === "contabil" && (
+          {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 ? (
+            <div id="real-data-empty-state" className="bg-amber-50/70 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-900 rounded-xl p-8 text-center space-y-4 shadow-sm animate-fade-in mt-2 flex flex-col items-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
+                <Database size={22} className="animate-spin" style={{ animationDuration: '3s' }} />
+              </div>
+              <div className="space-y-1 max-w-lg">
+                <h3 className="text-sm font-black text-amber-800 dark:text-amber-300 uppercase tracking-wider">Modo Dados Reais</h3>
+                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed font-semibold">
+                  Nenhum dado produtivo real foi conectado ainda. Para habilitar visualizações e relatórios do seu banco, conecte seu servidor relacional através do Console Master ou importe planilhas estruturadas.
+                </p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2.5 pt-2">
+                <button
+                  onClick={() => setActiveTab("central_dados")}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] uppercase font-extrabold tracking-wider rounded-lg shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Database size={11} />
+                  <span>Configurar Central de Dados</span>
+                </button>
+                <button
+                  onClick={() => handleVisualizacaoChange("ficticias")}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-705 text-slate-700 dark:text-slate-300 text-[10px] uppercase font-extrabold tracking-wider rounded-lg transition-all cursor-pointer"
+                >
+                  Usar Modo Demonstração (Mock)
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {activeTab === "contabil" && (
             <ContabilTab
               dataOrigem={dataOrigem}
               filteredData={filteredData}
               formatCurrency={formatCurrencyValue}
               margemLimite={margemLimite}
             />
+          )}
+
+          {activeTab === "vendedores" && (
+            <VendedoresTab
+              dataOrigem={filteredData}
+              formatCurrency={formatCurrencyValue}
+            />
+          )}
+          {activeTab === "lojas" && <LojasTab />}
+          {activeTab === "marcas" && <MarcasTab />}
+          {activeTab === "razoes" && <RazoesTab />}
+          {activeTab === "custos" && <CustosTab />}
+          {activeTab === "margens" && <MargensTab />}
+          {activeTab === "relatorios" && <RelatoriosTab />}
+          {activeTab === "memoria_consultiva" && <MemoriaConsultivaTab />}
+          {activeTab === "auditoria" && <AuditoriaTab />}
+          {activeTab === "importacao" && (
+             <CentralDadosTab
+              dataOrigem={dataOrigem}
+              onDataLoaded={handleDatabaseDataLoaded}
+              currentSource={nomeFonte}
+              camposAusentes={camposAusentes}
+            />
+          )}
+          {activeTab === "apresentacoes" && (
+            <ApresentacoesTab
+              metrics={metrics}
+              formatCurrency={formatCurrencyValue}
+              onPresent={() => setActiveTab("modo_reuniao")}
+            />
+          )}
+          {activeTab === "fechamento_mensal" && (
+            <FechamentoMensalTab
+              metrics={metrics}
+              filtros={filtros}
+              formatCurrency={formatCurrencyValue}
+            />
+          )}
+          {activeTab === "modo_reuniao" && (
+            <ModoReuniaoTab onExit={() => setActiveTab("apresentacoes")} />
           )}
 
           {activeTab === "comercial" && (
@@ -1335,6 +1447,58 @@ export default function App() {
 
           {activeTab === "perfis" && currentUser?.role === "consultor" && (
             <PerfisConfigTab />
+          )}
+
+          {activeTab === "central_dados" && (
+            <CentralDadosTab
+              dataOrigem={dataOrigem}
+              onDataLoaded={handleDatabaseDataLoaded}
+              currentSource={nomeFonte}
+              camposAusentes={camposAusentes}
+            />
+          )}
+
+          {activeTab === "modelo_consultivo" && (
+            <ModeloConsultivoTab
+              dataOrigem={dataOrigem}
+              formatCurrency={formatCurrencyValue}
+            />
+          )}
+
+          {activeTab === "area_consultor" && (
+            <ConsultorAreaTab
+              dataOrigem={dataOrigem}
+            />
+          )}
+
+          {activeTab === "vendedores" && (
+            <VendedoresTab
+              dataOrigem={dataOrigem}
+              formatCurrency={formatCurrencyValue}
+            />
+          )}
+
+          {activeTab === "obstaculos" && (
+            <DiagnosticoObstaculosTab
+              dataOrigem={dataOrigem}
+              formatCurrency={formatCurrencyValue}
+            />
+          )}
+
+          {activeTab === "consultor_ia" && (
+            <ConsultorIaTab
+              metrics={metrics}
+              filtros={filtros}
+              formatCurrency={formatCurrencyValue}
+            />
+          )}
+
+          {activeTab === "fechamento_mensal" && (
+            <FechamentoMensalTab
+              metrics={metrics}
+              filtros={filtros}
+              formatCurrency={formatCurrencyValue}
+            />
           )}
 
           {activeTab === "resumo" && (
@@ -1962,9 +2126,13 @@ export default function App() {
 
             </div>
           )}
+          </>
+          )}
 
         </section>
+        </div>
       </main>
+      </div>
 
       {/* FOOTER AREA - Compact High Density */}
       <footer className="bg-slate-900 border-t border-slate-950 text-slate-500 py-4 text-center text-[10px] shrink-0 font-sans leading-normal">
