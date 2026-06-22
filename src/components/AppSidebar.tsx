@@ -8,6 +8,7 @@ export const AppSidebar = ({ activePage, setActivePage }: { activePage: string, 
   const menuItems = [
     { title: "Dashboard Executivo", id: "resumo", icon: BarChart3 },
     { title: "Central de Dados", id: "central_dados", icon: Database },
+    { title: "VPN Gateway", id: "vpn_gateway", icon: ShieldAlert },
     { title: "Importação de Tabelas", id: "importacao", icon: Database },
     { title: "Fechamento Mensal", id: "fechamento_mensal", icon: Calculator },
     { title: "Apresentações", id: "apresentacoes", icon: Presentation },

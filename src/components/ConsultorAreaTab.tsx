@@ -351,4 +351,4 @@ export const ConsultorAreaTab: React.FC<ConsultorAreaTabProps> = ({ dataOrigem }
 };
 
 // Memo helper
-import { useMemo } from "react";
+

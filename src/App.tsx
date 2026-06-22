@@ -74,6 +74,7 @@ import { ConsultorIaTab } from "./components/ConsultorIaTab";
 import { FechamentoMensalTab } from "./components/FechamentoMensalTab";
 import { ApresentacoesTab } from "./components/ApresentacoesTab";
 import { ModoReuniaoTab } from "./components/ModoReuniaoTab";
+import { VpnGatewayTab } from "./components/VpnGatewayTab";
 
 import { AppSidebar } from "./components/AppSidebar";
 import { 
@@ -1296,7 +1297,7 @@ export default function App() {
           )}
 
           {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
-          {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 ? (
+          {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 && !["vpn_gateway", "central_dados", "importacao", "perfis"].includes(activeTab) ? (
             <div id="real-data-empty-state" className="bg-amber-50/70 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-900 rounded-xl p-8 text-center space-y-4 shadow-sm animate-fade-in mt-2 flex flex-col items-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
                 <Database size={22} className="animate-spin" style={{ animationDuration: '3s' }} />
@@ -1447,6 +1448,10 @@ export default function App() {
 
           {activeTab === "perfis" && currentUser?.role === "consultor" && (
             <PerfisConfigTab />
+          )}
+
+          {activeTab === "vpn_gateway" && (
+            <VpnGatewayTab />
           )}
 
           {activeTab === "central_dados" && (

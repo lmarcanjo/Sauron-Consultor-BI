@@ -414,7 +414,8 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
           setStatusMessage("Banco conectado com sucesso, mas a consulta não retornou linhas.");
         } else {
           saveConfiguration();
-          onDataLoaded(resData.data, `Banco SQL: ${database || "String de Conexão"}`);
+          const sourcePrefix = useVpn ? "[VPN ATIVA] " : "";
+          onDataLoaded(resData.data, `${sourcePrefix}Banco SQL: ${database || "String de Conexão"}`);
           setStatusMessage(`Sucesso! Importados ${resData.count} registros com sucesso.`);
           // Auto close database panel after 1.5 seconds on successful load
           setTimeout(() => {

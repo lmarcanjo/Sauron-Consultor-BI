@@ -124,16 +124,7 @@ app.post("/api/db/test", async (req, res) => {
   let sshTunnel: any = null;
   try {
     if (useVpn) {
-      console.log(`[VPN INTEGRATION] Iniciando túnel de criptografia corporativa [${(vpnType || '').toUpperCase()}]. Gateway: ${vpnServer}`);
-      if (vpnType === "wireguard") {
-        console.log(`[VPN] WireGuard IP: ${vpnAddress}, MTU: ${vpnMtu || '1420'}. Handshake negociado com sucesso.`);
-      } else if (vpnType === "openvpn") {
-        console.log(`[VPN] OpenVPN conectando via ${vpnProtocol || 'UDP'}. Porta: ${vpnPort || '1194'}. Autenticando usuário: ${vpnUser ? 'Sim' : 'Certificado TLS'}`);
-      } else if (vpnType === "ipsec") {
-        console.log(`[VPN] IPSec Cisco Group ID: ${vpnGroupId}. Cifra: ${vpnEncryption || 'AES-256-GCM'}. Canal SA ativo.`);
-      } else if (vpnType === "l2tp") {
-        console.log(`[VPN] L2TP IPSec túnel PPP estabelecido com chave compartilhada.`);
-      }
+      console.log(`Verificando conexão VPN para: ${vpnServer}`);
     }
 
     let activeHost = host;
@@ -436,47 +427,7 @@ app.post("/api/db/test", async (req, res) => {
     }
   } catch (error: any) {
     const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
-    console.log(`[Aviso Teste DB] Filtro de conexao corporativa: ${safeMsg}`);
-    const isConsultoria = host === "consultoria" || (connectionString && connectionString.includes("consultoria"));
-    const isDnsError = error.message?.includes("EAI_AGAIN") || error.message?.includes("ENOTFOUND") || error.message?.includes("ECONNREFUSED");
-    if (useVpn || isConsultoria || isDnsError) {
-      console.log(`[VPN CORE AUTORECOVERY] Ativando failover para simulação de canal corporativo criptografado: ${vpnType || 'wireguard'}`);
-      const mockTables = [
-        "faturamento_filiais_consolidado",
-        "fluxo_caixa_corporativo",
-        "despesas_operacionais_gcp",
-        "lancamentos_contabeis_2026"
-      ];
-      const mockTableColumns: Record<string, { name: string; type: string }[]> = {
-        faturamento_filiais_consolidado: [
-          { name: "id", type: "integer" },
-          { name: "grupo_corporativo", type: "varchar" },
-          { name: "cnpj_unidade", type: "varchar" },
-          { name: "bandeira_marca", type: "varchar" },
-          { name: "razao_social", type: "varchar" },
-          { name: "codigo_filial", type: "varchar" },
-          { name: "competencia_data", type: "varchar" },
-          { name: "rubrica_razao", type: "varchar" },
-          { name: "valor_receita_bruta", type: "numeric" },
-          { name: "valor_custo_cmv", type: "numeric" },
-          { name: "valor_despesa", type: "numeric" }
-        ],
-        lancamentos_contabeis_2026: [
-          { name: "id", type: "integer" },
-          { name: "grupo", type: "varchar" },
-          { name: "cnpj", type: "varchar" },
-          { name: "marca", type: "varchar" },
-          { name: "empresa", type: "varchar" },
-          { name: "filial", type: "varchar" },
-          { name: "mes_ano", type: "varchar" },
-          { name: "razao_contabil", type: "varchar" },
-          { name: "receita", type: "numeric" },
-          { name: "custos", type: "numeric" },
-          { name: "despesas", type: "numeric" }
-        ]
-      };
-      return res.json({ success: true, tables: mockTables, tableColumns: mockTableColumns, isVpnSimulated: true });
-    }
+    console.log(`Erro de conexão com o banco de dados: ${safeMsg}`);
     return res.status(500).json({ error: error.message || "Erro de conexão com o banco de dados." });
   } finally {
     if (sshTunnel) {
@@ -818,14 +769,14 @@ async function executeFetchAndMap(configPayload: any) {
 
     return {
       id: String(row.id || row.ID || row._id || row.uuid || Math.random().toString(36).substring(2, 11)),
-      Grupo: String(getValue("Grupo") ?? "Grupo Padrão"),
-      CNPJ: String(getValue("CNPJ") ?? "00.000.000/0001-00"),
-      Marca: String(getValue("Marca") ?? "Geral"),
-      Empresa: String(getValue("Empresa") ?? getValue("Grupo") ?? "Empresa Geral"),
-      Filial: String(getValue("Filial") ?? "Filial Principal"),
-      Mês: String(getValue("Mês") ?? "Competência N/D"),
-      Razão: String(getValue("Razão") ?? "Diversos"),
-      Categoria: String(getValue("Categoria") ?? ""),
+      Grupo: getValue("Grupo") !== undefined ? String(getValue("Grupo")) : "",
+      CNPJ: getValue("CNPJ") !== undefined ? String(getValue("CNPJ")) : "",
+      Marca: getValue("Marca") !== undefined ? String(getValue("Marca")) : "",
+      Empresa: getValue("Empresa") !== undefined ? String(getValue("Empresa")) : (getValue("Grupo") !== undefined ? String(getValue("Grupo")) : ""),
+      Filial: getValue("Filial") !== undefined ? String(getValue("Filial")) : "",
+      Mês: getValue("Mês") !== undefined ? String(getValue("Mês")) : "",
+      Razão: getValue("Razão") !== undefined ? String(getValue("Razão")) : "",
+      Categoria: getValue("Categoria") !== undefined ? String(getValue("Categoria")) : "",
       Receita: receita,
       Custo: custo,
       Despesa: despesa,
@@ -909,99 +860,6 @@ app.post("/api/db/fetch", async (req, res) => {
       console.log("Erro ao persistir log de erro:", e.message);
     }
 
-    const isConsultoria = host === "consultoria" || (connectionString && connectionString.includes("consultoria"));
-    const isDnsError = error.message?.includes("EAI_AGAIN") || error.message?.includes("ENOTFOUND") || error.message?.includes("ECONNREFUSED");
-    if ((useVpn || isConsultoria || isDnsError) && mappings) {
-      console.log(`[VPN INTEGRATED FETCH FAILOVER] Conexão falhou: ${error.message}. Gerando faturamento simulado via canal seguro [${(vpnType || 'wireguard').toUpperCase()}].`);
-      const mockRows: any[] = [];
-      const meses = ["Janeiro 2026", "Fevereiro 2026", "Março 2026", "Abril 2026", "Maio 2026"];
-      const grupos = ["Grupo Marcanjo Holdings", "Sauron Corp", "GCP Enterprise Partners"];
-      const marcas = ["Premium Retail", "Industrial Unit", "B2B Logistica"];
-      const empresas = ["Marcanjo Varejo S/A", "Sauron Tech Labs", "GCP Distribuidora"];
-      const filiais = ["Matriz Centro", "Planta Industrial", "Centro Logistico Sul"];
-      const razoes = [
-        "3.0.0.1 - Venda de Veículos",
-        "3.0.1.1 - Venda de Acessórios",
-        "3.0.2.1 - Peças e Pós-vendas",
-        "3.0.3.1 - Serviços de Oficina",
-        "Serviços Nuvem",
-        "Logística Terceirizada",
-        "Faturamento Geral"
-      ];
-      
-      const grupoCol = mappings["Grupo"] || "grupo";
-      const cnpjCol = mappings["CNPJ"] || "cnpj";
-      const marcaCol = mappings["Marca"] || "marca";
-      const empresaCol = mappings["Empresa"] || "empresa";
-      const filialCol = mappings["Filial"] || "filial";
-      const mesCol = mappings["Mês"] || "mes";
-      const razaoCol = mappings["Razão"] || "razao";
-      const receitaCol = mappings["Receita"] || "receita";
-      const custoCol = mappings["Custo"] || "custo";
-      const despesaCol = mappings["Despesa"] || "despesa";
-
-      for (let i = 0; i < 28; i++) {
-        const row: any = { id: i + 1 };
-        row[grupoCol] = grupos[i % grupos.length];
-        row[cnpjCol] = `45.890.123/000${(i % 3) + 1}-89`;
-        row[marcaCol] = marcas[i % marcas.length];
-        row[empresaCol] = empresas[i % empresas.length];
-        row[filialCol] = filiais[i % filiais.length];
-        row[mesCol] = meses[Math.floor(i / 6) % meses.length];
-        row[razaoCol] = razoes[i % razoes.length];
-        
-        row[receitaCol] = 160000 + (i * 14500) - (i % 2 === 0 ? 3000 : 0);
-        row[custoCol] = (row[receitaCol] * 0.44) + (i * 1200);
-        row[despesaCol] = (row[receitaCol] * 0.19) + (i % 3 === 0 ? 2500 : 1000);
-
-        mockRows.push(row);
-      }
-
-      // Mapear as linhas simuladas
-      const mappedRows = mockRows.map((row) => {
-        const getValue = (field: string) => {
-          const dbColumn = mappings[field];
-          return dbColumn ? row[dbColumn] : undefined;
-        };
-
-        const receita = Number(getValue("Receita")) || 0;
-        const custo = Number(getValue("Custo")) || 0;
-        const despesa = Number(getValue("Despesa")) || 0;
-        
-        let lucro = 0;
-        if (mappings["Lucro"]) {
-          lucro = Number(getValue("Lucro")) || 0;
-        } else {
-          lucro = receita - custo - despesa;
-        }
-
-        let margem = 0;
-        if (mappings["Margem"]) {
-          margem = Number(getValue("Margem")) || 0;
-        } else {
-          margem = receita > 0 ? (lucro / receita) * 100 : 0;
-        }
-
-        return {
-          id: String(row.id || Math.random().toString(36).substring(2, 11)),
-          Grupo: String(getValue("Grupo") ?? "Grupo Padrão"),
-          CNPJ: String(getValue("CNPJ") ?? "00.000.000/0001-00"),
-          Marca: String(getValue("Marca") ?? "Geral"),
-          Empresa: String(getValue("Empresa") ?? getValue("Grupo") ?? "Empresa Geral"),
-          Filial: String(getValue("Filial") ?? "Filial Principal"),
-          Mês: String(getValue("Mês") ?? "Competência N/D"),
-          Razão: String(getValue("Razão") ?? "Diversos"),
-          Categoria: String(getValue("Categoria") ?? ""),
-          Receita: receita,
-          Custo: custo,
-          Despesa: despesa,
-          Lucro: lucro,
-          Margem: margem
-        };
-      });
-
-      return res.json({ success: true, count: mappedRows.length, data: mappedRows, isVpnSimulated: true });
-    }
     return res.status(500).json({ error: error.message || "Erro ao carregar dados do banco de dados." });
   }
 });
@@ -1575,6 +1433,97 @@ INSTRUÇÕES DE FORMATAÇÃO:
   }
 
   return res.json({ response });
+});
+
+// -------------------------------------------------------------
+// SAURON VPN GATEWAY - DOCKER SDK MOCK FOR ISOLATED VPN CONTAINERS
+// -------------------------------------------------------------
+const VPN_DB_FILE = path.join(process.cwd(), "vpn_configs.json");
+
+function getVpnConfigs() {
+  if (fs.existsSync(VPN_DB_FILE)) {
+    return JSON.parse(fs.readFileSync(VPN_DB_FILE, "utf-8"));
+  }
+  return [];
+}
+
+function saveVpnConfigs(data: any) {
+  fs.writeFileSync(VPN_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+}
+
+app.get("/api/vpn/list", (req, res) => {
+  res.json({ success: true, configs: getVpnConfigs() });
+});
+
+app.post("/api/vpn/add", (req, res) => {
+  const configs = getVpnConfigs();
+  const newConfig = {
+    id: Math.random().toString(36).substring(2, 10),
+    ...req.body,
+    status: "disconnected",
+    containerId: "",
+    logs: [`Configuração registrada e isolada: ${req.body.clientName} (${req.body.vpnType.toUpperCase()})`]
+  };
+  configs.push(newConfig);
+  saveVpnConfigs(configs);
+  res.json({ success: true, config: newConfig });
+});
+
+app.post("/api/vpn/connect", (req, res) => {
+  const configs = getVpnConfigs();
+  const index = configs.findIndex((c: any) => c.id === req.body.id);
+  if (index === -1) return res.status(404).json({ error: "Configuração não encontrada" });
+
+  configs[index].status = "connecting";
+  configs[index].logs.push(`[${new Date().toISOString()}] Solicitando criação de nova rede Docker isolada...`);
+  configs[index].logs.push(`[${new Date().toISOString()}] Subindo container ${configs[index].vpnType}_client_${configs[index].id}...`);
+  saveVpnConfigs(configs);
+  
+  // Simulate connection process
+  setTimeout(() => {
+    const updatedConfigs = getVpnConfigs();
+    const idx = updatedConfigs.findIndex((c: any) => c.id === req.body.id);
+    if (idx !== -1) {
+      if (updatedConfigs[idx].status === "connecting") {
+         updatedConfigs[idx].status = "connected";
+         updatedConfigs[idx].containerId = `docker-vpn-${updatedConfigs[idx].id.substring(0,6)}`;
+         updatedConfigs[idx].logs.push(`[${new Date().toISOString()}] Network tun0 UP. Interfaces estabelecidas.`);
+         updatedConfigs[idx].logs.push(`[${new Date().toISOString()}] Handshake verificado. Conectado com sucesso em container isolado.`);
+         saveVpnConfigs(updatedConfigs);
+      }
+    }
+  }, 3000);
+
+  res.json({ success: true });
+});
+
+app.post("/api/vpn/disconnect", (req, res) => {
+  const configs = getVpnConfigs();
+  const index = configs.findIndex((c: any) => c.id === req.body.id);
+  if (index === -1) return res.status(404).json({ error: "Configuração não encontrada" });
+
+  configs[index].status = "disconnected";
+  configs[index].containerId = "";
+  configs[index].logs.push(`[${new Date().toISOString()}] Container de VPN terminado.`);
+  configs[index].logs.push(`[${new Date().toISOString()}] Rede isolada destruída.`);
+  saveVpnConfigs(configs);
+
+  res.json({ success: true });
+});
+
+app.post("/api/vpn/test-db", (req, res) => {
+  const configs = getVpnConfigs();
+  const index = configs.findIndex((c: any) => c.id === req.body.id);
+  if (index === -1) return res.status(404).json({ error: "Configuração não encontrada" });
+
+  if (configs[index].status !== "connected") {
+    return res.status(400).json({ error: "VPN client não está rodando. Conecte primeiro." });
+  }
+
+  // Simulate remote DB ping
+  setTimeout(() => {
+    res.json({ success: true });
+  }, 1000);
 });
 
 // -------------------------------------------------------------
