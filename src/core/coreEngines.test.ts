@@ -78,7 +78,7 @@ describe("Sauron Core Engines Unit Tests Suite", () => {
   // Test 5: DataLineage creates lineage mapping for KPI calculation
   it("DataLineage creates origin tracking log for calculated KPIs", () => {
     const sampleRecords: LancamentoFinanceiro[] = [
-      { Grupo: "Empresa Real", CNPJ: "111", Marca: "Fiat", Empresa: "Empresa Real", Receita: 5000, Custo: 1000, Despesa: 1000, Mês: "Janeiro", Razão: "Serviço", Categoria: "Outros", arquivo: "test_lineage.xlsx", aba: "Sheet1", usuario: "Lennon" }
+      { Grupo: "Empresa Real", CNPJ: "111", Marca: "Fiat", Empresa: "Empresa Real", Receita: 5000, Custo: 1000, Despesa: 1000, Lucro: 3000, Margem: 60, Mês: "Janeiro", Razão: "Serviço", Categoria: "Outros", arquivo: "test_lineage.xlsx", aba: "Sheet1", usuario: "Lennon" }
     ];
     const lineage = dataLineage.createKpiLineage("TOTAL_REVENUE", 5000, sampleRecords);
     expect(lineage.targetKpi).toBe("TOTAL_REVENUE");
@@ -114,7 +114,7 @@ describe("Sauron Core Engines Unit Tests Suite", () => {
   // Test 7: AnalyticsEngine triggers warnings on low margins
   it("AnalyticsEngine generates warning alerts on low operational margins", () => {
     const highExpenseData: LancamentoFinanceiro[] = [
-      { Grupo: "Loja A", CNPJ: "111", Marca: "Bandeira", Empresa: "Loja A", Receita: 1000, Custo: 700, Despesa: 280, Mês: "Janeiro", Razão: "Outros", Categoria: "Geral" } // Net profit is 20, margin is 2%, below safety 5%
+      { Grupo: "Loja A", CNPJ: "111", Marca: "Bandeira", Empresa: "Loja A", Receita: 1000, Custo: 700, Despesa: 280, Lucro: 20, Margem: 2, Mês: "Janeiro", Razão: "Outros", Categoria: "Geral" } // Net profit is 20, margin is 2%, below safety 5%
     ];
     const result = analyticsEngine.analyze(highExpenseData);
     expect(result.insights.some(i => i.type === "warning" && i.title.includes("Margem"))).toBe(true);

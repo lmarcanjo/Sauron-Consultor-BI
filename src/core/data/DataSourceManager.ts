@@ -14,7 +14,7 @@ import {
   DataVersion, 
   ImportProfile 
 } from "../../types/dataSource";
-import { gerarDadosSimulados } from "../../data/demoData";
+import { gerarDadosSimulados, generateDemoSpreadsheetRows } from "../../data/demoData";
 
 // --- GLOBAL QUERY SECURITY / PROTECTIONS ---
 export function assertNoMockDataWhenRealSource(
@@ -244,6 +244,16 @@ export class DataSourceManager {
 
   public assertNoMockDataWhenRealSource(activeDataSource: ActiveDataSource, records: LancamentoFinanceiro[]): LancamentoFinanceiro[] {
     return assertNoMockDataWhenRealSource(records, activeDataSource);
+  }
+
+  public getDemoSpreadsheetRows(segment: "automotivo" | "agro" | "servicos" | "industria"): any[] {
+    const active = this.getActiveSource();
+    if (active !== "DEMO_DATA") {
+      const errorMsg = `[Sauron Audit] Bloqueado: Tentativa de obter dados demonstrativos com a fonte ativa configurada como ${active}.`;
+      console.warn(errorMsg);
+      return [];
+    }
+    return generateDemoSpreadsheetRows(segment);
   }
 
   public isDemoMode(): boolean {

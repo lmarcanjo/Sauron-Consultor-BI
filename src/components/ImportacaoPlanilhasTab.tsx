@@ -6,7 +6,6 @@ import {
   CheckCircle2, Sliders, Info, Server, Copy, Volume2, Save, Send, ClipboardCheck
 } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
-import { generateDemoSpreadsheetRows } from "../data/demoData";
 import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
 import { dataSourceManager } from "../services/dataSourceManager";
 import { pluginEngine } from "../core/plugins/PluginEngine";
@@ -354,7 +353,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     ];
 
     // Formulate realistic rows according to the selected segment
-    const calculatedRows = generateDemoSpreadsheetRows(segment);
+    const calculatedRows = dataSourceManager.getDemoSpreadsheetRows(segment);
 
     // Register into the global SpreadsheetWorkspaceManager
     const fileId = `demo_f_${segment}`;

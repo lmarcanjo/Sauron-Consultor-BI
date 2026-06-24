@@ -127,4 +127,38 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
     // It should have exportToCSV
     expect(content.includes("exportToCSV")).toBe(true);
   });
+
+  // Test 6: Verify no React component in src/components/ imports demo or mock data directly
+  it("verifies that no React component in src/components/ directly imports demoData, gerarDadosSimulados, generateDemoSpreadsheetRows, mockData, or sampleData", () => {
+    const componentsDir = path.resolve(__dirname); // This is in src/components/
+    const forbiddenImports = [
+      "demoData",
+      "gerarDadosSimulados",
+      "generateDemoSpreadsheetRows",
+      "mockData",
+      "sampleData"
+    ];
+
+    const files = fs.readdirSync(componentsDir);
+    const tsxFiles = files.filter(f => f.endsWith(".tsx") && !f.endsWith(".test.ts") && !f.endsWith(".test.tsx"));
+
+    tsxFiles.forEach(file => {
+      const filePath = path.join(componentsDir, file);
+      const content = fs.readFileSync(filePath, "utf-8");
+
+      // Check imports using regex or simple substring on lines starting with 'import'
+      const lines = content.split("\n");
+      lines.forEach(line => {
+        if (line.trim().startsWith("import")) {
+          forbiddenImports.forEach(term => {
+            const hasForbiddenImport = line.includes(term);
+            if (hasForbiddenImport) {
+              console.error(`Direct mock/demo data import found in component file "${file}" on line: "${line.trim()}"`);
+            }
+            expect(hasForbiddenImport).toBe(false);
+          });
+        }
+      });
+    });
+  });
 });
