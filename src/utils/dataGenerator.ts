@@ -154,6 +154,7 @@ export function gerarDadosSimulados(): LancamentoFinanceiro[] {
               CNPJ: cnpj,
               Marca: marca,
               Empresa: empresa,
+              Locação: filial, // legacy compatibility
               Filial: filial,
               Loja: filial,
               Vendedor: vendedor,
@@ -167,11 +168,18 @@ export function gerarDadosSimulados(): LancamentoFinanceiro[] {
               Receita: receita,
               Custo: custo,
               Despesa: despesa,
+              Valor: receita > 0 ? receita : -despesa,
               Lucro: lucro,
               Margem: margem,
               Departamento: depto,
               ContaContabil: ctc,
               CentroDeCusto: cc,
+              Origem: "ERP Dealership",
+              DocumentoFiscal: `NF-${Math.floor(random(100000, 999999))}`,
+              Usuario: "Sincronização Cloud",
+              TipoMovimento: receita > 0 ? "Credito" : "Debito",
+              DescricaoLancamento: `Lançamento Ref. ${razao} na loja ${filial}`,
+              Observacoes: `Vendedor(a) associado(a): ${vendedor || 'Padrão'}`,
               Orcamento: Math.round(receita * random(0.88, 1.12) * 100) / 100,
             } as any); // Using "as any" broadly here because the previous interface mapped to camelCase vs PascalCase properties
           });

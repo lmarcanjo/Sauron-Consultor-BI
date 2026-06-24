@@ -36,7 +36,7 @@ export function parseCSV(text: string): { data: LancamentoFinanceiro[]; missingF
   // Loop through lines
   for (let i = 1; i < lines.length; i++) {
     const cells = splitCSVLine(lines[i], delimiter);
-    if (cells.length < headers.length) continue;
+    if (cells.length === 0 || (cells.length === 1 && !cells[0])) continue;
     
     const row: any = {};
     headers.forEach((h, index) => {
@@ -61,7 +61,7 @@ export function parseCSV(text: string): { data: LancamentoFinanceiro[]; missingF
     const margem = row["Margem"] !== undefined ? parseNum(row["Margem"]) : (receita > 0 ? Math.round((lucro / receita) * 100 * 100) / 100 : 0);
     const orcamento = row["Orçamento"] !== undefined ? parseNum(row["Orçamento"]) : (row["Orcamento"] !== undefined ? parseNum(row["Orcamento"]) : Math.round((receita * 0.95) * 100) / 100);
     
-    result.push({
+    const newEntry: any = {
       Grupo: row["Grupo"] || "Geral",
       CNPJ: row["CNPJ"] || "00.000.000/0001-00",
       Marca: row["Marca"] || "N/D",
@@ -76,7 +76,16 @@ export function parseCSV(text: string): { data: LancamentoFinanceiro[]; missingF
       Lucro: lucro,
       Margem: margem,
       Orcamento: orcamento
-    });
+    };
+
+    // Copy any remaining fields
+    for (const key of Object.keys(row)) {
+      if (!(key in newEntry) && key.trim() !== "") {
+        newEntry[key] = row[key];
+      }
+    }
+
+    result.push(newEntry);
   }
   
   return { 

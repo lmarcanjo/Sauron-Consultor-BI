@@ -38,6 +38,7 @@ export interface LancamentoFinanceiro {
   Competencia?: string;
   TipoMovimento?: string;
   Observacoes?: string;
+  [key: string]: any; // Allow dynamic fields from CSV
 }
 
 export interface MetricasConsolidadas {
@@ -53,9 +54,13 @@ export interface MetricasConsolidadas {
 }
 
 export interface FiltrosDashboard {
-  grupos: string[];
-  cnpjs: string[];
-  marcas: string[];
-  meses: string[];
-  razoes: string[];
+  grupos?: string[];
+  cnpjs?: string[];
+  marcas?: string[];
+  meses?: string[];
+  razoes?: string[];
+  [key: string]: string[] | undefined;
 }
+
+export type ActiveDataSourceType = "DEMO_DATA" | "SPREADSHEET_DATA" | "DATABASE_DATA" | "CONSULTANT_DATA" | "MIXED_APPROVED_DATA";
+

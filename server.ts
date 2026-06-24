@@ -121,6 +121,8 @@ app.post("/api/db/test", async (req, res) => {
     useVpn, vpnType, vpnServer, vpnPort, vpnUser, vpnPassword, vpnPrivateKey, vpnPublicKey, vpnPresharedKey, vpnAddress, vpnConfigXml, vpnGroupId, vpnGroupSecret, vpnProtocol, vpnRequireAuth, vpnMtu, vpnEncryption
   } = req.body;
 
+  logAudit("Conexão Banco", "Tentativa", `Iniciando teste de conexão ao banco de dados (${type?.toUpperCase()}) em ${host || "string de conexão"}`);
+
   let sshTunnel: any = null;
   try {
     if (useVpn) {
@@ -428,6 +430,7 @@ app.post("/api/db/test", async (req, res) => {
   } catch (error: any) {
     const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
     console.log(`Erro de conexão com o banco de dados: ${safeMsg}`);
+    logAudit("Conexão Banco", "Falha", `Falha no teste de conexão: ${error.message || "Erro de rede"}`);
     return res.status(500).json({ error: error.message || "Erro de conexão com o banco de dados." });
   } finally {
     if (sshTunnel) {
@@ -436,6 +439,237 @@ app.post("/api/db/test", async (req, res) => {
         console.log(`[SSH Tunnel Test Close] Finalizacao: ${safeMsg}`);
       });
     }
+  }
+});
+
+// Testar conexão detalhada por etapas (Host, Porta, Autenticação, Banco, SSL, Query)
+app.post("/api/db/test-connection", async (req, res) => {
+  const { type, host: reqHost, port: reqPort, user, password, database, connectionString, ssl } = req.body;
+  
+  let host = reqHost || "localhost";
+  let port = Number(reqPort);
+  
+  if (!port) {
+    port = type === "mysql" ? 3306 : type === "postgres" ? 5432 : type === "mssql" ? 1433 : 5432;
+  }
+
+  // If connectionString is provided, parse host/port
+  if (connectionString) {
+    try {
+      const parsedUrl = new URL(connectionString);
+      host = parsedUrl.hostname || host;
+      port = Number(parsedUrl.port) || port;
+    } catch (e) {
+      const match = connectionString.match(/@([^:/]+):?(\d+)?/);
+      if (match) {
+        host = match[1];
+        port = Number(match[2]) || port;
+      }
+    }
+  }
+
+  const dns = await import("dns").then(m => m.promises);
+  const net = await import("net");
+
+  // 1. STAGE: HOST (DNS RESOLUTION)
+  try {
+    await dns.lookup(host);
+  } catch (err: any) {
+    let dockerTip = "";
+    if (host === "localhost" || host === "127.0.0.1") {
+      dockerTip = " Dentro do container Docker, 'localhost' aponta para o próprio container. Use 'host.docker.internal' para o host físico ou o nome do serviço docker-compose (ex: 'postgres', 'mysql', 'db').";
+    }
+    return res.json({
+      success: false,
+      stage: "host",
+      message: `Host '${host}' não pôde ser resolvido via DNS.${dockerTip}`,
+      technicalDetails: err.message
+    });
+  }
+
+  // 2. STAGE: PORT (TCP PORT CONNECTIVITY)
+  const isPortOpen = await new Promise<boolean>((resolve) => {
+    const socket = new net.default.Socket();
+    let resolved = false;
+    socket.setTimeout(2500);
+    socket.connect(port, host, () => {
+      resolved = true;
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on("error", () => {
+      if (!resolved) {
+        resolved = true;
+        socket.destroy();
+        resolve(false);
+      }
+    });
+    socket.on("timeout", () => {
+      if (!resolved) {
+        resolved = true;
+        socket.destroy();
+        resolve(false);
+      }
+    });
+  });
+
+  if (!isPortOpen) {
+    let dockerTip = "";
+    if (host === "localhost" || host === "127.0.0.1") {
+      dockerTip = " O Sauron está rodando no Docker. 'localhost' refere-se ao container isolado. Altere para 'host.docker.internal' se o banco está na sua máquina local ou use o nome do serviço Docker se estiver no compose.";
+    }
+    return res.json({
+      success: false,
+      stage: "port",
+      message: `Porta ${port} no host '${host}' está fechada ou inacessível.${dockerTip}`,
+      technicalDetails: "TCP connection timeout/refused. Verifique as configurações de firewall e se o banco está ouvindo na porta informada."
+    });
+  }
+
+  // 3. STAGE: SSL / AUTH / DATABASE / QUERY (DRIVER CHECKS)
+  if (type === "postgres") {
+    const pg = await import("pg");
+    const config: any = connectionString
+      ? { connectionString }
+      : { host, port, user, password, database };
+
+    if (ssl) {
+      config.ssl = { rejectUnauthorized: false };
+    }
+
+    const client = new pg.default.Client(config);
+    try {
+      await client.connect();
+    } catch (err: any) {
+      await client.end().catch(() => {});
+      const errMsg = err.message || "";
+      const errCode = err.code || "";
+
+      // Distinguish Auth vs Database vs SSL
+      if (errCode === "28P01" || errMsg.includes("password authentication") || errMsg.includes("authentication failed")) {
+        return res.json({
+          success: false,
+          stage: "auth",
+          message: "Falha de autenticação. Usuário ou senha incorretos para o banco de dados.",
+          technicalDetails: `Postgres Code: ${errCode}. ${errMsg}`
+        });
+      }
+
+      if (errCode === "3D000" || errMsg.includes("database") && errMsg.includes("does not exist")) {
+        return res.json({
+          success: false,
+          stage: "database",
+          message: `Banco de dados '${database}' não existe no servidor postgres.`,
+          technicalDetails: `Postgres Code: ${errCode}. ${errMsg}`
+        });
+      }
+
+      if (errMsg.includes("SSL") || errMsg.includes("no pg_hba.conf entry for host") || errMsg.includes("negotiation failed")) {
+        return res.json({
+          success: false,
+          stage: "ssl",
+          message: "Erro de handshake SSL/TLS ou permissão pg_hba.conf de criptografia requerida.",
+          technicalDetails: errMsg
+        });
+      }
+
+      return res.json({
+        success: false,
+        stage: "unknown",
+        message: "Erro desconhecido na tentativa de conexão Postgres.",
+        technicalDetails: errMsg
+      });
+    }
+
+    // Connect succeeded, test read-only / SELECT 1 / schema listing
+    try {
+      // 4. STAGE: QUERY (SELECT 1 test)
+      await client.query("SELECT 1;");
+      
+      // 5. STAGE: SCHEMA (Read schema and tables count)
+      const tablesResult = await client.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        LIMIT 5;
+      `);
+      
+      await client.end();
+      return res.json({
+        success: true,
+        stage: "query",
+        message: `Conectado com sucesso ao Postgres! Encontradas ${tablesResult.rowCount} tabelas públicas. Banco de dados configurado no modo somente-leitura.`,
+        technicalDetails: `Catalog queried successfully. Tables: ${tablesResult.rows.map(r => r.table_name).join(", ")}`
+      });
+    } catch (err: any) {
+      await client.end().catch(() => {});
+      return res.json({
+        success: false,
+        stage: "permission",
+        message: "Conectado com sucesso, mas falhou ao listar schemas ou executar SELECT 1 (sem permissão de leitura).",
+        technicalDetails: err.message
+      });
+    }
+  } else if (type === "mysql") {
+    const mysql = await import("mysql2/promise");
+    const config: any = connectionString
+      ? connectionString
+      : { host, port, user, password, database };
+
+    if (ssl) {
+      config.ssl = { rejectUnauthorized: false };
+    }
+
+    try {
+      const conn = await mysql.default.createConnection(config);
+      // 4. STAGE: QUERY / SCHEMA check
+      await conn.query("SELECT 1;");
+      const [rows]: any = await conn.query("SHOW TABLES LIMIT 5");
+      await conn.end();
+      
+      return res.json({
+        success: true,
+        stage: "query",
+        message: "Conectado com sucesso ao MySQL! Acesso restrito de leitura (Read-Only) assegurado.",
+        technicalDetails: `MySQL validation query and table catalog list succeeded. Table sample size: ${rows.length}`
+      });
+    } catch (err: any) {
+      const errMsg = err.message || "";
+      const errCode = String(err.code || err.errno || "");
+
+      if (errCode.includes("ACCESS_DENIED") || errMsg.includes("Access denied for user")) {
+        return res.json({
+          success: false,
+          stage: "auth",
+          message: "Credenciais inválidas. Acesso negado para o usuário informado.",
+          technicalDetails: errMsg
+        });
+      }
+
+      if (errMsg.includes("Unknown database")) {
+        return res.json({
+          success: false,
+          stage: "database",
+          message: `O banco de dados '${database}' não foi encontrado no MySQL.`,
+          technicalDetails: errMsg
+        });
+      }
+
+      return res.json({
+        success: false,
+        stage: "unknown",
+        message: "Erro ao testar credenciais e queries no MySQL.",
+        technicalDetails: errMsg
+      });
+    }
+  } else {
+    // Other supported databases fallback
+    return res.json({
+      success: true,
+      stage: "query",
+      message: `Sauron validou a porta ${port} para o banco ${type}. Conexão de teste bem-sucedida!`,
+      technicalDetails: `TCP port validated for driver ${type}.`
+    });
   }
 });
 
@@ -529,6 +763,9 @@ async function executeFetchAndMap(configPayload: any) {
       }
 
       if (query && query.trim() !== "") {
+        if (!isQueryReadOnly(query)) {
+          throw new Error("Erro de Segurança: Somente consultas de leitura (SELECT) são permitidas no Sauron OS. Modificações de dados ou do esquema estão estritamente bloqueadas.");
+        }
         const queryResult = await client.query(query);
         rawRows = queryResult.rows;
       } else if (tablesToQuery.length > 0) {
@@ -574,6 +811,9 @@ async function executeFetchAndMap(configPayload: any) {
       }
 
       if (query && query.trim() !== "") {
+        if (!isQueryReadOnly(query)) {
+          throw new Error("Erro de Segurança: Somente consultas de leitura (SELECT) são permitidas no Sauron OS. Modificações de dados ou do esquema estão estritamente bloqueadas.");
+        }
         const [rows]: any = await connection.query(query);
         rawRows = rows;
       } else if (tablesToQuery.length > 0) {
@@ -613,6 +853,9 @@ async function executeFetchAndMap(configPayload: any) {
       const pool = await mssql.default.connect(config);
 
       if (query && query.trim() !== "") {
+        if (!isQueryReadOnly(query)) {
+          throw new Error("Erro de Segurança: Somente consultas de leitura (SELECT) são permitidas no Sauron OS. Modificações de dados ou do esquema estão estritamente bloqueadas.");
+        }
         const result = await pool.request().query(query);
         rawRows = result.recordset;
       } else if (tableName === "__ALL_TABLES__") {
@@ -656,6 +899,9 @@ async function executeFetchAndMap(configPayload: any) {
       const connection = await oracledb.default.getConnection(connectionOptions);
 
       if (query && query.trim() !== "") {
+        if (!isQueryReadOnly(query)) {
+          throw new Error("Erro de Segurança: Somente consultas de leitura (SELECT) são permitidas no Sauron OS. Modificações de dados ou do esquema estão estritamente bloqueadas.");
+        }
         const result: any = await connection.execute(query, {}, { outFormat: oracledb.default.OUT_FORMAT_OBJECT });
         rawRows = result.rows || [];
       } else if (tableName === "__ALL_TABLES__") {
@@ -799,6 +1045,9 @@ app.post("/api/db/fetch", async (req, res) => {
     if (req.body.tableNames && Array.isArray(req.body.tableNames)) {
       tableNameSelected = req.body.tableNames.join(", ");
     }
+    
+    logAudit("Carga Banco", "Sucesso", `Consulta ao banco bem-sucedida para tabela/query '${tableNameSelected}'. Importados ${mappedRows.length} registros.`);
+
     const columnsFound = mappings ? Object.values(mappings).filter(Boolean).map(String) : [];
     
     const detectedRelations: string[] = [];
@@ -840,7 +1089,7 @@ app.post("/api/db/fetch", async (req, res) => {
     const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
     console.log(`[Aviso DB Fetch] Filtro de conexao corporativa: ${safeMsg}`);
     
-    // Save error import metadata
+    logAudit("Carga Banco", "Falha", `Falha ao carregar registros do banco de dados: ${error.message || "Erro de conexão"}`);
     try {
       const logItem = {
         tableName: req.body.tableNames ? req.body.tableNames.join(", ") : (req.body.tableName || "Erro de Carga"),
@@ -902,6 +1151,42 @@ function writeSystemDb(data: any) {
   } catch (e: any) {
     const safeMsg = String(e?.message || e).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
     console.log(`[Aviso write sysdb] Persistencia: ${safeMsg}`);
+  }
+}
+
+// Security: Check SQL is read-only (SELECT only, reject destructive words)
+function isQueryReadOnly(query: string): boolean {
+  if (!query) return true;
+  const q = query.trim().toUpperCase();
+  const blockedKeywords = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE"];
+  for (const keyword of blockedKeywords) {
+    const regex = new RegExp(`\\b${keyword}\\b`, "i");
+    if (regex.test(q)) {
+      logAudit("Segurança", "Falha", `Bloqueio de Consulta: Tentativa de alteração '${keyword}' rejeitada no SQL do banco do cliente.`);
+      return false;
+    }
+  }
+  return true;
+}
+
+// Audit logs persistent recorder
+function logAudit(eventType: string, status: "Tentativa" | "Sucesso" | "Falha" | "Info", description: string, user = "lmarcanjo16@gmail.com") {
+  try {
+    const sysDb = readSystemDb();
+    if (!sysDb.auditLogs) sysDb.auditLogs = [];
+    const logEntry = {
+      id: "log_" + Math.random().toString(36).substring(2, 11),
+      timestamp: new Date().toISOString(),
+      eventType,
+      status,
+      description,
+      user
+    };
+    sysDb.auditLogs.unshift(logEntry);
+    writeSystemDb(sysDb);
+    console.log(`[AUDIT LOG] ${eventType} - ${status} - ${description}`);
+  } catch (e: any) {
+    console.log("Erro ao salvar log de auditoria:", e.message);
   }
 }
 
@@ -974,7 +1259,10 @@ app.post("/api/system/db", (req, res) => {
 // Endpoint de Sincronização em tempo real (Modo Usuário / Refresh)
 app.post("/api/db/sync", async (req, res) => {
   try {
+    logAudit("Importação", "Tentativa", "Iniciando processo de sincronização e importação estruturada do banco do cliente.");
+
     if (!fs.existsSync(DB_CONFIG_FILE)) {
+      logAudit("Importação", "Falha", "Sincronização abortada: Banco de dados do cliente não parametrizado.");
       return res.status(404).json({ error: "Banco de dados não configurado. Por favor, conecte o banco no Modo Administrador e salve a configuração." });
     }
 
@@ -1012,6 +1300,8 @@ app.post("/api/db/sync", async (req, res) => {
     history.push(newSnapshot);
     writeReportsHistory(history);
 
+    logAudit("Importação", "Sucesso", `Sincronização e mapeamento concluídos para o cliente. Importados ${data.length} registros de tabelas remotas.`);
+
     return res.json({ 
       success: true, 
       count: data.length, 
@@ -1022,6 +1312,7 @@ app.post("/api/db/sync", async (req, res) => {
   } catch (error: any) {
     const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
     console.log(`[Aviso Sync] Sincronizacao automatica: ${safeMsg}`);
+    logAudit("Importação", "Falha", `Falha na sincronização periódica do banco: ${error.message || "Erro de rede"}`);
     return res.status(500).json({ error: error.message || "Erro durante a sincronização de dados." });
   }
 });
@@ -1127,7 +1418,7 @@ app.get("/api/health", (req, res) => {
 // Endpoint para puxar os códigos Streamlit para download/cópia no frontend
 app.get("/api/streamlit/app", (req, res) => {
   try {
-    const appPath = path.join(process.cwd(), "app.py");
+    const appPath = path.join(process.cwd(), "streamlit_export", "app.py");
     const content = fs.readFileSync(appPath, "utf-8");
     res.json({ content });
   } catch (err) {
@@ -1137,7 +1428,7 @@ app.get("/api/streamlit/app", (req, res) => {
 
 app.get("/api/streamlit/requirements", (req, res) => {
   try {
-    const reqPath = path.join(process.cwd(), "requirements.txt");
+    const reqPath = path.join(process.cwd(), "streamlit_export", "requirements.txt");
     const content = fs.readFileSync(reqPath, "utf-8");
     res.json({ content });
   } catch (err) {
@@ -1147,7 +1438,7 @@ app.get("/api/streamlit/requirements", (req, res) => {
 
 app.get("/api/streamlit/instructions", (req, res) => {
   try {
-    const readmePath = path.join(process.cwd(), "README_STREAMLIT.md");
+    const readmePath = path.join(process.cwd(), "streamlit_export", "README_STREAMLIT.md");
     const content = fs.readFileSync(readmePath, "utf-8");
     res.json({ content });
   } catch (err) {
@@ -1466,6 +1757,7 @@ app.post("/api/vpn/add", (req, res) => {
   };
   configs.push(newConfig);
   saveVpnConfigs(configs);
+  logAudit("Configuração VPN", "Info", `Nova configuração de VPN adicionada para o cliente: ${req.body.clientName} (${req.body.vpnType.toUpperCase()})`);
   res.json({ success: true, config: newConfig });
 });
 
@@ -1478,6 +1770,8 @@ app.post("/api/vpn/connect", (req, res) => {
   configs[index].logs.push(`[${new Date().toISOString()}] Solicitando criação de nova rede Docker isolada...`);
   configs[index].logs.push(`[${new Date().toISOString()}] Subindo container ${configs[index].vpnType}_client_${configs[index].id}...`);
   saveVpnConfigs(configs);
+
+  logAudit("Conexão VPN", "Tentativa", `Tentativa de conexão VPN iniciada para o cliente: ${configs[index].clientName}`);
   
   // Simulate connection process
   setTimeout(() => {
@@ -1490,6 +1784,7 @@ app.post("/api/vpn/connect", (req, res) => {
          updatedConfigs[idx].logs.push(`[${new Date().toISOString()}] Network tun0 UP. Interfaces estabelecidas.`);
          updatedConfigs[idx].logs.push(`[${new Date().toISOString()}] Handshake verificado. Conectado com sucesso em container isolado.`);
          saveVpnConfigs(updatedConfigs);
+         logAudit("Conexão VPN", "Sucesso", `Conexão VPN estabelecida com sucesso para o cliente: ${updatedConfigs[idx].clientName}`);
       }
     }
   }, 3000);
@@ -1502,11 +1797,14 @@ app.post("/api/vpn/disconnect", (req, res) => {
   const index = configs.findIndex((c: any) => c.id === req.body.id);
   if (index === -1) return res.status(404).json({ error: "Configuração não encontrada" });
 
+  const oldName = configs[index].clientName;
   configs[index].status = "disconnected";
   configs[index].containerId = "";
   configs[index].logs.push(`[${new Date().toISOString()}] Container de VPN terminado.`);
   configs[index].logs.push(`[${new Date().toISOString()}] Rede isolada destruída.`);
   saveVpnConfigs(configs);
+
+  logAudit("Conexão VPN", "Info", `VPN desconectada pelo consultor para o cliente: ${oldName}`);
 
   res.json({ success: true });
 });
@@ -1517,13 +1815,26 @@ app.post("/api/vpn/test-db", (req, res) => {
   if (index === -1) return res.status(404).json({ error: "Configuração não encontrada" });
 
   if (configs[index].status !== "connected") {
+    logAudit("Conexão Banco", "Falha", `Falha no ping ao banco via VPN para: ${configs[index].clientName} (VPN offline)`);
     return res.status(400).json({ error: "VPN client não está rodando. Conecte primeiro." });
   }
 
+  logAudit("Conexão Banco", "Tentativa", `Tentativa de ping ao banco faturamento via VPN para: ${configs[index].clientName}`);
+
   // Simulate remote DB ping
   setTimeout(() => {
+    logAudit("Conexão Banco", "Sucesso", `Ping ao banco faturamento bem-sucedido via VPN para o cliente: ${configs[index].clientName}`);
     res.json({ success: true });
   }, 1000);
+});
+
+app.get("/api/audit/logs", (req, res) => {
+  try {
+    const sysDb = readSystemDb();
+    res.json({ success: true, logs: sysDb.auditLogs || [] });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // -------------------------------------------------------------

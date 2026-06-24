@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
 import { availableTemplates } from "../utils/industryTemplates";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, ComposedChart, Line, Cell } from 'recharts';
 
 interface IntelligentDRETabProps {
   filteredData: LancamentoFinanceiro[];
@@ -29,6 +30,7 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
     "grupo" | "empresa" | "conta" | "detalhe"
   >("grupo");
   const [drillDownFilter, setDrillDownFilter] = useState<string>("");
+  const [contaFilter, setContaFilter] = useState<string | null>(null);
 
   const activeTemplate = useMemo(() => {
     return (
@@ -39,6 +41,7 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
 
   // Motor Inteligente DRE - Automatically trying to categorize Receitas, Despesas, Custos based on standard names
   const dreData = useMemo(() => {
+//...(the dreData variable computation will go below)
     let receitaBruta = 0;
     let deducoes = 0;
     let custosOperacionais = 0;
@@ -121,6 +124,37 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
       lucroLiquido,
       contasList,
     };
+  }, [filteredData]);
+
+  // Gráficos Aggregation
+  const evolucaoMensal = useMemo(() => {
+    const mesesMap: Record<string, { mes: string; Receita: number; Despesa: number; Lucro: number }> = {};
+    filteredData.forEach(d => {
+      const k = d.Data ? d.Data.substring(0,7) : d.Mês;
+      if(!k) return;
+      if (!mesesMap[k]) mesesMap[k] = { mes: k, Receita: 0, Despesa: 0, Lucro: 0 };
+      
+      const val = (d.Receita || 0) - ((d.Despesa || 0) + (d.Custo || 0)) || (d.Valor || 0);
+
+      if (d.Receita || val > 0) mesesMap[k].Receita += Math.abs(d.Receita || val);
+      if (d.Despesa || d.Custo || val < 0) mesesMap[k].Despesa += Math.abs(d.Despesa || d.Custo || val);
+    });
+    
+    return Object.values(mesesMap).map(m => ({
+        ...m,
+        Lucro: m.Receita - m.Despesa
+    })).sort((a, b) => a.mes.localeCompare(b.mes));
+  }, [filteredData]);
+
+  const porCentroCusto = useMemo(() => {
+     const ccMap: Record<string, { nome: string; Resultado: number }> = {};
+     filteredData.forEach(d => {
+       const k = d.CentroDeCusto || "Geral";
+       if (!ccMap[k]) ccMap[k] = { nome: k, Resultado: 0 };
+       const val = (d.Receita || 0) - ((d.Despesa || 0) + (d.Custo || 0)) || (d.Valor || 0);
+       ccMap[k].Resultado += val;
+     });
+     return Object.values(ccMap).sort((a,b) => b.Resultado - a.Resultado).slice(0, 10);
   }, [filteredData]);
 
   const IconMap: any = {
@@ -372,7 +406,11 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
               .map(([conta, info]: any, i) => (
                 <div
                   key={i}
-                  className="flex flex-col gap-1 text-sm border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0 cursor-pointer group"
+                  className={`flex flex-col gap-1 text-sm border-b border-slate-100 dark:border-slate-800 pb-3 last:border-0 cursor-pointer group px-2 py-1 rounded ${contaFilter === conta ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                  onClick={() => {
+                    setContaFilter(contaFilter === conta ? null : conta);
+                    document.getElementById('tabela-analitica-documental')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
                 >
                   <div className="flex justify-between items-center">
                     <span className="font-medium text-slate-700 dark:text-slate-300 text-xs truncate max-w-[180px] group-hover:text-blue-500 transition-colors">
@@ -402,6 +440,141 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
             )}
           </div>
         </div>
+      </div>
+      
+      {/* Visão Gráfica DRE */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+        {/* Gráfico 1: Receita x Despesa x Lucro Mensal */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex flex-col h-[350px]">
+          <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide text-xs mb-4">
+            Evolução de ResultadoMensal (Receita x Custo x Lucro)
+          </h3>
+          <div className="flex-1 min-h-[0]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={evolucaoMensal} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                <XAxis dataKey="mes" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748B' }} />
+                <YAxis tickFormatter={(val) => `R$${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748B' }} />
+                <RechartsTooltip 
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                <Bar dataKey="Receita" name="Receita" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Despesa" name="Despesa/Custo" fill="#EF4444" radius={[4, 4, 0, 0]} />
+                <Line type="monotone" dataKey="Lucro" name="Resultado Líquido" stroke="#3B82F6" strokeWidth={3} dot={{ r: 4, fill: '#3B82F6', strokeWidth: 2, stroke: '#FFF' }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Gráfico 2: Resultado por Centro de Custo */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex flex-col h-[350px]">
+          <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide text-xs mb-4">
+            Top Resultados por Centro de Custo
+          </h3>
+          <div className="flex-1 min-h-[0]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={porCentroCusto} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E2E8F0" />
+                <XAxis type="number" tickFormatter={(val) => `R$${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748B' }} />
+                <YAxis dataKey="nome" type="category" width={100} tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748B' }} />
+                <RechartsTooltip 
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                />
+                <Bar dataKey="Resultado" name="Resultado" radius={[0, 4, 4, 0]}>
+                  {porCentroCusto.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.Resultado >= 0 ? '#10B981' : '#EF4444'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Detailed Table Section */}
+      <div id="tabela-analitica-documental" className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm mt-8">
+         <div className="p-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex items-center justify-between">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide text-xs flex items-center gap-2">
+              Tabela Analítica Documental 
+              {contaFilter && (
+                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-[10px]">Filtrado: {contaFilter}</span>
+              )}
+            </h3>
+            {contaFilter && (
+               <button onClick={() => setContaFilter(null)} className="text-[10px] uppercase font-bold text-slate-500 hover:text-slate-700">Limpar Filtro</button>
+            )}
+         </div>
+         <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs whitespace-nowrap">
+              <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 uppercase font-bold border-b border-slate-200">
+                <tr>
+                  <th className="p-3">Data Contábil</th>
+                  <th className="p-3">Competência</th>
+                  <th className="p-3">Grupo</th>
+                  <th className="p-3">Empresa</th>
+                  <th className="p-3">CNPJ</th>
+                  <th className="p-3">Marca</th>
+                  <th className="p-3">Loja/Filial</th>
+                  <th className="p-3">Departamento</th>
+                  <th className="p-3">Centro de Custo</th>
+                  <th className="p-3">Código Conta</th>
+                  <th className="p-3">Nome Conta</th>
+                  <th className="p-3 max-w-[200px]">Descrição Movimento</th>
+                  <th className="p-3 text-right">Valor Operacional</th>
+                  <th className="p-3 text-right">Tipo de Movimento</th>
+                  <th className="p-3">Origem</th>
+                  <th className="p-3">Doc. Fiscal</th>
+                  <th className="p-3">Usuário Int.</th>
+                  <th className="p-3">Observações Adic.</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredData
+                 .filter(r => {
+                   if (!contaFilter) return true;
+                   const contaId = r.ContaContabil || r.Razão || "Sem Conta";
+                   return contaId === contaFilter;
+                 })
+                 .slice(0, 50).map((r, i) => {
+                   const val = r.Valor !== undefined ? r.Valor : ((r.Receita || 0) - ((r.Despesa || 0) + (r.Custo || 0)));
+                   const typeMov = r.TipoMovimento || (val >= 0 ? "Credito" : "Debito");
+
+                   return (
+                     <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                       <td className="p-3">{r.Data || r.Mês || "-"}</td>
+                       <td className="p-3 text-slate-500">{r.Competencia || r.Mês || "-"}</td>
+                       <td className="p-3"><span className="bg-slate-100 px-2 py-0.5 rounded">{r.Grupo || "-"}</span></td>
+                       <td className="p-3 font-semibold text-slate-700">{r.Empresa || "-"}</td>
+                       <td className="p-3 font-mono text-[10px] text-slate-500">{r.CNPJ || "-"}</td>
+                       <td className="p-3">{r.Marca || "-"}</td>
+                       <td className="p-3">{r.Loja || r.Filial || "-"}</td>
+                       <td className="p-3">{r.Departamento || "-"}</td>
+                       <td className="p-3 font-mono text-[10px] text-slate-500">{r.CentroDeCusto || "-"}</td>
+                       <td className="p-3 font-mono text-[10px] font-bold">{r.CodigoConta || (r.ContaContabil ? r.ContaContabil.split("-")[0].trim() : "-")}</td>
+                       <td className="p-3">{r.NomeConta || r.Razão || "-"}</td>
+                       <td className="p-3 text-slate-500 text-[10px] truncate max-w-[200px]" title={r.DescricaoLancamento}>{r.DescricaoLancamento || "-"}</td>
+                       <td className={`p-3 text-right font-mono font-bold ${val >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{formatCurrency(val)}</td>
+                       <td className="p-3 text-right">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${typeMov === 'Credito' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{typeMov}</span>
+                       </td>
+                       <td className="p-3 text-slate-500">{r.Origem || "-"}</td>
+                       <td className="p-3 text-slate-500 font-mono text-[10px]">{r.DocumentoFiscal || "-"}</td>
+                       <td className="p-3 text-slate-500">{r.Usuario || "-"}</td>
+                       <td className="p-3 text-slate-500 text-[10px] truncate max-w-[150px]">{r.Observacoes || "-"}</td>
+                     </tr>
+                   )
+                })}
+              </tbody>
+            </table>
+            {filteredData.filter(r => !contaFilter || (r.ContaContabil || r.Razão || "Sem Conta") === contaFilter).length > 50 && (
+               <div className="p-3 text-center text-xs text-slate-500 bg-slate-50">
+                 Mostrando 50 de {filteredData.filter(r => !contaFilter || (r.ContaContabil || r.Razão || "Sem Conta") === contaFilter).length} registros. Use os filtros globais para detalhar mais.
+               </div>
+            )}
+         </div>
       </div>
     </div>
   );

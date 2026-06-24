@@ -51,30 +51,12 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
   const [sshPassword, setSshPassword] = useState("");
   const [sshPrivateKey, setSshPrivateKey] = useState("");
 
-  // VPN Configuration States
-  const [useVpn, setUseVpn] = useState(false);
-  const [vpnType, setVpnType] = useState<"wireguard" | "openvpn" | "ipsec" | "l2tp">("wireguard");
-  const [vpnServer, setVpnServer] = useState("");
-  const [vpnPort, setVpnPort] = useState("");
-  const [vpnUser, setVpnUser] = useState("");
-  const [vpnPassword, setVpnPassword] = useState("");
-  const [vpnPrivateKey, setVpnPrivateKey] = useState("");
-  const [vpnPublicKey, setVpnPublicKey] = useState("");
-  const [vpnPresharedKey, setVpnPresharedKey] = useState("");
-  const [vpnAddress, setVpnAddress] = useState("");
-  const [vpnConfigXml, setVpnConfigXml] = useState("");
-  const [vpnGroupId, setVpnGroupId] = useState("");
-  const [vpnGroupSecret, setVpnGroupSecret] = useState("");
-  const [vpnProtocol, setVpnProtocol] = useState<"UDP" | "TCP">("UDP");
-  const [vpnRequireAuth, setVpnRequireAuth] = useState(false);
-  const [vpnMtu, setVpnMtu] = useState("1420");
-  const [vpnEncryption, setVpnEncryption] = useState("AES-256-GCM");
-
   // Discovery states
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
     error?: string;
+    technicalDetails?: string;
     tables?: string[];
     tableColumns?: Record<string, { name: string; type: string }[]>;
     estimatedRows?: Record<string, number>;
@@ -163,24 +145,6 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
       if (parsed.sshPassword) setSshPassword(parsed.sshPassword);
       if (parsed.sshPrivateKey) setSshPrivateKey(parsed.sshPrivateKey);
 
-      // VPN Restore
-      setUseVpn(parsed.useVpn || false);
-      setVpnType(parsed.vpnType || "wireguard");
-      setVpnServer(parsed.vpnServer || "");
-      setVpnPort(parsed.vpnPort || "");
-      setVpnUser(parsed.vpnUser || "");
-      setVpnPassword(parsed.vpnPassword || "");
-      setVpnPrivateKey(parsed.vpnPrivateKey || "");
-      setVpnPublicKey(parsed.vpnPublicKey || "");
-      setVpnPresharedKey(parsed.vpnPresharedKey || "");
-      setVpnAddress(parsed.vpnAddress || "");
-      setVpnConfigXml(parsed.vpnConfigXml || "");
-      setVpnGroupId(parsed.vpnGroupId || "");
-      setVpnGroupSecret(parsed.vpnGroupSecret || "");
-      setVpnProtocol(parsed.vpnProtocol || "UDP");
-      setVpnRequireAuth(parsed.vpnRequireAuth || false);
-      setVpnMtu(parsed.vpnMtu || "1420");
-      setVpnEncryption(parsed.vpnEncryption || "AES-256-GCM");
     };
 
     fetchServerAndLocalConfig();
@@ -221,13 +185,33 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
   const testConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
-    setStatusMessage("");
+    setStatusMessage("Iniciando sequenciador de diagnóstico por etapas...");
 
     const config = useConnectionString
-      ? { type: dbType, connectionString, ssl, useSshTunnel, sshHost, sshPort, sshUser, sshPassword, sshPrivateKey, useVpn, vpnType, vpnServer, vpnPort, vpnUser, vpnPassword, vpnPrivateKey, vpnPublicKey, vpnPresharedKey, vpnAddress, vpnConfigXml, vpnGroupId, vpnGroupSecret, vpnProtocol, vpnRequireAuth, vpnMtu, vpnEncryption }
-      : { type: dbType, host, port, user, password, database, ssl, useSshTunnel, sshHost, sshPort, sshUser, sshPassword, sshPrivateKey, useVpn, vpnType, vpnServer, vpnPort, vpnUser, vpnPassword, vpnPrivateKey, vpnPublicKey, vpnPresharedKey, vpnAddress, vpnConfigXml, vpnGroupId, vpnGroupSecret, vpnProtocol, vpnRequireAuth, vpnMtu, vpnEncryption };
+      ? { type: dbType, connectionString, ssl, useSshTunnel, sshHost, sshPort, sshUser, sshPassword, sshPrivateKey }
+      : { type: dbType, host, port, user, password, database, ssl, useSshTunnel, sshHost, sshPort, sshUser, sshPassword, sshPrivateKey };
 
     try {
+      // 1. Stage Diagnostic check
+      const diagResponse = await fetch("/api/db/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config)
+      });
+      
+      const diagData = await diagResponse.json();
+      
+      if (!diagResponse.ok || !diagData.success) {
+        setTestResult({
+          success: false,
+          error: `Falha na etapa [${(diagData.stage || "unknown").toUpperCase()}]: ${diagData.message || "Não foi possível estabelecer contato."}`,
+          technicalDetails: diagData.technicalDetails || "Nenhum log de depuração adicional foi gerado."
+        });
+        return;
+      }
+
+      // 2. Structural connection is valid, now retrieve schema catalogs
+      setStatusMessage("Conexão e permissões validadas! Buscando schemas e tabelas...");
       const response = await fetch("/api/db/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -241,7 +225,7 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
           success: true,
           tables: resData.tables || [],
           tableColumns: resData.tableColumns || {},
-          isVpnSimulated: resData.isVpnSimulated
+          isVpnSimulated: resData.isVpnSimulated || diagData.isVpnSimulated
         });
 
         // Set first table as selected if not already set
@@ -252,16 +236,19 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
       } else {
         setTestResult({
           success: false,
-          error: resData.error || "Não foi possível conectar ao banco."
+          error: resData.error || "A autenticação foi autorizada, mas falhou ao varrer as tabelas do catálogo público.",
+          technicalDetails: "O usuário do banco de dados pode ter permissões de conexão, mas carece de acesso para ler a tabela 'information_schema'."
         });
       }
     } catch (err: any) {
       setTestResult({
         success: false,
-        error: err.message || "Erro na comunicação com a API de banco."
+        error: err.message || "Erro na comunicação com a API de banco do Sauron.",
+        technicalDetails: "Verifique se o container Node.js está rodando ou se há restrições de rede corporativa de firewall."
       });
     } finally {
       setIsTesting(false);
+      setStatusMessage("");
     }
   };
 
@@ -337,24 +324,7 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
       sshPort,
       sshUser,
       sshPassword,
-      sshPrivateKey,
-      useVpn,
-      vpnType,
-      vpnServer,
-      vpnPort,
-      vpnUser,
-      vpnPassword,
-      vpnPrivateKey,
-      vpnPublicKey,
-      vpnPresharedKey,
-      vpnAddress,
-      vpnConfigXml,
-      vpnGroupId,
-      vpnGroupSecret,
-      vpnProtocol,
-      vpnRequireAuth,
-      vpnMtu,
-      vpnEncryption
+      sshPrivateKey
     };
     
     // Save to local storage
@@ -378,6 +348,19 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
       return;
     }
 
+    if (useCustomQuery && customQuery.trim() !== "") {
+      const q = customQuery.toUpperCase();
+      const blockedKeywords = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE"];
+      for (const keyword of blockedKeywords) {
+        const regex = new RegExp(`\\b${keyword}\\b`, "i");
+        if (regex.test(q)) {
+          setStatusMessage(`Erro de Segurança: A palavra '${keyword}' está bloqueada. Apenas comandos SELECT são permitidos.`);
+          alert(`Tentativa de alteração bloqueada! O comando '${keyword}' não é permitido por diretivas de segurança de leitura (Read-Only).`);
+          return;
+        }
+      }
+    }
+
     // Check if critical mappings are set
     const criticalFields = ["Grupo", "CNPJ", "Marca", "Empresa", "Mês", "Razão", "Receita", "Custo", "Despesa"];
     const missingFields = criticalFields.filter((f) => !mappings[f]);
@@ -390,8 +373,8 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
     setStatusMessage("Processando conexão e importando dados...");
 
     const connectionConfig = useConnectionString
-      ? { type: dbType, connectionString, ssl, useSshTunnel, sshHost, sshPort, sshUser, sshPassword, sshPrivateKey, useVpn, vpnType, vpnServer, vpnPort, vpnUser, vpnPassword, vpnPrivateKey, vpnPublicKey, vpnPresharedKey, vpnAddress, vpnConfigXml, vpnGroupId, vpnGroupSecret, vpnProtocol, vpnRequireAuth, vpnMtu, vpnEncryption }
-      : { type: dbType, host, port, user, password, database, ssl, useSshTunnel, sshHost, sshPort, sshUser, sshPassword, sshPrivateKey, useVpn, vpnType, vpnServer, vpnPort, vpnUser, vpnPassword, vpnPrivateKey, vpnPublicKey, vpnPresharedKey, vpnAddress, vpnConfigXml, vpnGroupId, vpnGroupSecret, vpnProtocol, vpnRequireAuth, vpnMtu, vpnEncryption };
+      ? { type: dbType, connectionString, ssl, useSshTunnel, sshHost, sshPort, sshUser, sshPassword, sshPrivateKey }
+      : { type: dbType, host, port, user, password, database, ssl, useSshTunnel, sshHost, sshPort, sshUser, sshPassword, sshPrivateKey };
 
     const payload = {
       ...connectionConfig,
@@ -414,7 +397,7 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
           setStatusMessage("Banco conectado com sucesso, mas a consulta não retornou linhas.");
         } else {
           saveConfiguration();
-          const sourcePrefix = useVpn ? "[VPN ATIVA] " : "";
+          const sourcePrefix = "";
           onDataLoaded(resData.data, `${sourcePrefix}Banco SQL: ${database || "String de Conexão"}`);
           setStatusMessage(`Sucesso! Importados ${resData.count} registros com sucesso.`);
           // Auto close database panel after 1.5 seconds on successful load
@@ -643,437 +626,6 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
             </div>
           )}
 
-          {/* VPN Corporativa Integrada section */}
-          <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded p-3 bg-slate-50/50 dark:bg-slate-950/20 space-y-3">
-            <div className="flex items-center justify-between">
-              <label htmlFor="vpn-toggle" className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  id="vpn-toggle"
-                  checked={useVpn}
-                  onChange={(e) => setUseVpn(e.target.checked)}
-                  className="rounded border-slate-300 dark:border-slate-700 text-slate-850 dark:text-white focus:ring-slate-500 cursor-pointer h-4 w-4"
-                />
-                <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wide flex items-center gap-1.5 transition-all">
-                  <Shield size={14} className={useVpn ? "text-blue-600 animate-pulse" : "text-slate-500"} />
-                  Habilitar VPN Corporativa Integrada (Acesso Seguro)
-                </span>
-              </label>
-              {useVpn ? (
-                <span className="text-[9px] bg-blue-100 dark:bg-blue-950/55 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-bold uppercase shrink-0 animate-pulse">VPN ATIVA</span>
-              ) : (
-                <span className="text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase shrink-0">Inativa</span>
-              )}
-            </div>
-
-            {useVpn && (
-              <div className="space-y-3 pt-2 border-t border-slate-150 dark:border-slate-800 animate-fadeIn text-[11px]">
-                {/* Seletor do Tipo de VPN */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1.5">Provedor / Tipo de VPN</label>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-1.5 p-1 bg-slate-100 dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-850">
-                    {(["wireguard", "openvpn", "ipsec", "l2tp"] as const).map((type) => {
-                      const labels = {
-                        wireguard: "🛡️ WireGuard",
-                        openvpn: "🌐 OpenVPN",
-                        ipsec: "🔒 IPSec / Cisco",
-                        l2tp: "🛠️ L2TP IPsec"
-                      };
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setVpnType(type)}
-                          className={`py-1.5 px-2 rounded font-bold text-[10px] uppercase tracking-wide transition-all cursor-pointer text-center ${
-                            vpnType === type
-                              ? "bg-blue-600 dark:bg-blue-700 text-white shadow"
-                              : "text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
-                          }`}
-                        >
-                          {labels[type]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Campos de formulário dinâmicos */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {vpnType !== "openvpn" && (
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
-                        {vpnType === "wireguard" ? "Endpoint WireGuard (IP:Porta)" : "Gateway / Servidor VPN"}
-                      </label>
-                      <input
-                        type="text"
-                        value={vpnServer}
-                        onChange={(e) => setVpnServer(e.target.value)}
-                        placeholder={vpnType === "wireguard" ? "vpn.empresa.com:51820" : "vpn.empresa.com"}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white font-mono text-[11px]"
-                      />
-                    </div>
-                  )}
-
-                  {vpnType === "wireguard" && (
-                    <>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">IP do Cliente na Interface (CIDR)</label>
-                        <input
-                          type="text"
-                          value={vpnAddress}
-                          onChange={(e) => setVpnAddress(e.target.value)}
-                          placeholder="ex: 10.8.0.2/24"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded px-2 py-1 focus:outline-none focus:border-slate-500 font-mono text-[11px]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">MTU Recomentado da Interface</label>
-                        <input
-                          type="text"
-                          value={vpnMtu}
-                          onChange={(e) => setVpnMtu(e.target.value)}
-                          placeholder="1420"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded px-2 py-1 focus:outline-none focus:border-slate-500 font-mono text-[11px]"
-                        />
-                      </div>
-                      <div className="md:col-span-3">
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 flex items-center gap-1">
-                          <Key size={11} className="text-slate-400" />
-                          Chave Privada do Cliente (Private Key, base64)
-                        </label>
-                        <input
-                          type="password"
-                          value={vpnPrivateKey}
-                          onChange={(e) => setVpnPrivateKey(e.target.value)}
-                          placeholder="Cole sua Private Key do WireGuard aqui..."
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded px-2 py-1 focus:outline-none focus:border-slate-500 font-mono text-[11px]"
-                        />
-                      </div>
-                      <div className="md:col-span-3">
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 flex items-center gap-1">
-                          <Globe size={11} className="text-slate-400" />
-                          Chave Pública do Peer / Servidor (Server Public Key)
-                        </label>
-                        <input
-                          type="text"
-                          value={vpnPublicKey}
-                          onChange={(e) => setVpnPublicKey(e.target.value)}
-                          placeholder="Chave pública do servidor de VPN..."
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded px-2 py-1 focus:outline-none focus:border-slate-500 font-mono text-[11px]"
-                        />
-                      </div>
-                      <div className="md:col-span-3">
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Chave Pré-compartilhada (Preshared Key - Opcional)</label>
-                        <input
-                          type="password"
-                          value={vpnPresharedKey}
-                          onChange={(e) => setVpnPresharedKey(e.target.value)}
-                          placeholder="Disponível em certas conexões corporativas extras..."
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded px-2 py-1 focus:outline-none focus:border-slate-500 font-mono text-[11px]"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {vpnType === "openvpn" && (
-                    <>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Gateway / Servidor OpenVPN (Opcional)</label>
-                        <input
-                          type="text"
-                          value={vpnServer}
-                          onChange={(e) => setVpnServer(e.target.value)}
-                          placeholder="Deixe vazio para ler do .ovpn"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded px-2 py-1 focus:outline-none focus:border-slate-500 font-mono text-[11px]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Porta de Gateway</label>
-                        <input
-                          type="text"
-                          value={vpnPort}
-                          onChange={(e) => setVpnPort(e.target.value)}
-                          placeholder="1194"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded px-2 py-1 focus:outline-none focus:border-slate-500 font-mono text-[11px]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Protocolo de Comunicação</label>
-                        <select
-                          value={vpnProtocol}
-                          onChange={(e) => setVpnProtocol(e.target.value as "UDP" | "TCP")}
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded px-2 py-1 text-[11px] font-medium focus:outline-none"
-                        >
-                          <option value="UDP">UDP (Mais Rápido)</option>
-                          <option value="TCP">TCP (Conexões instáveis)</option>
-                        </select>
-                      </div>
-
-                      <div className="md:col-span-3">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <input
-                            type="checkbox"
-                            id="vpn-req-auth"
-                            checked={vpnRequireAuth}
-                            onChange={(e) => setVpnRequireAuth(e.target.checked)}
-                            className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
-                          />
-                          <label htmlFor="vpn-req-auth" className="text-[10px] font-bold text-slate-500 dark:text-slate-400 cursor-pointer select-none">
-                            O Servidor exige usuário e senha (auth-user-pass)
-                          </label>
-                        </div>
-                        {vpnRequireAuth && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 mt-1.5 animate-fadeIn">
-                            <div>
-                              <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-0.5">Usuário de VPN</label>
-                              <input
-                                type="text"
-                                value={vpnUser}
-                                onChange={(e) => setVpnUser(e.target.value)}
-                                placeholder="ex: lmarcanjo@empresa.com"
-                                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none text-slate-700 dark:text-white text-[11px]"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-0.5">Senha de VPN</label>
-                              <input
-                                type="password"
-                                value={vpnPassword}
-                                onChange={(e) => setVpnPassword(e.target.value)}
-                                placeholder="Sua senha corporativa OpenVPN"
-                                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none text-slate-700 dark:text-white text-[11px]"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="md:col-span-3">
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 flex items-center gap-1">
-                          <FileText size={11} className="text-slate-400" />
-                          Perfil OpenVPN (.ovpn) e Certificados TLS CA/Inline
-                        </label>
-                        <textarea
-                          rows={4}
-                          value={vpnConfigXml}
-                          onChange={(e) => setVpnConfigXml(e.target.value)}
-                          placeholder="Cole aqui o conteúdo do seu arquivo de configuração de perfil .ovpn..."
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded p-2 focus:outline-none focus:border-slate-500 font-mono text-[9px] leading-relaxed text-slate-700 dark:text-white"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {vpnType === "ipsec" && (
-                    <>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">ID / Nome do Grupo (Cisco Group ID)</label>
-                        <input
-                          type="text"
-                          value={vpnGroupId}
-                          onChange={(e) => setVpnGroupId(e.target.value)}
-                          placeholder="ex: vpn_finance"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Chave Compartilhada do Grupo (Shared Secret)</label>
-                        <input
-                          type="password"
-                          value={vpnGroupSecret}
-                          onChange={(e) => setVpnGroupSecret(e.target.value)}
-                          placeholder="••••••••••••"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Cifra de Encriptação</label>
-                        <select
-                          value={vpnEncryption}
-                          onChange={(e) => setVpnEncryption(e.target.value)}
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-[11px] text-slate-700 dark:text-white focus:outline-none"
-                        >
-                          <option value="AES-256-GCM">AES-256-GCM (Altamente Recomendado)</option>
-                          <option value="AES-128-CBC">AES-128-CBC</option>
-                          <option value="3DES">3DES (Legado Legacia)</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Nome do Usuário (Xauth Username)</label>
-                        <input
-                          type="text"
-                          value={vpnUser}
-                          onChange={(e) => setVpnUser(e.target.value)}
-                          placeholder="Usuário Xauth individual"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Senha do Usuário (Xauth Password)</label>
-                        <input
-                          type="password"
-                          value={vpnPassword}
-                          onChange={(e) => setVpnPassword(e.target.value)}
-                          placeholder="Sua senha de identificação de rede"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white"
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  {vpnType === "l2tp" && (
-                    <>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Chave Pré-compartilhada IPsec (PSK)</label>
-                        <input
-                          type="password"
-                          value={vpnPresharedKey}
-                          onChange={(e) => setVpnPresharedKey(e.target.value)}
-                          placeholder="Chave secreta IPsec compartilhada"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Usuário L2TP (PPP PAP/CHAP)</label>
-                        <input
-                          type="text"
-                          value={vpnUser}
-                          onChange={(e) => setVpnUser(e.target.value)}
-                          placeholder="ex: ppp-user"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Senha L2TP (PPP)</label>
-                        <input
-                          type="password"
-                          value={vpnPassword}
-                          onChange={(e) => setVpnPassword(e.target.value)}
-                          placeholder="Senha de rede credencial L2TP"
-                          className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 italic mt-1 leading-normal flex items-start gap-1.5 bg-blue-50/50 dark:bg-blue-950/20 p-2.5 rounded border border-blue-100 dark:border-blue-900/60">
-                  <Info size={12} className="text-blue-500 mt-0.5 shrink-0" />
-                  <span>
-                    O Sauron iniciará dinamicamente o túnel <strong>{vpnType === "wireguard" ? "Wireguard (wg0-interface)" : vpnType === "openvpn" ? "OpenVPN (tun0-tunnel)" : vpnType === "ipsec" ? "IPSec IKEv2 SecAssociation" : "L2TP Over IPSec"}</strong> em segundo plano, estabelecendo uma VPN lógica na sandbox de backend antes de autorizar qualquer roteamento de consulta ao banco SQL.
-                  </span>
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* SSH VM Proxy section */}
-          <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded p-3 bg-slate-50/50 dark:bg-slate-950/20 space-y-3">
-            <div className="flex items-center justify-between">
-              <label htmlFor="ssh-tunnel-toggle" className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  id="ssh-tunnel-toggle"
-                  checked={useSshTunnel}
-                  onChange={(e) => setUseSshTunnel(e.target.checked)}
-                  className="rounded border-slate-300 dark:border-slate-700 text-slate-850 dark:text-white focus:ring-slate-500 cursor-pointer h-4 w-4"
-                />
-                <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wide flex items-center gap-1.5">
-                  <Terminal size={14} className="text-slate-500" />
-                  Habilitar Túnel SSH (Bastion VM / VPN)
-                </span>
-              </label>
-              <span className="text-[9px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded font-bold uppercase shrink-0">Opcional</span>
-            </div>
-
-            {useSshTunnel && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-150 dark:border-slate-800 animate-fadeIn text-[11px]">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Host SSH (Bastion/Máquina Virtual)</label>
-                  <input
-                    type="text"
-                    value={sshHost}
-                    onChange={(e) => setSshHost(e.target.value)}
-                    placeholder="ex: vm-bastion.empresa.com ou IP"
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Porta SSH</label>
-                  <input
-                    type="text"
-                    value={sshPort}
-                    onChange={(e) => setSshPort(e.target.value)}
-                    placeholder="22"
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 font-mono text-[11px] text-slate-700 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Usuário SSH</label>
-                  <input
-                    type="text"
-                    value={sshUser}
-                    onChange={(e) => setSshUser(e.target.value)}
-                    placeholder="ex: ubuntu, root, admin"
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white"
-                  />
-                </div>
-                <div className="md:col-span-3 space-y-2">
-                  <div className="flex gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">
-                    Autenticação:
-                    <label className="flex items-center gap-1 cursor-pointer select-none">
-                      <input
-                        type="radio"
-                        name="sshAuth"
-                        checked={!sshPrivateKey}
-                        onChange={() => setSshPrivateKey("")}
-                        className="cursor-pointer"
-                      />
-                      Senha
-                    </label>
-                    <label className="flex items-center gap-1 cursor-pointer select-none">
-                      <input
-                        type="radio"
-                        name="sshAuth"
-                        checked={!!sshPrivateKey}
-                        onChange={() => setSshPrivateKey("-----BEGIN RSA PRIVATE KEY-----\n...")}
-                        className="cursor-pointer"
-                      />
-                      Chave Privada (SSH Key)
-                    </label>
-                  </div>
-                  
-                  {sshPrivateKey ? (
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Chave PEM / RSA Privada</label>
-                      <textarea
-                        rows={3}
-                        value={sshPrivateKey}
-                        onChange={(e) => setSshPrivateKey(e.target.value)}
-                        placeholder="Cole aqui o conteúdo do arquivo .pem ou id_rsa..."
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded p-2 focus:outline-none focus:border-slate-500 font-mono text-[9px] leading-snug text-slate-700 dark:text-white"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Senha SSH</label>
-                      <input
-                        type="password"
-                        value={sshPassword}
-                        onChange={(e) => setSshPassword(e.target.value)}
-                        placeholder="Sua senha da máquina virtual"
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-slate-500 text-slate-700 dark:text-white"
-                      />
-                    </div>
-                  )}
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 italic mt-1 leading-normal">
-                    Obs: O túnel SSH age apenas como ponte de rede local (local loopback proxying) entre este servidor seguro e a VM configurada, protegendo logins e transações de ponta a ponta.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Test connection row */}
           <div className="flex items-center gap-3">
             <button
@@ -1109,10 +661,18 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                     )}
                   </div>
                 ) : (
-                  <span className="flex items-start gap-1 text-red-600 dark:text-red-400 font-bold bg-red-50 dark:bg-red-950/40 p-1.5 rounded border border-red-200 dark:border-red-900 leading-normal max-w-[280px] md:max-w-[400px]">
-                    <XCircle size={13} className="text-red-500 mt-0.5 shrink-0" />
-                    <span>Erro: {testResult.error}</span>
-                  </span>
+                  <div className="flex flex-col gap-1.5 max-w-[280px] md:max-w-[400px]">
+                    <span className="flex items-start gap-1 text-red-600 dark:text-red-400 font-bold bg-red-50 dark:bg-red-950/40 p-1.5 rounded border border-red-200 dark:border-red-900 leading-normal">
+                      <XCircle size={13} className="text-red-500 mt-0.5 shrink-0" />
+                      <span>Erro: {testResult.error}</span>
+                    </span>
+                    {testResult.technicalDetails && (
+                      <details className="text-[9px] bg-slate-900 text-slate-350 p-2 rounded-lg border border-slate-800 font-mono">
+                        <summary className="cursor-pointer text-slate-400 select-none hover:text-slate-200">Ver logs de depuração do container</summary>
+                        <div className="mt-1 whitespace-pre-wrap leading-relaxed max-h-24 overflow-y-auto">{testResult.technicalDetails}</div>
+                      </details>
+                    )}
+                  </div>
                 )}
               </div>
             )}

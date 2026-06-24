@@ -38,10 +38,12 @@ import {
   BrainCircuit,
   Users,
   Award,
-  Presentation
+  Presentation,
+  CheckCircle2,
+  ShieldAlert
 } from "lucide-react";
 
-import { LancamentoFinanceiro, FiltrosDashboard, MetricasConsolidadas } from "./types";
+import { LancamentoFinanceiro, FiltrosDashboard, MetricasConsolidadas, ActiveDataSourceType } from "./types";
 import { gerarDadosSimulados, exportToCSV } from "./utils/dataGenerator";
 import { parseCSV } from "./utils/csvParser";
 import { KpiCard } from "./components/KpiCard";
@@ -50,6 +52,7 @@ import { ChartsGrid } from "./components/ChartsGrid";
 import { TraceabilityPanel } from "./components/TraceabilityPanel";
 import { StreamlitExporter } from "./components/StreamlitExporter";
 import { DatabaseConnector } from "./components/DatabaseConnector";
+import { DynamicFilterDrawer } from "./components/DynamicFilterDrawer";
 
 // Modular Sector Components
 import { ContabilTab } from "./components/ContabilTab";
@@ -65,6 +68,7 @@ import { LgpdConsent } from "./components/LgpdConsent";
 import { auditLog } from "./utils/profileManager";
 
 // Sauron Consulting OS Agent Modules
+import { dataSourceManager } from "./services/dataSourceManager";
 import { CentralDadosTab } from "./components/CentralDadosTab";
 import { IntelligentDRETab } from "./components/IntelligentDRETab";
 import { ModeloConsultivoTab } from "./components/ModeloConsultivoTab";
@@ -74,8 +78,11 @@ import { DiagnosticoObstaculosTab } from "./components/DiagnosticoObstaculosTab"
 import { ConsultorIaTab } from "./components/ConsultorIaTab";
 import { FechamentoMensalTab } from "./components/FechamentoMensalTab";
 import { ApresentacoesTab } from "./components/ApresentacoesTab";
-import { ModoReuniaoTab } from "./components/ModoReuniaoTab";
+import { MeetingModePage } from "./components/MeetingModePage";
 import { VpnGatewayTab } from "./components/VpnGatewayTab";
+import { PresentationBuilderPage } from "./components/PresentationBuilderPage";
+import { DashboardPage } from "./components/pages/DashboardPage";
+import { ReportsPage } from "./components/pages/ReportsPage";
 
 import { AppSidebar } from "./components/AppSidebar";
 import { availableTemplates } from "./utils/industryTemplates";
@@ -88,6 +95,9 @@ export default function App() {
   const [selectedDepartamento, setSelectedDepartamento] = useState<string>("");
   const [selectedConta, setSelectedConta] = useState<string>("");
 
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState<boolean>(false);
+
   const [dataOrigem, setDataOrigem] = useState<LancamentoFinanceiro[]>([]);
   const [dataLiveBackup, setDataLiveBackup] = useState<LancamentoFinanceiro[]>([]);
   const [nomeFonte, setNomeFonte] = useState<string>("Dados Simulados de Concessionárias de Voo");
@@ -97,6 +107,30 @@ export default function App() {
   const [visualizacaoEmpresas, setVisualizacaoEmpresas] = useState<"ficticias" | "reais">("ficticias");
   const [dataOrigemFicticio, setDataOrigemFicticio] = useState<LancamentoFinanceiro[]>([]);
   const [dataOrigemReal, setDataOrigemReal] = useState<LancamentoFinanceiro[]>([]);
+
+  // Requirement #1 Data Source engine
+  const [activeDataSource, setActiveDataSource] = useState<"DEMO_DATA" | "SPREADSHEET_DATA" | "DATABASE_DATA" | "CONSULTANT_DATA" | "MIXED_APPROVED_DATA">("DEMO_DATA");
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
+  const [visibleFilters, setVisibleFilters] = useState<string[]>(["grupos", "cnpjs", "marcas", "meses", "razoes"]);
+  const [spreadsheetMetadata, setSpreadsheetMetadata] = useState<{
+    fileName: string;
+    sheetNames: string[];
+    rowCount: number;
+    colCount: number;
+    importedAt: string;
+  } | null>(null);
+  const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({
+    Grupo: "Grupo",
+    CNPJ: "CNPJ",
+    Marca: "Marca",
+    Empresa: "Empresa",
+    Receita: "Receita",
+    Custo: "Custo",
+    Despesa: "Despesa",
+    Mês: "Mês",
+    Razão: "Razão",
+    Categoria: "Categoria"
+  });
 
   // Persistent Custom Configurations (Internal Corporate Dashboard Database)
   const [segmentoCliente, setSegmentoCliente] = useState<string>("Concessionária Popular");
@@ -202,6 +236,9 @@ export default function App() {
     meses: [],
     razoes: []
   });
+
+  // Track the actual original headers/keys of the current records source to clean and scope filter lists (Requirement 7)
+  const [actualKeys, setActualKeys] = useState<string[]>(["Grupo", "CNPJ", "Marca", "Empresa", "Mês", "Razão", "Categoria", "Vendedor"]);
 
   // Table pagination and sorting
   const [sortField, setSortField] = useState<keyof LancamentoFinanceiro>("Receita");
@@ -401,6 +438,35 @@ export default function App() {
     loadSystemDb();
   }, []);
 
+  // Synchronize state with central DataSourceManager updates
+  useEffect(() => {
+    const handleDataSourceUpdate = () => {
+      const activeSource = dataSourceManager.getActiveSource();
+      const records = dataSourceManager.getActiveRecords();
+      
+      // Update local states of App.tsx
+      setActiveDataSource(activeSource);
+      setDataOrigem(records);
+      
+      if (activeSource !== "DEMO_DATA") {
+        setDataOrigemReal(records);
+        setNomeFonte(dataSourceManager.getActiveSourceLabel());
+      } else {
+        setDataOrigemReal([]);
+        setNomeFonte("DEMO_DATA");
+      }
+    };
+
+    window.addEventListener("sauron_datasource_updated", handleDataSourceUpdate);
+    
+    // Run once on mount to capture existing state
+    handleDataSourceUpdate();
+
+    return () => {
+      window.removeEventListener("sauron_datasource_updated", handleDataSourceUpdate);
+    };
+  }, []);
+
   // Handle document dark class theme pairing
   useEffect(() => {
     if (darkMode) {
@@ -412,7 +478,7 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Set default filters whenever original data changes
+  // Set default filters whenever original data changes - automatically detecting standard & custom columns (Requirement 7)
   useEffect(() => {
     if (dataOrigem.length > 0) {
       const uniqueGrupos = Array.from(new Set(dataOrigem.map(d => d.Grupo))).sort();
@@ -421,15 +487,44 @@ export default function App() {
       const uniqueMeses = Array.from(new Set(dataOrigem.map(d => d.Mês)));
       const uniqueRazoes = Array.from(new Set(dataOrigem.map(d => d.Razão))).sort();
 
-      setFiltros({
-        grupos: uniqueGrupos,
-        cnpjs: uniqueCnpjs,
-        marcas: uniqueMarcas,
-        meses: uniqueMeses,
-        razoes: uniqueRazoes
+      const hasKey = (key: string) => {
+        if (activeDataSource === "DEMO_DATA") return true;
+        return actualKeys.some(k => k.toLowerCase() === key.toLowerCase());
+      };
+
+      const nextFilters: FiltrosDashboard = {};
+      if (hasKey("Grupo")) nextFilters.grupos = uniqueGrupos;
+      if (hasKey("CNPJ")) nextFilters.cnpjs = uniqueCnpjs;
+      if (hasKey("Marca")) nextFilters.marcas = uniqueMarcas;
+      if (hasKey("Mês")) nextFilters.meses = uniqueMeses;
+      if (hasKey("Razão")) nextFilters.razoes = uniqueRazoes;
+
+      // Detect any custom extra columns dynamically (e.g. from uploaded spreadsheets or created custom filters)
+      const extraFilters: Record<string, string[]> = {};
+      const standardKeys = ["id", "Grupo", "CNPJ", "Marca", "Empresa", "Filial", "Mês", "Razão", "Categoria", "Receita", "Custo", "Despesa", "Lucro", "Margem", "Vendedor"];
+      
+      // Examine rows to find non-standard string properties that are viable filter keys
+      dataOrigem.forEach(item => {
+        Object.keys(item).forEach(key => {
+          if (!standardKeys.includes(key) && !key.startsWith("c_") && typeof item[key] === "string" && item[key].trim() !== "") {
+            if (!extraFilters[key]) {
+              extraFilters[key] = [];
+            }
+          }
+        });
       });
+
+      // Populate unique values for each detected custom key if present in actual keys/headers
+      Object.keys(extraFilters).forEach(key => {
+        if (hasKey(key)) {
+          const uniqueValues = Array.from(new Set(dataOrigem.map(d => d[key] !== undefined && d[key] !== null ? String(d[key]) : "").filter(v => v !== ""))).sort();
+          nextFilters[key] = uniqueValues;
+        }
+      });
+
+      setFiltros(nextFilters);
     }
-  }, [dataOrigem]);
+  }, [dataOrigem, actualKeys, activeDataSource]);
 
   // Unique elements for Sidebar choice indicators with standard contextual filtering (Requirement 7)
   const availableFilters = useMemo<FiltrosDashboard>(() => {
@@ -472,8 +567,25 @@ export default function App() {
     const meses = Array.from(new Set(recordsOthers.map(d => d.Mês)));
     const razoes = Array.from(new Set(recordsOthers.map(d => d.Razão))).sort();
 
-    return { grupos, cnpjs, marcas, meses, razoes };
-  }, [dataOrigem, filtros.grupos, filtros.cnpjs, filtros.marcas]);
+    // Extract dynamic keys values (Requirement 7)
+    const dynamicFiltersValues: Record<string, string[]> = {};
+    for (const key of Object.keys(filtros)) {
+      if (["grupos", "cnpjs", "marcas", "meses", "razoes"].includes(key)) continue;
+      
+      const values = Array.from(new Set(dataOrigem.map(d => {
+        let val = d[key];
+        if (val === undefined) {
+          const capitalized = key.charAt(0).toUpperCase() + key.slice(1);
+          val = d[capitalized] !== undefined ? d[capitalized] : d[Object.keys(d).find(k => k.toLowerCase() === key.toLowerCase()) || ""];
+        }
+        return val !== undefined && val !== null ? String(val) : "";
+      }).filter(v => v !== "" && v !== "undefined"))).sort();
+      
+      dynamicFiltersValues[key] = values;
+    }
+
+    return { grupos, cnpjs, marcas, meses, razoes, ...dynamicFiltersValues };
+  }, [dataOrigem, filtros]);
 
   // --- COMPARISON DRIFTS MATH ---
   const selectedComparisonSnapshot = useMemo(() => {
@@ -525,12 +637,47 @@ export default function App() {
   // --- DATA FLOW & FILTERING ---
   const filteredData = useMemo(() => {
     return dataOrigem.filter((item) => {
-      const matchGrupo = filtros.grupos.includes(item.Grupo);
-      const matchCnpj = filtros.cnpjs.includes(item.CNPJ);
-      const matchMarca = filtros.marcas.includes(item.Marca);
-      const matchMes = filtros.meses.includes(item.Mês);
-      const matchRazao = filtros.razoes.includes(item.Razão);
-      return matchGrupo && matchCnpj && matchMarca && matchMes && matchRazao;
+      // 1. Static filters (with fallback for empty list to prevent blocking)
+      const matchGrupo = !filtros.grupos || filtros.grupos.length === 0 || filtros.grupos.includes(item.Grupo);
+      const matchCnpj = !filtros.cnpjs || filtros.cnpjs.length === 0 || filtros.cnpjs.includes(item.CNPJ);
+      const matchMarca = !filtros.marcas || filtros.marcas.length === 0 || filtros.marcas.includes(item.Marca);
+      const matchMes = !filtros.meses || filtros.meses.length === 0 || filtros.meses.includes(item.Mês);
+      const matchRazao = !filtros.razoes || filtros.razoes.length === 0 || filtros.razoes.includes(item.Razão);
+      
+      if (!(matchGrupo && matchCnpj && matchMarca && matchMes && matchRazao)) {
+        return false;
+      }
+
+      // 2. Extra dynamic / Custom filters (added from arbitrary spreadsheet columns)
+      for (const key of Object.keys(filtros)) {
+        if (["grupos", "cnpjs", "marcas", "meses", "razoes"].includes(key)) continue;
+
+        const filterValues = filtros[key];
+        if (!filterValues || filterValues.length === 0) continue;
+
+        // Extract value with case robust lookup
+        let itemValue = item[key];
+        if (itemValue === undefined) {
+          const capitalized = key.charAt(0).toUpperCase() + key.slice(1);
+          if (item[capitalized] !== undefined) {
+            itemValue = item[capitalized];
+          } else {
+            const foundKey = Object.keys(item).find(k => k.toLowerCase() === key.toLowerCase());
+            if (foundKey) {
+              itemValue = item[foundKey];
+            }
+          }
+        }
+
+        if (itemValue !== undefined && itemValue !== null) {
+          const itemValueStr = String(itemValue);
+          if (!filterValues.includes(itemValueStr)) {
+            return false;
+          }
+        }
+      }
+
+      return true;
     });
   }, [dataOrigem, filtros]);
 
@@ -833,6 +980,22 @@ export default function App() {
     setVisualizacaoEmpresas("reais");
     setNomeFonte(sourceName);
     setCamposAusentes([]);
+
+    const keys = new Set<string>();
+    if (data && data.length > 0) {
+      data.forEach(row => {
+        Object.keys(row).forEach(k => {
+          if (k !== "id") {
+            keys.add(k);
+          }
+        });
+      });
+    }
+    setActualKeys(Array.from(keys));
+
+    const isSpreadsheet = sourceName.toLowerCase().includes(".xls") || sourceName.toLowerCase().includes(".csv") || sourceName.toLowerCase().includes("planilha") || sourceName.toLowerCase().includes("combinada");
+    setActiveDataSource(isSpreadsheet ? "SPREADSHEET_DATA" : "DATABASE_DATA");
+
     if (isVpn !== undefined) {
       setIsVpnSimulated(isVpn);
     }
@@ -840,6 +1003,10 @@ export default function App() {
   };
 
   const handleVisualizacaoChange = (choice: "ficticias" | "reais") => {
+    if (choice === "ficticias" && activeDataSource !== "DEMO_DATA") {
+      alert("Acesso Bloqueado: Não é permitido alternar para dados do Modo Demonstração enquanto houver uma fonte de dados real ativa.");
+      return;
+    }
     setVisualizacaoEmpresas(choice);
     const activeData = choice === "ficticias" ? dataOrigemFicticio : dataOrigemReal;
     setDataOrigem(activeData);
@@ -850,32 +1017,128 @@ export default function App() {
 
   // --- EXPORT & FILE UPLOAD ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     try {
       // Lazy load XLSX only when needed to keep bundle sizes smaller
       const XLSX = await import("xlsx");
       
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      let allData: LancamentoFinanceiro[] = [];
+      const fileNames: string[] = [];
+      const sheetNames: string[] = [];
+      let totalColCount = 0;
+      const originalSheetKeysSet = new Set<string>();
       
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        fileNames.push(file.name);
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: "array" });
+        
+        workbook.SheetNames.forEach((sheetName) => {
+          sheetNames.push(sheetName);
+          const worksheet = workbook.Sheets[sheetName];
+          const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+          if (rawJson.length > 0) {
+            const keys = new Set<string>();
+            rawJson.forEach((row: any) => {
+              Object.keys(row).forEach((k) => {
+                keys.add(k);
+                if (k !== "id") {
+                  originalSheetKeysSet.add(k);
+                }
+              });
+            });
+            totalColCount = Math.max(totalColCount, keys.size);
+
+            rawJson.forEach((row: any, idx: number) => {
+              const getNum = (v: any) => {
+                if (v === undefined || v === null || v === "") return 0;
+                if (typeof v === "number") return v;
+                const sanit = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+                const parsed = parseFloat(sanit);
+                return isNaN(parsed) ? 0 : parsed;
+              };
+
+              const cleanRow: any = {
+                id: `up_row_${Date.now()}_${idx}_${Math.random()}`,
+                Grupo: row["Grupo"] || row["Grupo Economico"] || row["Grupo Econômico"] || "Geral",
+                CNPJ: row["CNPJ"] || row["Cnpj"] || "00.000.000/0001-00",
+                Marca: row["Marca"] || row["Bandeira"] || "N/D",
+                Empresa: row["Empresa"] || row["Razão Social"] || row["Razao Social"] || "Empresa Geral",
+                Mês: row["Mês"] || row["Mes"] || row["Competência"] || row["Competencia"] || "N/D",
+                Razão: row["Razão"] || row["Razao"] || "Outros",
+                Categoria: row["Categoria"] || row["Classificação"] || row["Classificacao"] || "Sem Categoria",
+                Receita: row["Receita"] !== undefined ? getNum(row["Receita"]) : getNum(row["Valor"] || 0),
+                Custo: row["Custo"] !== undefined ? getNum(row["Custo"]) : 0,
+                Despesa: row["Despesa"] !== undefined ? getNum(row["Despesa"]) : 0,
+                Lucro: row["Lucro"] !== undefined ? getNum(row["Lucro"]) : 0,
+                Margem: row["Margem"] !== undefined ? getNum(row["Margem"]) : 0,
+                Vendedor: row["Vendedor"] || row["Consultor"] || "Padrão",
+                
+                // Spreadsheet Workspace traceability fields
+                arquivo: file.name,
+                aba: sheetName,
+                linha: idx + 2, // Excel row usually starts at 1, but header is row 1, so data is idx + 2
+                coluna: Object.keys(row).length,
+                dataImportacao: new Date().toISOString(),
+                usuario: "Lennon Marcanjo",
+                
+                ...row
+              };
+              allData.push(cleanRow);
+            });
+          }
+        });
+      }
       
-      // Convert worksheet to CSV string with semicolons to reuse parseCSV logic
-      const csvStr = XLSX.utils.sheet_to_csv(worksheet, { FS: ";" });
-      
-      const { data, missingFields } = parseCSV(csvStr);
-      
-      if (data.length > 0) {
-        setDataOrigem(data);
-        setDataLiveBackup(data);
-        setNomeFonte(file.name);
-        setCamposAusentes(missingFields);
-        setAiAnalysis(""); // Clear stale analysis to trigger a fresh context
+      if (allData.length > 0) {
+        setDataOrigemReal(allData);
+        setDataOrigem(allData);
+        setDataLiveBackup(allData);
+        setVisualizacaoEmpresas("reais");
+        setNomeFonte(`Planilhas: ${fileNames.join(", ")}`);
+        setCamposAusentes([]);
+        setActiveDataSource("SPREADSHEET_DATA");
+        setSpreadsheetMetadata({
+          fileName: fileNames.join(", "),
+          sheetNames: sheetNames,
+          rowCount: allData.length,
+          colCount: totalColCount || 10,
+          importedAt: new Date().toLocaleTimeString("pt-BR") + " " + new Date().toLocaleDateString("pt-BR")
+        });
+
+        const customKeys = new Set<string>();
+        allData.forEach(row => {
+          Object.keys(row).forEach(k => {
+            if (k !== "id") {
+              customKeys.add(k);
+            }
+          });
+        });
+
+        const defaultVisible: string[] = [];
+        if (customKeys.has("Grupo")) defaultVisible.push("grupos");
+        if (customKeys.has("CNPJ")) defaultVisible.push("cnpjs");
+        if (customKeys.has("Marca")) defaultVisible.push("marcas");
+        if (customKeys.has("Mês")) defaultVisible.push("meses");
+        if (customKeys.has("Razão")) defaultVisible.push("razoes");
+
+        customKeys.forEach(k => {
+          if (!["id", "Grupo", "CNPJ", "Marca", "Mês", "Razão", "Receita", "Custo", "Despesa", "Lucro", "Margem", "Orcamento"].includes(k)) {
+            defaultVisible.push(k.toLowerCase());
+          }
+        });
+
+        setVisibleFilters(defaultVisible);
+        setActualKeys(Array.from(originalSheetKeysSet));
+        setAiAnalysis("");
+        setActiveTab("importacao");
+        alert(`Planilha importada com sucesso: ${allData.length} registros consolidados.`);
       } else {
-        alert("Nenhuma linha válida pôde ser estruturada do arquivo de planilha.");
+        alert("Nenhuma aba de planilha pôde ser estruturada com registros legíveis.");
       }
     } catch (err: any) {
       console.error(err);
@@ -1045,186 +1308,220 @@ export default function App() {
   }
 
   return (
-    <div className="bg-white dark:bg-slate-950 min-h-screen text-black dark:text-slate-100 font-sans flex flex-col antialiased transition-colors duration-150">
-      {/* HEADER SECTION - High Density Style */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-3 px-4 md:px-6 shrink-0 shadow-sm z-20 sticky top-0">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-[10px] bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-2 py-0.5 rounded font-mono font-bold tracking-wider uppercase">Sauron</span>
-              <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Dashboard Consultivo</span>
-              <span className="text-slate-300 dark:text-slate-700">/</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-sm md:text-base font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
-                <Building className="text-blue-600 dark:text-blue-400 shrink-0" size={16} />
-                <span>Visão Consolidada Corporativa</span>
-              </h1>
-              
-              {/* Role Indicator Pill */}
-              {currentUser?.role === "consultor" ? (
-                <span className="flex items-center gap-1 text-[10px] bg-amber-50 dark:bg-amber-950/40 border border-amber-200/50 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
-                  <Shield size={10} className="stroke-[2.5]" /> Configuração (Consultor)
-                </span>
-              ) : currentUser?.role === "diretor" ? (
-                <span className="flex items-center gap-1 text-[10px] bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200/50 text-indigo-700 dark:text-indigo-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
-                  <BarChart3 size={10} /> Direção Regional (Executivo)
-                </span>
-              ) : currentUser?.role === "gerente" ? (
-                <span className="flex items-center gap-1 text-[10px] bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/50 text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
-                  <Sliders size={10} /> Controladoria (Gerente)
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[10px] bg-slate-100 dark:bg-slate-800 border border-slate-200/50 text-slate-700 dark:text-slate-355 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
-                  <BookOpen size={10} /> Leitura Segura (Analista)
-                </span>
-              )}
-            </div>
-          </div>
+    <div className="bg-white dark:bg-slate-950 min-h-screen text-black dark:text-slate-100 font-sans flex antialiased transition-colors duration-150 overflow-x-hidden">
+      <AppSidebar 
+        activePage={activeTab} 
+        setActivePage={setActiveTab} 
+        activeIndustryTemplateId={activeIndustryTemplateId}
+        isMobileOpen={isMobileSidebarOpen}
+        setIsMobileOpen={setIsMobileSidebarOpen}
+        isDesktopCollapsed={isDesktopSidebarCollapsed}
+        setIsDesktopCollapsed={setIsDesktopSidebarCollapsed}
+      />
 
-          <div className="flex gap-2 items-center w-full lg:w-auto overflow-x-auto hide-scrollbar pb-1">
-            {/* Segment Selector Dropdown */}
-            <select
-              value={activeIndustryTemplateId}
-              onChange={(e) => setActiveIndustryTemplateId(e.target.value)}
-              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[11px] font-bold px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 h-8 uppercase tracking-wide"
-            >
-              {availableTemplates.map(template => (
-                <option key={template.id} value={template.id}>
-                  SEGMENTO: {template.name}
-                </option>
-              ))}
-            </select>
-
-            {(currentUser?.role === "consultor" || currentUser?.role === "diretor") && (
-              <>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  accept=".csv, .xlsx, .xls"
-                  className="hidden"
-                />
+      {/* Main Content wrapper */}
+      <div className={`flex flex-col flex-1 min-h-screen w-full transition-all duration-300 relative ${isDesktopSidebarCollapsed ? "lg:pl-16" : "lg:pl-64"}`}>
+        
+        {/* HEADER SECTION - High Density Style */}
+        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-3 px-4 md:px-6 shrink-0 shadow-sm z-20 sticky top-0">
+          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full xl:w-auto">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <button
-                  onClick={triggerFileSelect}
-                  className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-900 text-slate-705 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-805 rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0"
+                  onClick={() => setIsMobileSidebarOpen(true)}
+                  className="lg:hidden p-1.5 -ml-1 rounded text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors mr-1"
+                  title="Abrir Menu"
                 >
-                  <Upload size={11} className="text-slate-500" />
-                  <span className="hidden sm:inline">Importar Planilha</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
                 </button>
-              </>
-            )}
+                <span className="text-[10px] bg-sauron-navy text-white px-2 py-0.5 rounded font-mono font-bold tracking-wider uppercase">Sauron</span>
+                <span className="text-[11px] hidden sm:inline text-slate-500 font-medium tracking-wide">Consultor BI Agent OS</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-sm md:text-base font-extrabold text-sauron-navy tracking-tight flex items-center gap-1.5">
+                  <Building className="text-sauron-blue shrink-0" size={16} />
+                  <span className="truncate">Visão Consolidada Corporativa</span>
+                </h1>
+                
+                {/* Role Indicator Pill */}
+                {currentUser?.role === "consultor" ? (
+                  <span className="flex items-center gap-1 text-[10px] bg-sauron-gray border border-slate-200 text-sauron-dark px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
+                    <Shield size={10} className="stroke-[2.5]" /> Configuração
+                  </span>
+                ) : currentUser?.role === "diretor" ? (
+                  <span className="flex items-center gap-1 text-[10px] bg-sauron-blue/10 border border-sauron-blue/20 text-sauron-dark px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
+                    <BarChart3 size={10} /> Direção
+                  </span>
+                ) : currentUser?.role === "gerente" ? (
+                  <span className="flex items-center gap-1 text-[10px] bg-sauron-green-light border border-sauron-green-cane text-sauron-dark px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
+                    <Sliders size={10} /> Controladoria
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] bg-slate-100 border border-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide shrink-0">
+                    <BookOpen size={10} /> Leitura
+                  </span>
+                )}
 
-            {/* Toggle Empresas Reais vs Fictícias */}
-            <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-0.5 select-none shrink-0 items-center">
-              <button
-                type="button"
-                onClick={() => handleVisualizacaoChange("ficticias")}
-                className={`flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
-                  visualizacaoEmpresas === "ficticias"
-                    ? "bg-amber-500 text-white shadow-md font-black"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
-                title="Modo Demonstração: Marcas e dados fictícios gerados pelo Sauron"
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${visualizacaoEmpresas === "ficticias" ? "bg-white animate-pulse" : "bg-amber-500"}`} />
-                <span className="hidden md:inline">Modo Demonstração</span>
-                <span className="md:hidden">Demonstração</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleVisualizacaoChange("reais")}
-                className={`flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
-                  visualizacaoEmpresas === "reais"
-                    ? "bg-emerald-600 text-white shadow-md font-black"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
-                title="Modo Dados Reais: Registros reais vindos de conexões ativas ou planilhas importadas"
-              >
-                <div className={`w-1.5 h-1.5 rounded-full ${visualizacaoEmpresas === "reais" ? "bg-white animate-ping" : "bg-emerald-500"}`} />
-                <span className="hidden md:inline">Modo Dados Reais</span>
-                <span className="md:hidden">Reais</span>
-              </button>
+                {/* Data Reality Status Pill */}
+                {nomeFonte === "Banco de Dados Interno" || nomeFonte?.includes("Simulados") ? (
+                  <span className="flex items-center gap-1 text-[10px] bg-amber-100 border border-amber-300 text-amber-800 px-2 flex-shrink-0 py-0.5 rounded shadow-sm font-bold tracking-wide">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    MOCK DATA
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[10px] bg-sauron-green-light border border-sauron-green-cane text-sauron-navy px-2 flex-shrink-0 py-0.5 rounded shadow-sm font-bold tracking-wide truncate max-w-[150px]">
+                    <div className="w-1.5 h-1.5 rounded-full bg-sauron-green-cane shrink-0" />
+                    DADOS REAIS
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* Live Database Synchronizer Actions */}
-            <button
-              onClick={handleSyncDatabaseData}
-              disabled={isSyncing}
-              className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0 shadow-sm"
-              title="Atualiza imediatamente as informações conectando ao banco de dados configurado"
-            >
-              <RefreshCw size={12} className={`${isSyncing ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Sincronizar Banco</span>
-            </button>
+            <div className="flex gap-2 items-center w-full lg:w-auto overflow-x-auto hide-scrollbar pb-1">
+              {/* Segment Selector Dropdown */}
+              <select
+                value={activeIndustryTemplateId}
+                onChange={(e) => setActiveIndustryTemplateId(e.target.value)}
+                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[11px] font-bold px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 h-8 uppercase tracking-wide shrink-0"
+              >
+                {availableTemplates.map(template => (
+                  <option key={template.id} value={template.id}>
+                    SEGMENTO: {template.name}
+                  </option>
+                ))}
+              </select>
 
-            <button
-              onClick={handleTriggerAnalysis}
-              disabled={aiLoading}
-              className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0 shadow-sm"
-            >
-              {aiLoading ? (
-                <RefreshCw size={12} className="animate-spin" />
-              ) : (
-                <Sparkles size={12} />
+              {(currentUser?.role === "consultor" || currentUser?.role === "diretor") && (
+                <>
+                  <input
+                    type="file"
+                    multiple
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept=".csv, .xlsx, .xls"
+                    className="hidden"
+                  />
+                  <button
+                    onClick={triggerFileSelect}
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-900 text-slate-705 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-805 rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0"
+                  >
+                    <Upload size={11} className="text-slate-500 shrink-0" />
+                    <span className="hidden sm:inline">Importar Planilhas</span>
+                  </button>
+                </>
               )}
-              <span className="hidden sm:inline">Reanalisar com IA</span>
-            </button>
 
-            {/* Dark Mode Theme Selector */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="flex items-center justify-center gap-1 px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 rounded text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-[10px] uppercase font-extrabold tracking-wide h-8 shrink-0"
-              title={darkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
-            >
-              {darkMode ? (
-                 <Sun size={12} className="text-amber-500" />
+              {/* Toggle Empresas Reais vs Fictícias */}
+              {activeDataSource === "DEMO_DATA" ? (
+                <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-0.5 select-none shrink-0 items-center">
+                  <button
+                    type="button"
+                    onClick={() => handleVisualizacaoChange("ficticias")}
+                    className={`flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
+                      visualizacaoEmpresas === "ficticias"
+                        ? "bg-amber-500 text-white shadow-md font-black"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                    }`}
+                    title="Modo Demonstração: Marcas e dados fictícios gerados pelo Sauron"
+                  >
+                    <div className={`w-1.5 h-1.5 rounded-full ${visualizacaoEmpresas === "ficticias" ? "bg-white animate-pulse" : "bg-amber-500"}`} />
+                    <span className="hidden md:inline">Modo Demonstração</span>
+                    <span className="md:hidden">Mock</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleVisualizacaoChange("reais")}
+                    className={`flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
+                      visualizacaoEmpresas === "reais"
+                        ? "bg-emerald-600 text-white shadow-md font-black"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                    }`}
+                    title="Modo Dados Reais: Registros reais vindos de conexões ativas ou planilhas importadas"
+                  >
+                    <div className={`w-1.5 h-1.5 rounded-full ${visualizacaoEmpresas === "reais" ? "bg-white animate-ping" : "bg-emerald-500"}`} />
+                    <span className="hidden md:inline">Dados Reais</span>
+                    <span className="md:hidden">Reais</span>
+                  </button>
+                </div>
               ) : (
-                 <Moon size={12} className="text-indigo-500" />
-              )}
-            </button>
-
-            {/* User session controls */}
-            {currentUser && (
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-md text-left shrink-0 h-8">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black leading-tight text-slate-800 dark:text-slate-100 uppercase truncate max-w-[100px]" title={currentUser.name}>
-                    {currentUser.name}
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded text-[10px] text-blue-700 dark:text-blue-400 font-extrabold uppercase select-none shrink-0 h-8">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
                   </span>
-                  <span className={`text-[7px] font-black uppercase px-1 rounded font-mono w-fit ${
-                    currentUser.role === "consultor" ? "bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300" :
-                    currentUser.role === "diretor" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/80 dark:text-indigo-300" :
-                    currentUser.role === "gerente" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300" :
-                    "bg-slate-250 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                  }`}>
-                    {currentUser.role}
+                  <span>
+                    {activeDataSource === "SPREADSHEET_DATA" ? "Planilha Ativa (Real)" : activeDataSource === "DATABASE_DATA" ? "Banco Ativo (Real)" : "Cenário Consultor"}
                   </span>
                 </div>
-                <button
-                  onClick={() => {
-                    auditLog("ENCERRAMENTO_SESSÃO", `Usuário encerrou o período operacional regulamentar no portal de acessos.`, currentUser.name);
-                    localStorage.removeItem("sauron_user");
-                    setCurrentUser(null);
-                  }}
-                  className="px-1.5 py-1 text-[8px] uppercase font-black text-rose-600 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/45 rounded-md transition cursor-pointer flex items-center justify-center"
-                  title="Sair da sessão"
-                >
-                  <Lock size={10} className="sm:mr-0.5" />
-                  <span className="hidden sm:inline">Sair</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+              )}
 
-      {/* WORKSPACE AREA - Modern Sidebar Navigation */}
-      <div className="flex bg-white dark:bg-slate-950 flex-1 relative">
-        <AppSidebar activePage={activeTab} setActivePage={setActiveTab} activeIndustryTemplateId={activeIndustryTemplateId} />
-        
-        <main className="flex-1 lg:ml-64 w-full p-4 md:p-6 flex flex-col gap-5 min-h-[calc(100vh-68px)]">
+              {/* Live Database Synchronizer Actions */}
+              <button
+                onClick={handleSyncDatabaseData}
+                disabled={isSyncing}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0 shadow-sm"
+                title="Atualiza imediatamente as informações conectando ao banco de dados configurado"
+              >
+                <RefreshCw size={12} className={`${isSyncing ? "animate-spin" : ""}`} />
+                <span className="hidden md:inline">Sincronizar Banco</span>
+              </button>
+
+              <button
+                onClick={handleTriggerAnalysis}
+                disabled={aiLoading}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0 shadow-sm"
+              >
+                {aiLoading ? (
+                  <RefreshCw size={12} className="animate-spin" />
+                ) : (
+                  <Sparkles size={12} />
+                )}
+                <span className="hidden sm:inline">Reanalisar com IA</span>
+              </button>
+
+              {/* Dark Mode Theme Selector */}
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="flex items-center justify-center gap-1 px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 rounded text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-[10px] uppercase font-extrabold tracking-wide h-8 shrink-0"
+                title={darkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
+              >
+                {darkMode ? (
+                   <Sun size={12} className="text-amber-500" />
+                ) : (
+                   <Moon size={12} className="text-indigo-500" />
+                )}
+              </button>
+
+              {/* User session controls */}
+              {currentUser && (
+                <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded-md text-left shrink-0 h-8">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black leading-tight text-slate-800 dark:text-slate-100 uppercase truncate max-w-[80px]" title={currentUser.name}>
+                      {currentUser.name}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      auditLog("ENCERRAMENTO_SESSÃO", `Usuário encerrou o período operacional regulamentar no portal de acessos.`, currentUser.name);
+                      localStorage.removeItem("sauron_user");
+                      setCurrentUser(null);
+                    }}
+                    className="px-1.5 py-1 text-[8px] uppercase font-black text-rose-600 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/45 rounded-md transition cursor-pointer flex items-center justify-center"
+                    title="Sair da sessão"
+                  >
+                    <Lock size={10} className="sm:mr-0.5" />
+                    <span className="hidden sm:inline">Sair</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* WORKSPACE MAIN AREA SCROLLABLE */}
+        <main className="flex-1 w-full p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950">
           {/* Header/Breadcrumb local da página */}
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm shrink-0">
             <div>
               <h2 className="text-xl font-black text-slate-800 dark:text-white capitalize">
                 {activeTab.replace(/_/g, " ")}
@@ -1234,6 +1531,14 @@ export default function App() {
             
             <div className="flex items-center gap-2">
               <button 
+                onClick={() => setIsFilterDrawerOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase rounded-lg shadow-sm cursor-pointer transition-colors"
+                id="open-filter-drawer-btn"
+                title="Habilitar, ocultar e buscar filtros por qualquer coluna"
+              >
+                <Sliders size={14} className="animate-pulse" /> Gerenciar Filtros
+              </button>
+              <button 
                 onClick={() => document.getElementById("filter-drawer")?.classList.toggle("translate-x-full")}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
               >
@@ -1241,6 +1546,60 @@ export default function App() {
               </button>
             </div>
           </div>
+
+          {/* Global DataSource Banner Indicator (Requirement #1 & #8) */}
+          {activeDataSource === "SPREADSHEET_DATA" ? (
+            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/60 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in text-xs font-sans">
+              <div className="flex items-start gap-2.5">
+                <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded-lg">
+                  <CheckCircle2 size={16} />
+                </div>
+                <div>
+                  <p className="font-bold text-emerald-850 dark:text-emerald-300">Fonte ativa: Planilha importada ({spreadsheetMetadata?.fileName || "Arquivo Geral"})</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Modo seguro: utilizando exclusivamente registros reais da planilha carregada. {spreadsheetMetadata ? `Abas: ${spreadsheetMetadata.sheetNames.join(", ")} | Linhas: ${spreadsheetMetadata.rowCount} | Colunas: ${spreadsheetMetadata.colCount} | Importado em: ${spreadsheetMetadata.importedAt}` : ""}
+                  </p>
+                </div>
+              </div>
+              <span className="bg-emerald-200/50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400 px-2 py-0.5 rounded font-mono font-black text-[9px] uppercase tracking-wider shrink-0">
+                PROD SPREADSHEET ACTIVE
+              </span>
+            </div>
+          ) : activeDataSource === "DATABASE_DATA" ? (
+            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in text-xs font-sans">
+              <div className="flex items-start gap-2.5">
+                <div className="p-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-lg">
+                  <Database size={16} />
+                </div>
+                <div>
+                  <p className="font-bold text-blue-850 dark:text-blue-300">Fonte ativa: Banco de dados relacional conectado ({nomeFonte})</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Sincronização em tempo real habilitada por pooling criptografado com absoluto isolamento e auditoria ativa.
+                  </p>
+                </div>
+              </div>
+              <span className="bg-blue-200/50 dark:bg-blue-950 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded font-mono font-black text-[9px] uppercase tracking-wider shrink-0">
+                LIVE DB ACTIVE
+              </span>
+            </div>
+          ) : (
+            <div className="bg-amber-50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/40 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in text-xs font-sans">
+              <div className="flex items-start gap-2.5">
+                <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg animate-pulse">
+                  <AlertTriangle size={16} />
+                </div>
+                <div>
+                  <p className="font-bold text-amber-850 dark:text-amber-300">Modo Demonstração — dados fictícios ativos</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    Os dados exibidos neste modo são simulações industriais puras projetadas para testes conceituais e demonstrações de QA sem dados sensíveis.
+                  </p>
+                </div>
+              </div>
+              <span className="bg-amber-200/50 dark:bg-amber-950 text-amber-800 dark:text-amber-400 px-2 py-0.5 rounded font-mono font-black text-[9px] uppercase tracking-wider shrink-0">
+                DEMO MODE ACTIVE
+              </span>
+            </div>
+          )}
           
           <div className="flex-1 flex flex-col xl:flex-row gap-5">
             {/* Filter Drawer (Hidden by default on mobile, right side) */}
@@ -1260,10 +1619,13 @@ export default function App() {
                 </button>
               </div>
               <SidebarFilters
+                key={activeDataSource}
                 available={availableFilters}
                 selected={filtros}
                 onChange={setFiltros}
                 onReset={handleResetFilters}
+                activeDataSource={activeDataSource}
+                actualKeys={actualKeys}
               />
             </section>
 
@@ -1338,7 +1700,7 @@ export default function App() {
               </div>
               <div className="flex flex-wrap justify-center gap-2.5 pt-2">
                 <button
-                  onClick={() => setActiveTab("central_dados")}
+                  onClick={() => setActiveTab("importacao")}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] uppercase font-extrabold tracking-wider rounded-lg shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Database size={11} />
@@ -1349,6 +1711,39 @@ export default function App() {
                   className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-705 text-slate-700 dark:text-slate-300 text-[10px] uppercase font-extrabold tracking-wider rounded-lg transition-all cursor-pointer"
                 >
                   Usar Modo Demonstração (Mock)
+                </button>
+              </div>
+            </div>
+          ) : activeDataSource !== "DEMO_DATA" && !dataSourceManager.isApproved() && !["importacao", "vpn_gateway", "central_dados", "perfis"].includes(activeTab) ? (
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 max-w-xl mx-auto my-12 text-center shadow-md space-y-6 animate-fadeIn">
+              <div className="mx-auto w-16 h-16 bg-amber-50 dark:bg-amber-950/30 text-amber-500 rounded-full flex items-center justify-center border border-amber-200 dark:border-amber-900">
+                <ShieldAlert size={32} className="animate-pulse text-amber-500" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-slate-850 dark:text-slate-100 uppercase tracking-tight">Base Real Pendente de Homologação</h3>
+                <p className="text-slate-550 dark:text-slate-400 text-xs leading-relaxed">
+                  As conexões de banco de dados ou planilhas importadas para a empresa <strong>{nomeFonte}</strong> foram carregadas com sucesso no Sauron OS, mas permanecem no estado de <strong>Pendente de Homologação</strong>.
+                </p>
+                <p className="text-slate-450 dark:text-slate-550 text-[11px] leading-relaxed">
+                  Para habilitar com segurança a DRE inteligente, gráficos contábeis, filtros dinâmicos e apresentações formais para reuniões corporativas, é necessário homologar explicitamente a integridade desses dados.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                <button
+                  onClick={() => {
+                    dataSourceManager.setApproved(true);
+                    alert("Base de dados homologada com sucesso! Todos os relatórios gerenciais e apresentações foram desbloqueados.");
+                  }}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] uppercase tracking-wide rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <CheckCircle2 size={14} />
+                  Homologar e Liberar Relatórios
+                </button>
+                <button
+                  onClick={() => setActiveTab("importacao")}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] uppercase tracking-wide rounded-xl border border-slate-205 dark:border-slate-805 transition-all cursor-pointer"
+                >
+                  Configurar Central de Dados
                 </button>
               </div>
             </div>
@@ -1384,13 +1779,17 @@ export default function App() {
               onDataLoaded={handleDatabaseDataLoaded}
               currentSource={nomeFonte}
               camposAusentes={camposAusentes}
+              filtros={filtros}
+              visibleFilters={visibleFilters}
+              fieldMappings={fieldMappings}
             />
           )}
           {activeTab === "apresentacoes" && (
-            <ApresentacoesTab
+            <PresentationBuilderPage 
+              dataOrigem={dataOrigem}
+              filteredData={filteredData}
               metrics={metrics}
               formatCurrency={formatCurrencyValue}
-              onPresent={() => setActiveTab("modo_reuniao")}
             />
           )}
           {activeTab === "fechamento_mensal" && (
@@ -1401,7 +1800,7 @@ export default function App() {
             />
           )}
           {activeTab === "modo_reuniao" && (
-            <ModoReuniaoTab onExit={() => setActiveTab("apresentacoes")} />
+            <MeetingModePage onExit={() => setActiveTab("apresentacoes")} />
           )}
 
           {activeTab === "comercial" && (
@@ -1512,637 +1911,39 @@ export default function App() {
           )}
 
           {activeTab === "resumo" && (
-            <div className="space-y-4 animate-fade-in text-slate-800 dark:text-slate-150">
-              <div className="hidden">
-              {/* Left col: Segments and Adjustments */}
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block">1. Segmento de Negócio do Cliente:</label>
-                  <select
-                    value={segmentoCliente}
-                    onChange={(e) => setSegmentoCliente(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-white px-3 py-1.5 rounded focus:outline-none focus:border-blue-500 font-sans cursor-pointer"
-                  >
-                    <option value="Concessionária Popular">Concessionária de Automóveis Popular</option>
-                    <option value="Concessionária Premium Elite">Concessionária Premium e Blindados</option>
-                    <option value="Distribuidora de Máquinas Agrícolas">Distribuição de Maquinário Agrícola (Tratores/Peças)</option>
-                    <option value="Grupo Multimarcas Automotivas">Holding Multimarcas de Varejo de Veículos</option>
-                    <option value="Revenda Geral de Acessórios">Revenda e Auto-Center Especializado</option>
-                  </select>
-                </div>
+            <DashboardPage filteredData={filteredData} formatCurrency={formatCurrencyValue} />
+          )}
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block">2. Diretriz Personalizada (Gerente):</label>
-                  <textarea
-                    value={observacaoGerente}
-                    onChange={(e) => setObservacaoGerente(e.target.value)}
-                    placeholder="Instruções estratégicas adicionais enviadas para enriquecer a inteligência artificial..."
-                    rows={2}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-white px-3 py-1.5 rounded resize-none focus:outline-none focus:border-blue-500 font-sans"
-                  />
-                </div>
+          {activeTab === "relatorios" && (
+            <ReportsPage setActivePage={setActiveTab} />
+          )}
+            </>
+          )}
 
-                {/* Simulated database adjustment off-memory */}
-                <div className="bg-amber-50/40 dark:bg-amber-950/10 border border-amber-200/50 dark:border-amber-900/30 p-2.5 rounded-lg space-y-2">
-                  <p className="text-[9px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1">
-                    <span>⚠️ Simulador de Balanço (Modificação Segura sem interferência no Banco)</span>
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block">Desvio Faturamento (R$):</span>
-                      <input
-                        type="number"
-                        step="10000"
-                        value={faturamentoOffset}
-                        onChange={(e) => setFaturamentoOffset(Number(e.target.value))}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-white px-2 py-1 rounded"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block">Desvio Despesas (R$):</span>
-                      <input
-                        type="number"
-                        step="500"
-                        value={despesaOffset}
-                        onChange={(e) => setDespesaOffset(Number(e.target.value))}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-white px-2 py-1 rounded"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center text-[9px] text-amber-800 dark:text-amber-500 pt-1">
-                    <span>O faturamento e a despesa bruta do painel serão incrementados temporariamente em tempo real!</span>
-                    <button
-                      onClick={() => {
-                        setFaturamentoOffset(0);
-                        setDespesaOffset(0);
-                        persistSystemDbSettings({ faturamentoOffset: 0, despesaOffset: 0 });
-                      }}
-                      className="px-1.5 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded font-bold uppercase transition"
-                    >
-                      Resetar Desvios
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 pt-1">
-                  <input
-                    type="checkbox"
-                    id="ttsSwitch"
-                    checked={narrarFeedback}
-                    onChange={(e) => {
-                      setNarrarFeedback(e.target.checked);
-                      persistSystemDbSettings({ narrarFeedback: e.target.checked });
-                    }}
-                    className="w-3.5 h-3.5 accent-blue-600 rounded cursor-pointer"
-                  />
-                  <label htmlFor="ttsSwitch" className="text-[11px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer select-none flex items-center gap-1">
-                    <Volume2 size={13} className="text-blue-500 shrink-0" />
-                    <span>Apresentar Relatório de IA Narrado por Voz por Padrão</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Right col: Real-time dynamic commissions setup */}
-              <div className="bg-slate-50 dark:bg-slate-850/50 p-3 rounded-xl border border-slate-150 dark:border-slate-800 flex flex-col justify-between space-y-2">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1.5">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Cálculo e Controle de Comissionamento</span>
-                    <span className="text-[10px] bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-mono font-bold px-1.5 py-0.5 rounded">Fórmula Ativa</span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block">Fórmula de Cálculo:</span>
-                    <select
-                      value={comissaoFormula}
-                      onChange={(e) => setComissaoFormula(e.target.value)}
-                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-white px-2 py-1.5 rounded focus:outline-none focus:border-blue-500 font-sans cursor-pointer"
-                    >
-                      <option value="simplificado">Geral Simplificado (Rate Único das Vendas)</option>
-                      <option value="acessorios_vendas">Concessionária Custom (Diferenciação Veículos 3.0.0.1 vs Acessórios 3.0.1.1)</option>
-                      <option value="maquinas_agricolas">Maquinário Agrícola (Diferenciação Veículos 3.0.0.1 vs Autopeças 3.0.1.1 vs Oficina 3.0.3.1)</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <div className="space-y-0.5">
-                      <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 block uppercase">Taxa Geral (%):</span>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={comissaoGeral}
-                        onChange={(e) => setComissaoGeral(Number(e.target.value))}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-white px-1.5 py-0.5 rounded font-mono"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 block uppercase" title="Código 3.0.0.1">Taxa Veículo (%):</span>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={comissaoVeiculos}
-                        onChange={(e) => setComissaoVeiculos(Number(e.target.value))}
-                        disabled={comissaoFormula === "simplificado"}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-white px-1.5 py-0.5 rounded font-mono disabled:opacity-50"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[8px] font-black text-slate-500 dark:text-slate-400 block uppercase" title="Código 3.0.1.1">Taxa Acessórios (%):</span>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={comissaoAcessorios}
-                        onChange={(e) => setComissaoAcessorios(Number(e.target.value))}
-                        disabled={comissaoFormula === "simplificado"}
-                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-white px-1.5 py-0.5 rounded font-mono disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 rounded-lg flex justify-between items-center">
-                  <div>
-                    <span className="text-[8px] font-black uppercase text-slate-400 block">Comissões Devidas Consolidadas (Vendas do Período):</span>
-                    <span className="text-sm font-black text-blue-600 dark:text-blue-400 font-mono">
-                      {formatCurrencyValue(calculatedCommissions.total)}
-                    </span>
-                  </div>
-                  <span className="text-[9px] bg-sky-50 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded font-bold">
-                    {filteredData.length} registros auditados
-                  </span>
-                </div>
-
-                {/* Micro Itemized CNPJ Breakdown list inside right box */}
-                <div className="space-y-1">
-                  <span className="text-[8px] font-black uppercase text-slate-400 block tracking-wider">Detalhamento por Unidade (Comissões e Margem Segura):</span>
-                  <div className="max-h-[75px] overflow-y-auto space-y-1 pr-1">
-                    {calculatedCommissions.detailsByCnpj.slice(0, 4).map((c) => (
-                      <div key={c.cnpj} className="flex justify-between items-center text-[9px] bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-100 dark:border-slate-800">
-                        <span className="font-extrabold text-slate-700 dark:text-slate-350 truncate max-w-[130px]">{c.empresa}</span>
-                        <div className="space-x-1.5 font-mono">
-                          <span className="text-slate-450">Faut.: R$ {Math.round(c.receita / 1000)}k</span>
-                          <span className="font-extrabold text-blue-600 dark:text-blue-400">Comissão: R$ {c.comissao.toLocaleString("pt-BR")}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          {/* HISTORIES CONTROL & DYNAMIC COMPARATOR HUB */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3.5 hover:shadow-md transition-shadow duration-150">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 rounded">
-                  <FolderOpen size={15} className="stroke-[2.5]" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">Seletor Contábil e Comparativo</h4>
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500">Escolha a base do relatório (Live, snapshot do mês/dia ou histórico de encerramentos) e realize comparações táticas</p>
-                </div>
-              </div>
-
-              {/* Manual Snapshots only for admin or testing backups */}
-              <div className="flex gap-1.5">
-                <button
-                  onClick={handleSaveSnapshotManual}
-                  disabled={isSavingSnapshot}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900 dark:hover:bg-slate-600 transition-colors rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer"
-                  title="Salvar uma foto (snapshot) do relatório ativo no momento para comparações futuras"
-                >
-                  <Save size={11} className={`${isSavingSnapshot ? "animate-pulse" : ""}`} />
-                  <span>Gravar Snapshot</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Target rule selector choice */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block">Origem de Dados no Painel:</label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <select
-                    value={historyOption}
-                    onChange={(e) => {
-                      const val = e.target.value as any;
-                      if (val === "snapshot_unico" && reportHistory.length > 0) {
-                        handleHistoryOptionChange(val, reportHistory[0].id);
-                      } else {
-                        handleHistoryOptionChange(val);
-                      }
-                    }}
-                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-white px-3 py-1.5 rounded focus:outline-none focus:border-sky-500 font-sans cursor-pointer shrink-0"
-                  >
-                    <option value="atual">Visualização do Mês/Dia Atual (Filtros Ativos)</option>
-                    <option value="historico_consolidado">Compilação Histórica Combinada (Todos os Snapshots)</option>
-                    {reportHistory.length > 0 && <option value="snapshot_unico">Visualizar Snapshot Anterior Específico</option>}
-                  </select>
-
-                  {historyOption === "snapshot_unico" && reportHistory.length > 0 && (
-                    <select
-                      value={selectedSnapshotDataId}
-                      onChange={(e) => handleHistoryOptionChange("snapshot_unico", e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-white px-3 py-1.5 rounded focus:outline-none focus:border-sky-500 font-sans cursor-pointer shrink-0"
-                    >
-                      {reportHistory.map((snap: any) => (
-                        <option key={snap.id} value={snap.id}>
-                          {snap.sourceName} ({new Date(snap.timestamp).toLocaleString("pt-BR")})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-
-              {/* Baseline comparison choice */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block">Comparar KPIs Contra Baseline:</label>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedComparisonSnapshotId}
-                    onChange={(e) => setSelectedComparisonSnapshotId(e.target.value)}
-                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-white px-3 py-1.5 rounded focus:outline-none focus:border-sky-500 font-sans cursor-pointer shrink-0"
-                  >
-                    <option value="">Nenhum baseline de comparação (Ver apenas valores nominal)</option>
-                    {reportHistory.map((snap: any) => (
-                      <option key={snap.id} value={snap.id}>
-                        {snap.sourceName} | {formatCurrencyValue(snap.metrics.receitaTotal)} | {snap.metrics.margemMedia.toFixed(1)}% Margem ({new Date(snap.timestamp).toLocaleDateString()})
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Clean comparison action */}
-                  {selectedComparisonSnapshotId && (
-                    <button
-                      onClick={() => setSelectedComparisonSnapshotId("")}
-                      className="px-2 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-800 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded"
-                      title="Fechar comparação"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* List of Report History and snaps saved on server */}
-            {reportHistory.length > 0 && (
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
-                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Relatórios Salvos do Servidor para Auditoria Relativa ({reportHistory.length})</p>
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                  {reportHistory.map((snap: any) => (
-                    <div
-                      key={snap.id}
-                      onClick={() => setSelectedComparisonSnapshotId(snap.id)}
-                      className={`text-[10px] px-2.5 py-1 rounded-md border flex items-center gap-1.5 cursor-pointer transition-all ${
-                        selectedComparisonSnapshotId === snap.id
-                          ? "bg-sky-50 dark:bg-sky-950/20 border-sky-300 dark:border-sky-900/50 text-sky-700 dark:text-sky-300 shadow-xs"
-                          : "bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-655 dark:text-slate-300"
-                      }`}
-                    >
-                      <Clock size={10} className="text-slate-400" />
-                      <span className="font-semibold truncate max-w-[120px]">{snap.sourceName}</span>
-                      <span className="font-mono text-[9px] text-slate-400 dark:text-slate-500 border-l border-slate-200 dark:border-slate-750 pl-1">{snap.metrics.margemMedia.toFixed(0)}% mrg</span>
-                      <button
-                        onClick={(e) => handleDeleteSnapshot(snap.id, e)}
-                        className="text-slate-400 hover:text-rose-600 font-bold p-0.5 rounded"
-                        title="Deletar permanentemente"
-                      >
-                        <Trash2 size={10} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* MONITOR DE MARGEM OPERACIONAL - CONTROL BAR */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 font-sans hover:shadow-md transition-shadow duration-150">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 rounded">
-                <AlertTriangle size={15} className="stroke-[2.5]" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">Monitor de Margem Operacional</h4>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500">Destaque visual automático para eficiência abaixo da meta definida</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Slider & Label */}
-              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 border border-slate-150 dark:border-slate-700 px-2.5 py-1 rounded-md">
-                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Alerta de Margem:</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="40"
-                  step="0.5"
-                  value={margemLimite}
-                  onChange={(e) => setMargemLimite(Number(e.target.value))}
-                  className="w-20 sm:w-28 h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-red-600"
-                />
-                <span className="text-[11px] font-mono font-extrabold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/60 rounded px-1.5 py-0.5">
-                  &lt; {margemLimite.toFixed(1)}%
-                </span>
-              </div>
-
-              {/* Presets */}
-              <div className="flex gap-1">
-                {[5, 10, 15, 20].map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => setMargemLimite(preset)}
-                    className={`px-2 py-0.5 text-[10px] font-bold rounded border transition-all ${
-                      margemLimite === preset
-                        ? "bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 shadow-sm"
-                        : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-750 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-amber-400 cursor-pointer"
-                    }`}
-                  >
-                    {preset}%
-                  </button>
-                ))}
-              </div>
-
-              {/* Status Indicator */}
-              {itensAbaixoDoLimite > 0 ? (
-                <div className="text-[10px] font-extrabold text-white bg-red-600 px-2 py-1 rounded-md flex items-center gap-1 animate-pulse">
-                  <span>{itensAbaixoDoLimite} {itensAbaixoDoLimite === 1 ? 'alerta' : 'alertas'}</span>
-                </div>
-              ) : (
-                <div className="text-[10px] font-extrabold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 px-2 py-1 rounded-md">
-                  Conforme
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* KPI TELEMETRY SEGMENT */}
-          <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <KpiCard
-              title="Faturamento Bruto"
-              value={formatCurrencyValue(metrics.receitaTotal)}
-              subtitle="Receitas comerciais brutas"
-              icon={Coins}
-              comparison={comparisonGains ? comparisonGains.receita : null}
-            />
-            <KpiCard
-              title="Custo Operacional"
-              value={formatCurrencyValue(metrics.custoTotal)}
-              subtitle="Custo de faturamento (CMV)"
-              type="negative"
-              icon={Building}
-            />
-            <KpiCard
-              title="Gastos &amp; Despesas"
-              value={formatCurrencyValue(metrics.despesaTotal)}
-              subtitle="Operacional e centros fixos"
-              type="negative"
-              icon={GitBranch}
-              comparison={comparisonGains ? comparisonGains.despesa : null}
-            />
-            <KpiCard
-              title="Resultado Líquido"
-              value={formatCurrencyValue(metrics.lucroTotal)}
-              subtitle="Margens reais de lucro"
-              type={metrics.lucroTotal >= 0 ? "positive" : "negative"}
-              icon={TrendingUp}
-              comparison={comparisonGains ? comparisonGains.lucro : null}
-            />
-            <KpiCard
-              title="Retorno Líquido"
-              value={`${metrics.margemMedia.toFixed(2)}%`}
-              subtitle={metrics.margemMedia < margemLimite ? "Margem crítica atingida" : "Margem saudável do grupo"}
-              isAlert={metrics.margemMedia < margemLimite}
-              type={metrics.margemMedia >= margemLimite ? "positive" : "negative"}
-              icon={BarChart3}
-              comparison={comparisonGains ? comparisonGains.margem : null}
-            />
-          </section>
-
-          {/* DYNAMIC METRIC CHARTS GRID */}
-          <section>
-            <ChartsGrid metrics={metrics} />
-          </section>
-
-          {/* AI CONSULTING INSIGHTS */}
-          <section className="bg-slate-900 border border-slate-950 rounded-xl shadow-md overflow-hidden flex flex-col">
-            <div className="p-3 bg-slate-950 text-white flex justify-between items-center border-b border-slate-800/80">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0"></div>
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-blue-400">
-                    <span>Análise Consultiva Agent OS</span>
-                  </h3>
-                  <p className="text-[9px] text-slate-400 mt-0.5">Diagnósticos e diretrizes geradas dinamicamente com base nas visões filtradas</p>
-                </div>
-              </div>
-              
-              {aiSource && (
-                <span className="text-[9px] font-mono font-bold bg-slate-900 border border-slate-800 text-blue-300 rounded px-2 py-0.5 shrink-0">
-                  {aiSource}
-                </span>
-              )}
-            </div>
-
-            <div className="p-4 relative min-h-[160px] bg-slate-900 text-slate-300">
-              {aiLoading ? (
-                <div className="absolute inset-0 bg-slate-900/95 flex flex-col justify-center items-center p-4 gap-2 z-10 rounded-b-xl border-t border-slate-850/40">
-                  <div className="relative">
-                    <div className="w-9 h-9 border-3 border-slate-800 border-t-blue-500 rounded-full animate-spin"></div>
-                    <Sparkles className="absolute inset-0 m-auto text-blue-400 animate-pulse" size={13} />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[11px] font-bold text-white animate-pulse">Agente BI está estruturando auditoria financeira...</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5 italic max-w-md">Analisando rubricas de despesas, taxas operacionais de marcas e gerando recomendações consultivas em tempo real.</p>
-                  </div>
-                </div>
-              ) : null}
-
-              {aiError && (
-                <div className="mb-3 p-2.5 bg-rose-950/40 text-rose-300 text-[11px] rounded border border-rose-900/50 flex items-start gap-1.5">
-                  <AlertTriangle size={13} className="shrink-0 mt-0.5 text-rose-400" />
-                  <p>{aiError}</p>
-                </div>
-              )}
-
-              {aiAnalysis ? (
-                <div className="prose prose-invert max-w-none text-[11px] leading-relaxed font-sans space-y-3">
-                  {/* Styled markdown content rendering */}
-                  <div className="markdown-body text-slate-200">
-                    <ReactMarkdown>{aiAnalysis}</ReactMarkdown>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8 text-slate-500">
-                  <Sparkles size={20} className="text-slate-600 mb-1.5" />
-                  <p className="text-[11px] text-center font-medium">Nenhum relatório consultivo ativo. Clique em "Reanalisar com IA" para mobilizar o agente.</p>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* CENTRAL DE EXPORTACAO - TAB DATA LIST (Requirement 9) */}
-          <section className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 space-y-3 hover:shadow-md transition-all duration-150">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">Central de Agrupamento & Exportação</h3>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium">Gere demonstrativos táticos em múltiplos agrupamentos operacionais</p>
-              </div>
-              <div className="flex flex-wrap gap-1.5 items-center w-full sm:w-auto justify-end">
-                <select
-                  value={reportLevel}
-                  onChange={(e) => setReportLevel(e.target.value as any)}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200 px-2 py-1 rounded focus:outline-none focus:border-blue-500 font-sans cursor-pointer shrink-0"
-                >
-                  <option value="completo">Relatório Completo do Grupo</option>
-                  <option value="cnpj">Relatório Individual por CNPJ</option>
-                  <option value="marca">Relatório Individual por Marca</option>
-                </select>
-
-                <button
-                  onClick={handleDownloadReport}
-                  className="px-2.5 py-1 bg-slate-800 dark:bg-slate-700 text-slate-100 dark:text-white hover:bg-slate-900 dark:hover:bg-slate-600 transition-colors text-[10px] uppercase tracking-wide font-extrabold rounded cursor-pointer shrink-0"
-                >
-                  Exportar CSV
-                </button>
-              </div>
-            </div>
-
-            {/* DEMONSTRATIVO TABLE */}
-            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg max-h-64 custom-scrollbar">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider sticky top-0 z-10 text-[9px] font-sans">
-                    {reportLevel === "cnpj" && (
-                      <th className="py-2 px-3.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-905" onClick={() => toggleSort("CNPJ")}>
-                        CNPJ
-                      </th>
-                    )}
-                    {reportLevel === "marca" && (
-                      <th className="py-2 px-3.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-905" onClick={() => toggleSort("Marca")}>
-                        Marca
-                      </th>
-                    )}
-                    {reportLevel === "completo" && (
-                      <th className="py-2 px-3.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-905" onClick={() => toggleSort("Grupo")}>
-                        Grupo
-                      </th>
-                    )}
-                    <th className="py-2 px-3.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-905" onClick={() => toggleSort("Empresa")}>
-                      Empresa
-                    </th>
-                    <th className="py-2 px-3.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-905" onClick={() => toggleSort("Mês")}>
-                      Competência
-                    </th>
-                    <th className="py-2 px-3.5 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-905" onClick={() => toggleSort("Receita")}>
-                      Receita Bruta
-                    </th>
-                    <th className="py-2 px-3.5 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-905" onClick={() => toggleSort("Custo")}>
-                      Custo (CMV)
-                    </th>
-                    <th className="py-2 px-3.5 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-950" onClick={() => toggleSort("Despesa")}>
-                      Gastos/Despesas
-                    </th>
-                    <th className="py-2 px-3.5 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-950" onClick={() => toggleSort("Lucro")}>
-                      Retorno Líquido
-                    </th>
-                    <th className="py-2 px-3.5 text-right cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-950" onClick={() => toggleSort("Margem")}>
-                      Eficiência
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-150 dark:divide-slate-800 bg-white dark:bg-slate-900 font-sans text-slate-600 dark:text-slate-300">
-                  {sortedReportData.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="py-6 text-center text-slate-400 dark:text-slate-500 italic text-[11px]">
-                        Nenhum registro ativo sob as seleções dos filtros corporativos.
-                      </td>
-                    </tr>
-                  ) : (
-                    sortedReportData.map((row: any, idx: number) => {
-                      const isPositive = row.Lucro >= 0;
-                      const isRowAlert = row.Margem < margemLimite;
-                      return (
-                        <tr 
-                          key={idx} 
-                          className={`text-[11px] h-8 transition-colors ${
-                            isRowAlert 
-                              ? "bg-red-50/60 dark:bg-red-950/20 hover:bg-red-100/75 dark:hover:bg-red-900/30 border-l-2 border-l-red-500 text-red-950 dark:text-red-200" 
-                              : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-350"
-                          }`}
-                        >
-                          {reportLevel === "cnpj" && (
-                            <td className={`py-1 px-3.5 font-mono font-bold ${isRowAlert ? "text-red-900 dark:text-red-300" : "text-slate-700 dark:text-slate-300"}`}>
-                              {row.CNPJ}
-                            </td>
-                          )}
-                          {reportLevel === "marca" && (
-                            <td className={`py-1 px-3.5 font-bold ${isRowAlert ? "text-red-900 dark:text-red-300" : "text-slate-800 dark:text-slate-200"}`}>
-                              {row.Marca}
-                            </td>
-                          )}
-                          {reportLevel === "completo" && (
-                            <td className={`py-1 px-3.5 font-medium ${isRowAlert ? "text-slate-800 dark:text-red-350" : "text-slate-500 dark:text-slate-400"}`}>
-                              {row.Grupo}
-                            </td>
-                          )}
-                          <td className="py-1 px-3.5 truncate max-w-[130px] font-sans" title={row.Empresa}>{row.Empresa}</td>
-                          <td className="py-1 px-3.5 text-slate-500 dark:text-slate-400 font-medium">{row.Mês}</td>
-                          <td className="py-1 px-3.5 text-right font-mono text-slate-705 dark:text-slate-300 font-medium">{formatCurrencyValue(row.Receita)}</td>
-                          <td className="py-1 px-3.5 text-right font-mono text-slate-405 dark:text-slate-450">{formatCurrencyValue(row.Custo)}</td>
-                          <td className="py-1 px-3.5 text-right font-mono text-slate-405 dark:text-slate-450">{formatCurrencyValue(row.Despesa)}</td>
-                          <td className={`py-1 px-3.5 text-right font-mono font-bold ${isPositive && !isRowAlert ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}>
-                            {formatCurrencyValue(row.Lucro)}
-                          </td>
-                          <td className={`py-1 px-3.5 text-right font-mono font-bold ${isPositive && !isRowAlert ? "text-blue-600 dark:text-blue-400" : "text-red-600 dark:text-red-400"}`}>
-                            <div className="flex items-center justify-end gap-1">
-                              {isRowAlert && <AlertTriangle size={11} className="text-red-500 animate-pulse shrink-0" />}
-                              <span>{row.Margem.toFixed(1)}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* PYTHON CORE EXPORTER / EXECUTABLE EXCISE SEGMENT */}
-          {currentUser?.role === "consultor" && (
-            <section>
-              <StreamlitExporter />
             </section>
-          )}
-
-          {/* TRACEABILITY AND INTEGRITY AUDITOR */}
-          <section>
-            <TraceabilityPanel
-              totalImported={dataOrigem.length}
-              totalFiltered={filteredData.length}
-              missingFields={camposAusentes}
-              sourceName={nomeFonte}
-            />
-          </section>
-
-            </div>
-          )}
-          </>
-          )}
-
-        </section>
-        </div>
-      </main>
+          </div>
+        </main>
+        
+        {/* FOOTER AREA - Compact High Density */}
+        <footer className="bg-slate-900 border-t border-slate-950 text-slate-500 py-4 text-center text-[10px] shrink-0 font-sans leading-normal mt-auto">
+          <p className="font-semibold text-slate-400">Sauron &copy; 2026</p>
+          <p className="text-slate-600 mt-0.5">Ambiente corporativo de alta confiabilidade operacional e rastreabilidade financeira auditada.</p>
+        </footer>
       </div>
 
-      {/* FOOTER AREA - Compact High Density */}
-      <footer className="bg-slate-900 border-t border-slate-950 text-slate-500 py-4 text-center text-[10px] shrink-0 font-sans leading-normal">
-        <p className="font-semibold text-slate-400">Sauron &copy; 2026</p>
-        <p className="text-slate-600 mt-0.5">Ambiente corporativo de alta confiabilidade operacional e rastreabilidade financeira auditada.</p>
-      </footer>
+      <DynamicFilterDrawer
+        key={activeDataSource}
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        dataOrigem={dataOrigem}
+        filtros={filtros}
+        onChangeFiltros={setFiltros}
+        visibleFilters={visibleFilters}
+        onChangeVisibleFilters={setVisibleFilters}
+        activeDataSource={activeDataSource}
+        actualKeys={actualKeys}
+      />
+
       <LgpdConsent />
     </div>
   );
