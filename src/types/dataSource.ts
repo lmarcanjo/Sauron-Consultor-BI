@@ -37,11 +37,12 @@ export interface SpreadsheetFile {
   fileName: string;
   importedAt: string;
   importedBy: string;
-  status: "ACTIVE" | "INACTIVE" | "PENDING_MAPPING" | "PENDING_APPROVAL" | "ERROR";
+  status: "ACTIVE" | "INACTIVE" | "PENDING_MAPPING" | "PENDING_APPROVAL" | "PENDING_VALIDATION" | "ERROR";
   sheets: SpreadsheetSheet[];
   totalRows: number;
   totalColumns: number;
   qualityScore?: number; // quality score (0-100)
+  approvedByConsultant?: boolean;
 }
 
 export interface SpreadsheetColumn {

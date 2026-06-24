@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { LancamentoFinanceiro, FiltrosDashboard } from "../types";
 import { DatabaseConnector } from "./DatabaseConnector";
+import { useDataSourceManager } from "../hooks/useDataSourceManager";
 
 interface CentralDadosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -108,8 +109,16 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   ]);
 
   // 9. Sync & Audit Logs State
-  const [internalActiveDataSource, setInternalActiveDataSource] = useState<"DEMO_DATA" | "SPREADSHEET_DATA" | "DATABASE_DATA" | "MIXED_APPROVED_DATA">("DEMO_DATA");
-  const [approveMixedData, setApproveMixedData] = useState<boolean>(false);
+  const {
+    activeDataSource,
+    setActiveSource,
+    approvedByConsultant,
+    approveSource,
+    rejectSource
+  } = useDataSourceManager();
+
+  const internalActiveDataSource = activeDataSource;
+  const approveMixedData = approvedByConsultant;
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
@@ -255,7 +264,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       const data = await res.json();
       if (data.success) {
         onDataLoaded(data.data, `Banco Remoto: ${data.sourceName}`);
-        setInternalActiveDataSource("DATABASE_DATA");
+        setActiveSource("DATABASE_DATA");
         alert(`Sincronização executada! Carregados ${data.count} registros do banco de dados remoto.`);
       } else {
         alert(`Erro de Sincronização: ${data.error}`);
@@ -1186,9 +1195,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                       <span className="font-bold text-slate-550 block">Snapshot Fictício (Segurança)</span>
                       <button
                         onClick={() => {
-                          onDataLoaded([], "DEMO_DATA");
-                          setInternalActiveDataSource("DEMO_DATA");
-                          setApproveMixedData(false);
+                          setActiveSource("DEMO_DATA");
+                          rejectSource();
                           alert("Dataset do workspace resetado com sucesso para dados DEMO do sistema (Fictícios).");
                         }}
                         className="px-3 py-2 bg-slate-200 hover:bg-slate-350 dark:bg-slate-800 dark:hover:bg-slate-705 text-slate-700 dark:text-slate-300 font-extrabold text-[10px] uppercase rounded-lg transition-colors cursor-pointer"
@@ -1205,12 +1213,13 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                       <button
                         onClick={() => {
                           const nextState = !approveMixedData;
-                          setApproveMixedData(nextState);
                           if (nextState) {
-                            setInternalActiveDataSource("MIXED_APPROVED_DATA");
+                            approveSource();
+                            setActiveSource("MIXED_APPROVED_DATA");
                             alert("MIXED_APPROVED_DATA ativado. Agora o consultor pode mesclar relatórios de planilhas e DB.");
                           } else {
-                            setInternalActiveDataSource("DEMO_DATA");
+                            rejectSource();
+                            setActiveSource("DEMO_DATA");
                           }
                         }}
                         className={`px-3 py-1.5 rounded text-[10px] font-black uppercase transition-colors cursor-pointer ${

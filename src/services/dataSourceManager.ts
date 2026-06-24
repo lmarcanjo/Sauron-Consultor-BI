@@ -16,6 +16,57 @@ import {
 } from "../types/dataSource";
 import { gerarDadosSimulados } from "../utils/dataGenerator";
 
+// --- GLOBAL QUERY SECURITY / PROTECTIONS ---
+export function assertNoMockDataWhenRealSource(
+  records: LancamentoFinanceiro[],
+  activeDataSource: string
+): LancamentoFinanceiro[] {
+  if (activeDataSource === "DEMO_DATA") {
+    return records;
+  }
+
+  const isMock = (r: LancamentoFinanceiro) => {
+    return (
+      r.Grupo === "Grupo Topázio" ||
+      r.Grupo === "Ficticio" ||
+      r.Origem === "Simulado" ||
+      (r.id && String(r.id).startsWith("sim_")) ||
+      (r.Empresa && String(r.Empresa).includes("Topázio")) ||
+      (r.Razão && String(r.Razão).includes("Topázio"))
+    );
+  };
+
+  const mockRecords = records.filter(isMock);
+  const cleanRecords = records.filter(r => !isMock(r));
+
+  if (mockRecords.length > 0) {
+    const errorMsg = `[Sauron Audit] Violação Crítica de Integridade: Dados simulados/fictícios (Grupo Topázio/Simulado) foram detectados em uma fonte de dados real (${activeDataSource})! Operação abortada para evitar contaminação de relatórios executivos.`;
+    console.error(errorMsg);
+
+    // Register audit log in localStorage
+    if (typeof localStorage !== "undefined") {
+      try {
+        const savedLogs = localStorage.getItem("sauron_audit_logs");
+        const logs = savedLogs ? JSON.parse(savedLogs) : [];
+        logs.push({
+          id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          timestamp: new Date().toISOString(),
+          type: "DATA_CONTAMINATION_ATTEMPT",
+          severity: "CRITICAL",
+          message: errorMsg,
+          dataSource: activeDataSource,
+          count: mockRecords.length,
+        });
+        localStorage.setItem("sauron_audit_logs", JSON.stringify(logs));
+      } catch (err) {
+        console.error("Erro ao registrar auditoria em localStorage", err);
+      }
+    }
+  }
+
+  return cleanRecords;
+}
+
 // In-memory or localStorage-backed store for B2B SaaS consistency
 class DataSourceManager {
   private state: DataSourceState;
@@ -25,6 +76,7 @@ class DataSourceManager {
   private filterConfigs: ClientFilterConfig[] = [];
   private dataVersions: DataVersion[] = [];
   private currentImportProfile: ImportProfile | null = null;
+  private cachedActiveRecords: LancamentoFinanceiro[] | null = null;
 
   constructor() {
     // Check if running in a browser environment
@@ -69,7 +121,7 @@ class DataSourceManager {
   }
 
   // --- PERSISTENCE ---
-  private saveToStorage() {
+  public saveToStorage() {
     const hasLocalStorage = typeof localStorage !== "undefined";
     this.state.lastUpdatedAt = new Date().toISOString();
     if (hasLocalStorage) {
@@ -125,20 +177,7 @@ class DataSourceManager {
 
   // --- QUERY SECURITY / PROTECTIONS ---
   public assertNoMockDataWhenRealSource(activeDataSource: ActiveDataSource, records: LancamentoFinanceiro[]): LancamentoFinanceiro[] {
-    if (activeDataSource === "DEMO_DATA") {
-      return records;
-    }
-    
-    // If we are in real source mode (SPREADSHEET or DATABASE), block all records that are mocked/demo
-    // The demo dataset contains 'Grupo Topázio' which is strictly fake.
-    return records.filter((r) => {
-      const isFake = 
-        r.Grupo === "Grupo Topázio" || 
-        r.Grupo === "Ficticio" || 
-        r.Origem === "Simulado" ||
-        (r.id && String(r.id).startsWith("sim_"));
-      return !isFake;
-    });
+    return assertNoMockDataWhenRealSource(records, activeDataSource);
   }
 
   public isDemoMode(): boolean {
@@ -154,6 +193,9 @@ class DataSourceManager {
   }
 
   public getActiveRecords(): LancamentoFinanceiro[] {
+    if (this.cachedActiveRecords) {
+      return this.cachedActiveRecords;
+    }
     let rawRecords: LancamentoFinanceiro[] = [];
 
     switch (this.state.activeDataSource) {
@@ -193,7 +235,8 @@ class DataSourceManager {
     }
 
     // Safety assert to ensure we don't leak "Grupo Topázio" mock records when using real data
-    return this.assertNoMockDataWhenRealSource(this.state.activeDataSource, rawRecords);
+    this.cachedActiveRecords = this.assertNoMockDataWhenRealSource(this.state.activeDataSource, rawRecords);
+    return this.cachedActiveRecords;
   }
 
   private getActiveRecordsForSource(source: "SPREADSHEET_DATA" | "DATABASE_DATA"): LancamentoFinanceiro[] {
@@ -560,7 +603,8 @@ class DataSourceManager {
   }
 
   // --- EVENT TRIGGERING FOR REACT ---
-  private triggerUpdateEvent() {
+  public triggerUpdateEvent() {
+    this.cachedActiveRecords = null;
     if (typeof window !== "undefined" && typeof CustomEvent !== "undefined") {
       const event = new CustomEvent("sauron_datasource_updated", {
         detail: {

@@ -44,7 +44,8 @@ import {
 } from "lucide-react";
 
 import { LancamentoFinanceiro, FiltrosDashboard, MetricasConsolidadas, ActiveDataSourceType } from "./types";
-import { gerarDadosSimulados, exportToCSV } from "./utils/dataGenerator";
+import { useDataSourceManager } from "./hooks/useDataSourceManager";
+import { exportToCSV } from "./utils/dataGenerator";
 import { parseCSV } from "./utils/csvParser";
 import { KpiCard } from "./components/KpiCard";
 import { SidebarFilters } from "./components/SidebarFilters";
@@ -98,18 +99,26 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState<boolean>(false);
 
-  const [dataOrigem, setDataOrigem] = useState<LancamentoFinanceiro[]>([]);
-  const [dataLiveBackup, setDataLiveBackup] = useState<LancamentoFinanceiro[]>([]);
-  const [nomeFonte, setNomeFonte] = useState<string>("Dados Simulados de Concessionárias de Voo");
+  const {
+    activeDataSource,
+    activeRecords,
+    activeSourceLabel,
+    activeFiles,
+    approvedByConsultant,
+    setActiveSource,
+    approveSource,
+    rejectSource,
+    refreshDataSource
+  } = useDataSourceManager();
+
+  const [historicalData, setHistoricalData] = useState<LancamentoFinanceiro[] | null>(null);
+  const dataOrigem = historicalData || activeRecords;
+  const nomeFonte = activeSourceLabel;
+  const visualizacaoEmpresas = activeDataSource === "DEMO_DATA" ? "ficticias" : "reais";
+  const dataOrigemReal = activeDataSource !== "DEMO_DATA" ? activeRecords : [];
+  const dataOrigemFicticio = activeDataSource === "DEMO_DATA" ? activeRecords : [];
+
   const [camposAusentes, setCamposAusentes] = useState<string[]>([]);
-
-  // Toggle state between Companies: real vs fictional
-  const [visualizacaoEmpresas, setVisualizacaoEmpresas] = useState<"ficticias" | "reais">("ficticias");
-  const [dataOrigemFicticio, setDataOrigemFicticio] = useState<LancamentoFinanceiro[]>([]);
-  const [dataOrigemReal, setDataOrigemReal] = useState<LancamentoFinanceiro[]>([]);
-
-  // Requirement #1 Data Source engine
-  const [activeDataSource, setActiveDataSource] = useState<"DEMO_DATA" | "SPREADSHEET_DATA" | "DATABASE_DATA" | "CONSULTANT_DATA" | "MIXED_APPROVED_DATA">("DEMO_DATA");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
   const [visibleFilters, setVisibleFilters] = useState<string[]>(["grupos", "cnpjs", "marcas", "meses", "razoes"]);
   const [spreadsheetMetadata, setSpreadsheetMetadata] = useState<{
@@ -277,11 +286,7 @@ export default function App() {
         const syncRes = await fetch("/api/db/sync", { method: "POST" });
         const syncData = await syncRes.json();
         if (syncRes.ok && syncData.success) {
-          setDataOrigemReal(syncData.data);
-          setDataOrigem(syncData.data);
-          setDataLiveBackup(syncData.data);
-          setVisualizacaoEmpresas("reais");
-          setNomeFonte(syncData.sourceName);
+          dataSourceManager.syncDatabaseRecords(syncData.data, syncData.sourceName);
           setSyncStatus("");
           loadReportHistoryMetadata();
         } else {
@@ -301,11 +306,7 @@ export default function App() {
       const res = await fetch("/api/db/sync", { method: "POST" });
       const resData = await res.json();
       if (res.ok && resData.success) {
-        setDataOrigemReal(resData.data);
-        setDataOrigem(resData.data);
-        setDataLiveBackup(resData.data);
-        setVisualizacaoEmpresas("reais");
-        setNomeFonte(resData.sourceName);
+        dataSourceManager.syncDatabaseRecords(resData.data, resData.sourceName);
         setCamposAusentes([]);
         setSyncStatus(`Sucesso! Banco de dados atualizado. Importados ${resData.count} registros.`);
         await loadReportHistoryMetadata();
@@ -362,8 +363,7 @@ export default function App() {
         if (selectedSnapshotDataId === id) {
           setSelectedSnapshotDataId("");
           setHistoryOption("atual");
-          setDataOrigem(dataLiveBackup);
-          setNomeFonte("Dados Simulados de Concessionárias de Voo");
+          setHistoricalData(null);
         }
       }
     } catch (err) {
@@ -377,8 +377,7 @@ export default function App() {
     setAiAnalysis("");
 
     if (option === "atual") {
-      setDataOrigem(dataLiveBackup);
-      setNomeFonte("Sincronização Ao Vivo do Banco de Dados");
+      setHistoricalData(null);
       setSyncStatus("Dados em tempo real ativados.");
     } else if (option === "historico_consolidado") {
       setSyncStatus("Consolidando todos os snapshots salvos no histórico contábil...");
@@ -392,12 +391,11 @@ export default function App() {
           }
         }
         if (consolidated.length > 0) {
-          setDataOrigem(consolidated);
-          setNomeFonte("Histórico Consolidado (Toda a Linha Temporal)");
+          setHistoricalData(consolidated);
           setSyncStatus(`Sucesso! Consolidado faturamento de ${reportHistory.length} uploads históricos combinados.`);
         } else {
           setSyncStatus("Nenhum snapshot no histórico. Salve ou importe para habilitar consolidado.");
-          setDataOrigem(dataLiveBackup);
+          setHistoricalData(null);
           setHistoryOption("atual");
         }
       } catch (err) {
@@ -411,8 +409,7 @@ export default function App() {
         const r = await fetch(`/api/reports/history/${snapshotId}`);
         const rData = await r.json();
         if (r.ok && rData.success && rData.snapshot) {
-          setDataOrigem(rData.snapshot.data);
-          setNomeFonte(`Snapshot Histórico: ${rData.snapshot.sourceName} (${new Date(rData.snapshot.timestamp).toLocaleString()})`);
+          setHistoricalData(rData.snapshot.data);
           setSyncStatus(`Exibindo dados históricos de: ${rData.snapshot.sourceName}`);
         }
       } catch (err) {
@@ -425,46 +422,10 @@ export default function App() {
 
   // --- INITIALIZATION ---
   useEffect(() => {
-    const simulated = gerarDadosSimulados();
-    setDataOrigemFicticio(simulated);
-    setDataOrigem(simulated);
-    setDataLiveBackup(simulated);
-
-    setDataOrigemReal([]);
-    
     // Load metadata, system database configs and check for cloud database sync
     loadReportHistoryMetadata();
     checkServerConfigAndSyncOnMount();
     loadSystemDb();
-  }, []);
-
-  // Synchronize state with central DataSourceManager updates
-  useEffect(() => {
-    const handleDataSourceUpdate = () => {
-      const activeSource = dataSourceManager.getActiveSource();
-      const records = dataSourceManager.getActiveRecords();
-      
-      // Update local states of App.tsx
-      setActiveDataSource(activeSource);
-      setDataOrigem(records);
-      
-      if (activeSource !== "DEMO_DATA") {
-        setDataOrigemReal(records);
-        setNomeFonte(dataSourceManager.getActiveSourceLabel());
-      } else {
-        setDataOrigemReal([]);
-        setNomeFonte("DEMO_DATA");
-      }
-    };
-
-    window.addEventListener("sauron_datasource_updated", handleDataSourceUpdate);
-    
-    // Run once on mount to capture existing state
-    handleDataSourceUpdate();
-
-    return () => {
-      window.removeEventListener("sauron_datasource_updated", handleDataSourceUpdate);
-    };
   }, []);
 
   // Handle document dark class theme pairing
@@ -974,11 +935,6 @@ export default function App() {
   };
 
   const handleDatabaseDataLoaded = (data: LancamentoFinanceiro[], sourceName: string, isVpn?: boolean) => {
-    setDataOrigemReal(data);
-    setDataOrigem(data);
-    setDataLiveBackup(data);
-    setVisualizacaoEmpresas("reais");
-    setNomeFonte(sourceName);
     setCamposAusentes([]);
 
     const keys = new Set<string>();
@@ -994,7 +950,31 @@ export default function App() {
     setActualKeys(Array.from(keys));
 
     const isSpreadsheet = sourceName.toLowerCase().includes(".xls") || sourceName.toLowerCase().includes(".csv") || sourceName.toLowerCase().includes("planilha") || sourceName.toLowerCase().includes("combinada");
-    setActiveDataSource(isSpreadsheet ? "SPREADSHEET_DATA" : "DATABASE_DATA");
+    
+    if (isSpreadsheet) {
+      const fileId = `up_file_${Date.now()}`;
+      const virtualFile = {
+        id: fileId,
+        fileName: sourceName,
+        importedAt: new Date().toISOString(),
+        importedBy: "Lennon Marcanjo",
+        status: "ACTIVE" as const,
+        sheets: [
+          {
+            id: `sheet_${Date.now()}`,
+            fileId: fileId,
+            sheetName: "Planilha Importada",
+            rows: data,
+            columns: Array.from(keys).map(k => ({ name: k, type: "any", hasEmptyValues: false }))
+          }
+        ],
+        totalRows: data.length,
+        totalColumns: keys.size
+      };
+      dataSourceManager.addSpreadsheetFile(virtualFile, "REPLACE");
+    } else {
+      dataSourceManager.syncDatabaseRecords(data, sourceName);
+    }
 
     if (isVpn !== undefined) {
       setIsVpnSimulated(isVpn);
@@ -1007,12 +987,11 @@ export default function App() {
       alert("Acesso Bloqueado: Não é permitido alternar para dados do Modo Demonstração enquanto houver uma fonte de dados real ativa.");
       return;
     }
-    setVisualizacaoEmpresas(choice);
-    const activeData = choice === "ficticias" ? dataOrigemFicticio : dataOrigemReal;
-    setDataOrigem(activeData);
-    setDataLiveBackup(activeData);
-    setNomeFonte(choice === "ficticias" ? "Ambiente de Teste (Empresas Fictícias)" : "Dados de Produção (Empresas Reais)");
-    runDbValidationCheck(activeData);
+    if (choice === "ficticias") {
+      dataSourceManager.setActiveSource("DEMO_DATA");
+    } else {
+      dataSourceManager.setActiveSource("SPREADSHEET_DATA");
+    }
   };
 
   // --- EXPORT & FILE UPLOAD ---
@@ -1095,13 +1074,32 @@ export default function App() {
       }
       
       if (allData.length > 0) {
-        setDataOrigemReal(allData);
-        setDataOrigem(allData);
-        setDataLiveBackup(allData);
-        setVisualizacaoEmpresas("reais");
-        setNomeFonte(`Planilhas: ${fileNames.join(", ")}`);
+        const fileId = `up_file_${Date.now()}`;
+        const virtualFile = {
+          id: fileId,
+          fileName: fileNames.join(", "),
+          importedAt: new Date().toISOString(),
+          importedBy: "Lennon Marcanjo",
+          status: "ACTIVE" as const,
+          sheets: [
+            {
+              id: `sheet_${Date.now()}`,
+              fileId: fileId,
+              sheetName: "Dados Importados",
+              rows: allData,
+              columns: Array.from(originalSheetKeysSet).map((k) => ({
+                name: k,
+                type: "any",
+                hasEmptyValues: allData.some((row) => row[k] === undefined || row[k] === null || row[k] === ""),
+              })),
+            },
+          ],
+          totalRows: allData.length,
+          totalColumns: totalColCount || 10,
+        };
+
+        dataSourceManager.addSpreadsheetFile(virtualFile, "REPLACE");
         setCamposAusentes([]);
-        setActiveDataSource("SPREADSHEET_DATA");
         setSpreadsheetMetadata({
           fileName: fileNames.join(", "),
           sheetNames: sheetNames,
