@@ -35,14 +35,22 @@ export interface SpreadsheetWorkspace {
 export interface SpreadsheetFile {
   id: string;
   fileName: string;
+  nome?: string; // alias in Portuguese
   importedAt: string;
+  dataImportacao?: string; // alias in Portuguese
   importedBy: string;
+  usuario?: string; // alias in Portuguese
   status: "ACTIVE" | "INACTIVE" | "PENDING_MAPPING" | "PENDING_APPROVAL" | "PENDING_VALIDATION" | "ERROR";
   sheets: SpreadsheetSheet[];
   totalRows: number;
   totalColumns: number;
+  totalAbas?: number; // count of sheets
   qualityScore?: number; // quality score (0-100)
+  qualityLabel?: "Excelente" | "Boa" | "Atenção" | "Crítica"; // quality rating
+  scoreQualidade?: "Excelente" | "Boa" | "Atenção" | "Crítica"; // alias in Portuguese
   approvedByConsultant?: boolean;
+  version?: string; // e.g., "v1", "v2", "v3"
+  versao?: string; // alias in Portuguese
 }
 
 export interface SpreadsheetColumn {

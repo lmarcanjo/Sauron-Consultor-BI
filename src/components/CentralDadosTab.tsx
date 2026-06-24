@@ -8,6 +8,7 @@ import {
 import { LancamentoFinanceiro, FiltrosDashboard } from "../types";
 import { DatabaseConnector } from "./DatabaseConnector";
 import { useDataSourceManager } from "../hooks/useDataSourceManager";
+import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
 
 interface CentralDadosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -74,6 +75,14 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   const [activeSheetName, setActiveSheetName] = useState<string>("Faturamento");
   const [dragActive, setDragActive] = useState<boolean>(false);
 
+  // Spreadsheet Beta custom states
+  const [showConsolidator, setShowConsolidator] = useState<boolean>(false);
+  const [selectedFilesForConsolidation, setSelectedFilesForConsolidation] = useState<string[]>([]);
+  const [consolidatedFileName, setConsolidatedFileName] = useState<string>("Consolidado Geral Q2");
+  const [compareVersion1, setCompareVersion1] = useState<string>("");
+  const [compareVersion2, setCompareVersion2] = useState<string>("");
+  const [showComparer, setShowComparer] = useState<boolean>(false);
+
   // 5. Schema Mapping State
   const [customMappings, setCustomMappings] = useState<Record<string, string>>({
     Grupo: "Grupo",
@@ -118,6 +127,43 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     workspace
   } = useDataSourceManager();
 
+  const handleReplaceFileSim = (fileId: string, fileName: string) => {
+    const confirmReplace = confirm(`Deseja substituir o arquivo '${fileName}' por uma nova versão?`);
+    if (!confirmReplace) return;
+
+    const data = [
+      { Grupo: "Grupo Alfa S/A", CNPJ: "12.345.678/0001-90", Marca: "Alfa Fiat", Empresa: "Alfa Filial 1", Mês: "2026-06", Razão: "Faturamento Vendas", Categoria: "Receita Operacional", Receita: Math.floor(Math.random() * 60000) + 20000, Custo: 11000, Despesa: 4000, Lucro: 15000, Margem: 42, Vendedor: "Carlos" }
+    ];
+
+    const newFileId = `sim_file_${Date.now()}`;
+    const newFile = {
+      id: newFileId,
+      fileName: fileName,
+      importedAt: new Date().toISOString(),
+      importedBy: "Lennon Marcanjo",
+      status: "PENDING_VALIDATION" as const,
+      sheets: [
+        {
+          id: `sheet_${Date.now()}`,
+          fileId: newFileId,
+          sheetName: "Dados Vendas Atualizados",
+          rows: data,
+          columns: [
+            { name: "Grupo", type: "string", hasEmptyValues: false },
+            { name: "Receita", type: "number", hasEmptyValues: false },
+            { name: "Mês", type: "string", hasEmptyValues: false }
+          ]
+        }
+      ],
+      totalRows: data.length,
+      totalColumns: 13
+    };
+
+    SpreadsheetWorkspaceManager.substituirPlanilha(fileId, newFile);
+    setSelectedFileId(newFileId);
+    alert(`Arquivo substituído! Uma nova versão (incrementada) foi gerada e a versão anterior foi arquivada como INACTIVE.`);
+  };
+
   const internalActiveDataSource = activeDataSource;
   const approveMixedData = approvedByConsultant;
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -126,18 +172,42 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   // Compute visible files list dynamically
   const visibleFilesList = useMemo(() => {
     if (activeDataSource === "DEMO_DATA") {
-      return uploadedFiles;
+      return uploadedFiles.map(f => ({
+        ...f,
+        version: "v1",
+        qualityScore: 92,
+        qualityLabel: "Excelente" as const,
+        totalRows: 120,
+        totalColumns: 11,
+        totalAbas: f.sheets.length,
+        approvedByConsultant: true,
+        importedBy: "Lennon Marcanjo",
+        importedAt: f.date + "T10:00:00Z",
+        sheetsData: f.sheets.map(sh => ({ sheetName: sh, rows: [], columns: [] }))
+      }));
     } else {
       const workspaceFiles = (workspace?.files || []).map(f => ({
         id: f.id,
         name: f.fileName,
         size: f.totalRows * 120, // estimated size
         sheets: f.sheets.map(s => s.sheetName),
-        date: f.importedAt.split("T")[0],
-        status: f.status
+        date: f.importedAt ? f.importedAt.split("T")[0] : new Date().toISOString().split("T")[0],
+        status: f.status,
+        version: f.version || f.versao || "v1",
+        versao: f.versao || f.version || "v1",
+        qualityScore: f.qualityScore ?? 100,
+        qualityLabel: f.qualityLabel || f.scoreQualidade || "Excelente",
+        scoreQualidade: f.scoreQualidade || f.qualityLabel || "Excelente",
+        totalRows: f.totalRows,
+        totalColumns: f.totalColumns,
+        totalAbas: f.sheets.length,
+        approvedByConsultant: f.approvedByConsultant,
+        importedBy: f.importedBy,
+        importedAt: f.importedAt,
+        sheetsData: f.sheets
       }));
-      // Strict No-Contamination / No-Mock rule: No Topazio files
-      return workspaceFiles.filter(f => !f.name.toLowerCase().includes("topazio") && !f.name.toLowerCase().includes("topázio"));
+      // Include all files to let the developer manage them and keep history
+      return workspaceFiles;
     }
   }, [activeDataSource, uploadedFiles, workspace]);
 
@@ -671,150 +741,539 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
           {/* TAB 4: PLANILHAS */}
           {activeTab === 3 && (
-            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
-              <div>
-                <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 flex items-center gap-2">
-                  <FileSpreadsheet size={20} className="text-blue-500" />
-                  Prancheta de Arquivos & Importação de Planilhas
-                </h3>
-                <p className="text-slate-400 text-xs mt-1">Sauron preserva absolutamente todas as estruturas de suas planilhas Excel (.xlsx, .xls) ou CSV: ordem, colunas originais e fórmulas.</p>
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6" id="spreadsheet-workspace-dashboard">
+              
+              {/* Toolbar header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-900 pb-5">
+                <div>
+                  <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 flex items-center gap-2">
+                    <FileSpreadsheet size={22} className="text-emerald-500" />
+                    Gerenciador de Workspace de Planilhas (Sprint Beta)
+                  </h3>
+                  <p className="text-slate-400 text-xs mt-1">
+                    Garantia de conformidade, linhagem estrita, score de confiança e versionamento integrado para governança de relatórios.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setShowConsolidator(!showConsolidator);
+                      setShowComparer(false);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold uppercase rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      showConsolidator 
+                        ? "bg-purple-600 border-purple-600 text-white" 
+                        : "border-slate-200 dark:border-slate-800 hover:border-slate-350 text-slate-700 dark:text-slate-350 bg-white dark:bg-slate-900"
+                    }`}
+                  >
+                    <Shuffle size={14} />
+                    Consolidar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowComparer(!showComparer);
+                      setShowConsolidator(false);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-bold uppercase rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      showComparer 
+                        ? "bg-blue-600 border-blue-600 text-white" 
+                        : "border-slate-200 dark:border-slate-800 hover:border-slate-350 text-slate-700 dark:text-slate-350 bg-white dark:bg-slate-900"
+                    }`}
+                  >
+                    <Settings2 size={14} />
+                    Comparar Versões
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Trigger clean simulation import
+                      const name = prompt("Digite o nome do arquivo para simular a importação (ex: faturamento_mensal.xlsx):", "vendas_junho_2026.xlsx");
+                      if (name) {
+                        const fileId = `sim_file_${Date.now()}`;
+                        const mockRows = [
+                          { Grupo: "Grupo Alfa S/A", CNPJ: "12.345.678/0001-90", Marca: "Alfa Fiat", Empresa: "Alfa Filial 1", Mês: "2026-06", Razão: "Faturamento Vendas", Categoria: "Receita", Receita: Math.floor(Math.random() * 50000) + 15000, Custo: 10000, Despesa: 3000, Lucro: 12000, Margem: 40, Vendedor: "Carlos" },
+                          { Grupo: "Grupo Alfa S/A", CNPJ: "12.345.678/0001-90", Marca: "Alfa Fiat", Empresa: "Alfa Filial 1", Mês: "2026-06", Razão: "Faturamento Vendas", Categoria: "Receita", Receita: Math.floor(Math.random() * 40000) + 10000, Custo: 8000, Despesa: 2000, Lucro: 10000, Margem: 38, Vendedor: "Julia" }
+                        ];
+                        const mockFile = {
+                          id: fileId,
+                          fileName: name,
+                          importedAt: new Date().toISOString(),
+                          importedBy: "Lennon Marcanjo",
+                          status: "PENDING_VALIDATION" as const,
+                          sheets: [
+                            {
+                              id: `sheet_${Date.now()}`,
+                              fileId: fileId,
+                              sheetName: "Faturamento Geral",
+                              rows: mockRows,
+                              columns: [
+                                { name: "Grupo", type: "string", hasEmptyValues: false },
+                                { name: "Receita", type: "number", hasEmptyValues: false },
+                                { name: "Mês", type: "string", hasEmptyValues: false }
+                              ]
+                            }
+                          ],
+                          totalRows: mockRows.length,
+                          totalColumns: 13
+                        };
+                        SpreadsheetWorkspaceManager.importarPlanilha(mockFile, "APPEND");
+                        setSelectedFileId(fileId);
+                        setActiveSheetName("Faturamento Geral");
+                        alert(`Arquivo '${name}' carregado com status PENDING_VALIDATION.`);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold uppercase rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer transition-colors flex items-center gap-1"
+                  >
+                    <Plus size={14} />
+                    Simular Planilha
+                  </button>
+                </div>
               </div>
 
-              {/* Drag and drop zone */}
-              <div 
-                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
-                  dragActive ? "border-blue-500 bg-blue-50/20" : "border-slate-200 dark:border-slate-800 hover:border-slate-350 bg-slate-50/50 dark:bg-slate-900/40"
-                }`}
-                onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
-                onDragLeave={() => setDragActive(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragActive(false);
-                  const files = Array.from(e.dataTransfer.files);
-                  if (files.length > 0) {
-                    const newFile = {
-                      id: "f_" + Math.random().toString(36).substring(2, 9),
-                      name: files[0].name,
-                      size: files[0].size,
-                      sheets: ["Aba_Dados", "Aba_Fórmulas", "Metadados"],
-                      date: new Date().toISOString().split("T")[0]
-                    };
-                    setUploadedFiles([...uploadedFiles, newFile]);
-                    alert(`Arquivo ${files[0].name} importado no Sauron OS. Fórmulas preservadas do Excel.`);
-                  }
-                }}
-                onClick={() => {
-                  // Simulate upload click
-                  const nameInput = prompt("Digite o nome da planilha a simular a importação (com extensão .xlsx/.xls/...):");
-                  if (nameInput) {
-                    const newFile = {
-                      id: "f_" + Math.random().toString(36).substring(2, 9),
-                      name: nameInput,
-                      size: Math.floor(Math.random() * 2200000) + 120000,
-                      sheets: ["Vendas", "Consolidado_DRE", "Geral_Metas"],
-                      date: new Date().toISOString().split("T")[0]
-                    };
-                    setUploadedFiles([...uploadedFiles, newFile]);
-                  }
-                }}
-              >
-                <FileSpreadsheet size={40} className="text-slate-300 dark:text-slate-700 mb-3" />
-                <h4 className="font-extrabold text-slate-750 dark:text-slate-200 text-sm">Arraste sua planilha Excel ou clique para selecionar</h4>
-                <p className="text-slate-400 text-[10px] mt-1 uppercase font-mono tracking-wider">Suporta .xlsx, .xls, .xlsm, .csv | Filtros de proteção de perda de dados ativos</p>
-              </div>
-
-              {/* Embedded files list & sheet tabs analysis */}
-              <div className="space-y-4">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Planilhas Ativas no Workspace</span>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Left list of files */}
-                  <div className="col-span-1 border border-slate-200 dark:border-slate-800 rounded-xl divide-y divide-slate-100 dark:divide-slate-850 overflow-hidden bg-white dark:bg-slate-950">
-                    {visibleFilesList.map((f) => (
-                      <div 
-                        key={f.id}
-                        onClick={() => {
-                          setSelectedFileId(f.id);
-                          if (f.sheets && f.sheets.length > 0) {
-                            setActiveSheetName(f.sheets[0]);
-                          }
-                        }}
-                        className={`p-3 text-xs flex items-center gap-2.5 cursor-pointer transition-colors ${
-                          selectedFileId === f.id ? "bg-blue-500/10 border-l-4 border-blue-500" : "hover:bg-slate-50 dark:hover:bg-slate-900"
-                        }`}
+              {/* Version comparer panel */}
+              {showComparer && (
+                <div className="bg-blue-50/40 dark:bg-blue-950/10 border border-blue-200 dark:border-blue-900 rounded-xl p-4 space-y-4">
+                  <h4 className="text-xs font-black text-blue-800 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Settings2 size={16} />
+                    Comparador de Métricas e Versões
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] uppercase font-black text-slate-400 block mb-1">Planilha / Versão A</label>
+                      <select 
+                        value={compareVersion1} 
+                        onChange={(e) => setCompareVersion1(e.target.value)}
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5"
                       >
-                        <FileSpreadsheet size={16} className={`${selectedFileId === f.id ? "text-blue-500" : "text-slate-400"}`} />
-                        <div className="min-w-0 flex-1">
-                           <p className="font-bold text-slate-800 dark:text-slate-100 truncate leading-tight">{f.name}</p>
-                           <p className="text-[9px] text-slate-400 mt-0.5">{(f.size/1024).toFixed(0)} KB | {f.date}</p>
+                        <option value="">Selecione...</option>
+                        {visibleFilesList.map(f => (
+                          <option key={f.id} value={f.id}>{f.name} ({f.version}) - {f.totalRows} Linhas</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase font-black text-slate-400 block mb-1">Planilha / Versão B</label>
+                      <select 
+                        value={compareVersion2} 
+                        onChange={(e) => setCompareVersion2(e.target.value)}
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1.5"
+                      >
+                        <option value="">Selecione...</option>
+                        {visibleFilesList.map(f => (
+                          <option key={f.id} value={f.id}>{f.name} ({f.version}) - {f.totalRows} Linhas</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  {compareVersion1 && compareVersion2 && (
+                    <div className="bg-white dark:bg-slate-900 border border-blue-100 dark:border-blue-950 rounded-xl p-4 mt-2">
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">Relatório de Variância (A vs B):</p>
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="p-2 border border-slate-100 dark:border-slate-850 rounded-lg">
+                          <p className="text-[9px] uppercase font-bold text-slate-400">Total Linhas</p>
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                            {visibleFilesList.find(f => f.id === compareVersion1)?.totalRows} vs {visibleFilesList.find(f => f.id === compareVersion2)?.totalRows}
+                          </p>
+                          <p className={`text-[10px] font-black mt-1 ${
+                            (visibleFilesList.find(f => f.id === compareVersion2)?.totalRows || 0) >= (visibleFilesList.find(f => f.id === compareVersion1)?.totalRows || 0) ? "text-emerald-500" : "text-rose-500"
+                          }`}>
+                            {((visibleFilesList.find(f => f.id === compareVersion2)?.totalRows || 0) - (visibleFilesList.find(f => f.id === compareVersion1)?.totalRows || 0)) >= 0 ? "+" : ""}
+                            {(visibleFilesList.find(f => f.id === compareVersion2)?.totalRows || 0) - (visibleFilesList.find(f => f.id === compareVersion1)?.totalRows || 0)} díf
+                          </p>
+                        </div>
+                        <div className="p-2 border border-slate-100 dark:border-slate-850 rounded-lg">
+                          <p className="text-[9px] uppercase font-bold text-slate-400">Mês / Abas</p>
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                            {visibleFilesList.find(f => f.id === compareVersion1)?.totalAbas} vs {visibleFilesList.find(f => f.id === compareVersion2)?.totalAbas}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-1 font-semibold">Abas Totais</p>
+                        </div>
+                        <div className="p-2 border border-slate-100 dark:border-slate-850 rounded-lg">
+                          <p className="text-[9px] uppercase font-bold text-slate-400">Score Qualidade</p>
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                            {visibleFilesList.find(f => f.id === compareVersion1)?.qualityScore}% vs {visibleFilesList.find(f => f.id === compareVersion2)?.qualityScore}%
+                          </p>
+                          <p className={`text-[10px] font-black mt-1 ${
+                            (visibleFilesList.find(f => f.id === compareVersion2)?.qualityScore || 0) >= (visibleFilesList.find(f => f.id === compareVersion1)?.qualityScore || 0) ? "text-emerald-500" : "text-rose-500"
+                          }`}>
+                            {(visibleFilesList.find(f => f.id === compareVersion2)?.qualityScore || 0) - (visibleFilesList.find(f => f.id === compareVersion1)?.qualityScore || 0)}% diff
+                          </p>
                         </div>
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Consolidation panel */}
+              {showConsolidator && (
+                <div className="bg-purple-50/40 dark:bg-purple-950/10 border border-purple-200 dark:border-purple-900 rounded-xl p-4 space-y-4">
+                  <h4 className="text-xs font-black text-purple-800 dark:text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Shuffle size={16} />
+                    Painel Consolidador de Planilhas
+                  </h4>
+                  <p className="text-slate-500 text-xs leading-relaxed">
+                    Marque as planilhas do workspace para consolidá-las em um único arquivo virtual. Isto unirá os faturamentos de todas as abas.
+                  </p>
+                  <div className="space-y-2 max-h-36 overflow-y-auto">
+                    {visibleFilesList.map(f => (
+                      <label key={f.id} className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 select-none cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedFilesForConsolidation.includes(f.id)} 
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedFilesForConsolidation([...selectedFilesForConsolidation, f.id]);
+                            } else {
+                              setSelectedFilesForConsolidation(selectedFilesForConsolidation.filter(id => id !== f.id));
+                            }
+                          }}
+                        />
+                        <span className="font-bold">{f.name}</span> <span className="text-[10px] text-slate-400">({f.version}) | {f.totalRows} linhas</span>
+                      </label>
                     ))}
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                    <div className="flex-1">
+                      <input 
+                        type="text" 
+                        value={consolidatedFileName}
+                        onChange={(e) => setConsolidatedFileName(e.target.value)}
+                        placeholder="Nome do arquivo consolidado..."
+                        className="w-full text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5"
+                      />
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (selectedFilesForConsolidation.length < 2) {
+                          alert("Selecione pelo menos 2 planilhas para consolidar.");
+                          return;
+                        }
+                        const res = SpreadsheetWorkspaceManager.consolidarPlanilhas(selectedFilesForConsolidation, consolidatedFileName);
+                        if (res) {
+                          alert(`Planilhas consolidadas com sucesso em '${consolidatedFileName}'!`);
+                          setSelectedFileId(res.id);
+                          setShowConsolidator(false);
+                          setSelectedFilesForConsolidation([]);
+                        }
+                      }}
+                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase rounded-lg transition-colors cursor-pointer"
+                    >
+                      Consolidar Agora
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Main Grid: Left Files List | Right File Panel */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Left side: Files List */}
+                <div className="lg:col-span-5 space-y-4">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Planilhas no Workspace</span>
+                  <div className="border border-slate-200 dark:border-slate-850 rounded-xl divide-y divide-slate-100 dark:divide-slate-900 overflow-hidden bg-white dark:bg-slate-950">
+                    {visibleFilesList.map((f) => {
+                      const isSelected = selectedFileId === f.id;
+                      const statusColors: Record<string, string> = {
+                        PENDING_VALIDATION: "bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 border-amber-200",
+                        PENDING_MAPPING: "bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-400 border-purple-200",
+                        PENDING_APPROVAL: "bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-400 border-blue-200",
+                        ACTIVE: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 border-emerald-200",
+                        INACTIVE: "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800",
+                        ERROR: "bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-400 border-rose-200"
+                      };
+
+                      return (
+                        <div 
+                          key={f.id}
+                          onClick={() => {
+                            setSelectedFileId(f.id);
+                            if (f.sheets && f.sheets.length > 0) {
+                              setActiveSheetName(f.sheets[0]);
+                            }
+                          }}
+                          className={`p-3 text-xs cursor-pointer transition-all ${
+                            isSelected ? "bg-blue-500/10 border-l-4 border-blue-500" : "hover:bg-slate-50 dark:hover:bg-slate-900"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <FileSpreadsheet size={16} className={isSelected ? "text-blue-500" : "text-slate-400"} />
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-800 dark:text-slate-100 truncate leading-tight flex items-center gap-1.5">
+                                  {f.name}
+                                  <span className="px-1.5 py-0.2 text-[9px] bg-slate-100 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded text-slate-500 dark:text-slate-400 font-mono">
+                                    {f.version || "v1"}
+                                  </span>
+                                </p>
+                                <p className="text-[9px] text-slate-400 mt-0.5">
+                                  {f.totalRows} linhas | {f.totalAbas || 1} abas | {f.date}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Score & Badge */}
+                            <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                              <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded-md border font-mono ${statusColors[f.status] || "bg-slate-100"}`}>
+                                {f.status}
+                              </span>
+                              <span className={`text-[9px] font-black uppercase ${
+                                f.qualityScore >= 90 ? "text-emerald-500" : f.qualityScore >= 70 ? "text-amber-500" : "text-rose-500"
+                              }`}>
+                                Confiança {f.qualityScore}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                     {visibleFilesList.length === 0 && (
                       <div className="p-6 text-xs text-center text-slate-400 italic">
                         Nenhuma planilha real carregada no workspace ainda.
                       </div>
                     )}
                   </div>
-
-                  {/* Right details: Sheets / Tabs of selected file */}
-                  <div className="col-span-2 bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-4">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-extrabold text-slate-650 dark:text-slate-300">Análise de Abas / Pastas Internas</span>
-                      <span className="text-[9px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-mono font-bold uppercase">Pre-Computed</span>
-                    </div>
-
-                    {/* Tabs row list */}
-                    <div className="flex flex-wrap gap-2">
-                      {visibleFilesList.find(f => f.id === selectedFileId)?.sheets.map((sh: string) => {
-                        const isSHTabActive = sh === activeSheetName;
-                        return (
-                          <button
-                            key={sh}
-                            onClick={() => setActiveSheetName(sh)}
-                            className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
-                              isSHTabActive 
-                                ? "bg-blue-600 border-blue-600 text-white shadow-sm"
-                                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-400 hover:border-slate-350"
-                            }`}
-                          >
-                            {sh}
-                          </button>
-                        );
-                      })}
-                      {(!selectedFileId || visibleFilesList.length === 0) && (
-                        <div className="text-xs text-slate-400 italic">Selecione uma planilha ativa para listar suas abas.</div>
-                      )}
-                    </div>
-
-                    <div className="bg-white dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850 p-4 space-y-3">
-                      <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                        <span>Dicionário e Colunas Identificadas ({activeSheetName})</span>
-                        <span className="text-emerald-500 font-bold col-span-2">Formato Líquido</span>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] font-mono leading-relaxed">
-                        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-2 rounded-lg">
-                          <p className="text-slate-400">01: Empresa</p>
-                          <p className="font-bold text-slate-700 dark:text-slate-300">Formato String</p>
-                        </div>
-                        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-2 rounded-lg">
-                          <p className="text-slate-400">02: Marca</p>
-                          <p className="font-bold text-slate-700 dark:text-slate-300">Categorical</p>
-                        </div>
-                        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-2 rounded-lg">
-                          <p className="text-slate-400">03: Faturamento</p>
-                          <p className="font-bold text-slate-700 dark:text-slate-300">Float (BRL)</p>
-                        </div>
-                        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-2 rounded-lg">
-                          <p className="text-slate-400">04: Mês / Data</p>
-                          <p className="font-bold text-slate-700 dark:text-slate-300">ISO-8601</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
+
+                {/* Right side: Detailed Workspace Pipeline Dashboard */}
+                <div className="lg:col-span-7">
+                  {selectedFileId && visibleFilesList.find(f => f.id === selectedFileId) ? (
+                    (() => {
+                      const file = visibleFilesList.find(f => f.id === selectedFileId)!;
+                      const qualityReport = SpreadsheetWorkspaceManager.verQualidade(file.id) || { score: 100, label: "Excelente", report: [] };
+                      
+                      return (
+                        <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-6">
+                          
+                          {/* File Details Title bar */}
+                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-slate-150 dark:border-slate-850 pb-4">
+                            <div>
+                              <h4 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                                {file.name} 
+                                <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded">
+                                  Versão {file.version || "v1"}
+                                </span>
+                              </h4>
+                              <p className="text-[10px] text-slate-400">
+                                Importado por {file.importedBy} em {new Date(file.importedAt).toLocaleString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {/* Toggle active state */}
+                              <button
+                                onClick={() => {
+                                  if (file.status === "ACTIVE") {
+                                    SpreadsheetWorkspaceManager.desativarPlanilha(file.id);
+                                  } else {
+                                    SpreadsheetWorkspaceManager.ativarPlanilha(file.id);
+                                  }
+                                }}
+                                className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded border transition-colors cursor-pointer ${
+                                  file.status === "ACTIVE"
+                                    ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100"
+                                    : "bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100"
+                                }`}
+                              >
+                                {file.status === "ACTIVE" ? "Desativar" : "Ativar"}
+                              </button>
+                              
+                              <button
+                                onClick={() => handleReplaceFileSim(file.id, file.name)}
+                                className="px-2.5 py-1 text-[10px] font-bold uppercase rounded border border-slate-250 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                              >
+                                Substituir
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  if (confirm("Tem certeza que deseja excluir esta planilha?")) {
+                                    SpreadsheetWorkspaceManager.excluirPlanilha(file.id);
+                                    alert("Planilha excluída com sucesso.");
+                                  }
+                                }}
+                                className="px-2 py-1 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded transition-colors cursor-pointer"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 1. Status Pipeline Stepper */}
+                          <div className="space-y-3 bg-white dark:bg-slate-950 p-4 border border-slate-150 dark:border-slate-850 rounded-xl">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Status do Pipeline Regulatório</span>
+                            <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-bold relative">
+                              {[
+                                { step: "PENDING_VALIDATION", label: "01. Validação", bg: "bg-amber-100 border-amber-300 text-amber-800" },
+                                { step: "PENDING_MAPPING", label: "02. Mapeamento", bg: "bg-purple-100 border-purple-300 text-purple-800" },
+                                { step: "PENDING_APPROVAL", label: "03. Aprovação", bg: "bg-blue-100 border-blue-300 text-blue-800" },
+                                { step: "ACTIVE", label: "04. Em Produção", bg: "bg-emerald-100 border-emerald-300 text-emerald-800" }
+                              ].map((stepObj, idx) => {
+                                const stepOrder = ["PENDING_VALIDATION", "PENDING_MAPPING", "PENDING_APPROVAL", "ACTIVE"];
+                                const currentIdx = stepOrder.indexOf(file.status === "INACTIVE" || file.status === "ERROR" ? "PENDING_VALIDATION" : file.status);
+                                const isPassed = currentIdx >= idx;
+                                return (
+                                  <div 
+                                    key={stepObj.step}
+                                    className={`p-2 border rounded-lg transition-colors ${
+                                      isPassed 
+                                        ? stepObj.bg 
+                                        : "bg-slate-50 dark:bg-slate-900 border-slate-150 text-slate-400"
+                                    }`}
+                                  >
+                                    <p className="truncate font-black">{stepObj.label}</p>
+                                    <p className="text-[8px] mt-0.5 opacity-80">{isPassed ? "Concluído" : "Aguardando"}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            
+                            {/* Pipeline Progression controls */}
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-900">
+                              <p className="text-[10px] text-slate-400">
+                                {file.approvedByConsultant 
+                                  ? "🟢 APPROVED: Ativo e consumível por relatórios executivos." 
+                                  : "⚠️ LOCKOUT: Bloqueado. Exige aprovação para alimentar os relatórios."}
+                              </p>
+                              <div className="flex items-center gap-1.5">
+                                {file.status !== "ACTIVE" && (
+                                  <button
+                                    onClick={() => {
+                                      SpreadsheetWorkspaceManager.avancarStatus(file.id);
+                                    }}
+                                    className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase rounded transition-colors cursor-pointer"
+                                  >
+                                    Avançar Pipeline
+                                  </button>
+                                )}
+                                {!file.approvedByConsultant ? (
+                                  <button
+                                    onClick={() => {
+                                      SpreadsheetWorkspaceManager.aprovarPlanilha(file.id);
+                                      alert("Planilha aprovada com sucesso! Agora alimentará relatórios e dashboards.");
+                                    }}
+                                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase rounded transition-colors cursor-pointer"
+                                  >
+                                    Aprovar Planilha
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      SpreadsheetWorkspaceManager.reprovarPlanilha(file.id);
+                                      alert("Planilha reprovada com sucesso. Seu status foi definido como ERROR e seus dados foram bloqueados.");
+                                    }}
+                                    className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase rounded transition-colors cursor-pointer"
+                                  >
+                                    Reprovar Planilha
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* 2. Score de Qualidade Details (Radial and Checklist) */}
+                          <div className="bg-white dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl p-4 space-y-4">
+                            <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-900">
+                              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Score de Qualidade de Dados (5 Pilares de Confiança)</span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                file.qualityScore >= 90 ? "bg-emerald-100 text-emerald-800" : file.qualityScore >= 70 ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"
+                              }`}>
+                                {qualityReport.label} ({file.qualityScore}%)
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                              {/* Left score circle */}
+                              <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center p-3 border border-slate-100 dark:border-slate-900 rounded-xl bg-slate-50/50 dark:bg-slate-900/10">
+                                <span className={`text-3xl font-black ${
+                                  file.qualityScore >= 90 ? "text-emerald-500" : file.qualityScore >= 70 ? "text-amber-500" : "text-rose-500"
+                                }`}>
+                                  {file.qualityScore}%
+                                </span>
+                                <span className="text-[9px] uppercase font-bold text-slate-400 mt-1">Nível de Confiança</span>
+                              </div>
+
+                              {/* Right checklist details */}
+                              <div className="col-span-1 md:col-span-3 space-y-1.5 text-[9.5px]">
+                                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                  <CheckCircle size={12} className={qualityReport.report.some((r: string) => r.includes("cabeçalho")) ? "text-rose-500" : "text-emerald-500"} />
+                                  <span>Cabeçalhos: {qualityReport.report.some((r: string) => r.includes("cabeçalho")) ? "Possui colunas vazias / '__EMPTY'" : "100% Identificados"}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                  <CheckCircle size={12} className={qualityReport.report.some((r: string) => r.includes("vazias")) ? "text-rose-500" : "text-emerald-500"} />
+                                  <span>Preenchimento: {qualityReport.report.some((r: string) => r.includes("vazias")) ? "Contém células vazias" : "Sem células vazias"}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                  <CheckCircle size={12} className={qualityReport.report.some((r: string) => r.includes("datas")) ? "text-rose-500" : "text-emerald-500"} />
+                                  <span>Temporalidade: {qualityReport.report.some((r: string) => r.includes("datas")) ? "Contém datas inválidas" : "Formato temporal em conformidade"}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                  <CheckCircle size={12} className={qualityReport.report.some((r: string) => r.includes("valores")) ? "text-rose-500" : "text-emerald-500"} />
+                                  <span>Tipos Financeiros: {qualityReport.report.some((r: string) => r.includes("valores")) ? "Tipagem inconsistente" : "Numéricos em conformidade"}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
+                                  <CheckCircle size={12} className={qualityReport.report.some((r: string) => r.includes("duplicadas")) ? "text-rose-500" : "text-emerald-500"} />
+                                  <span>Duplicidades: {qualityReport.report.some((r: string) => r.includes("duplicadas")) ? "Possíveis duplicidades detectadas" : "Sem lançamentos idênticos"}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Detailed Report Logs if any */}
+                            {qualityReport.report.length > 0 && (
+                              <div className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-850 p-2 rounded-lg max-h-24 overflow-y-auto font-mono text-[8.5px] leading-relaxed text-slate-500">
+                                {qualityReport.report.map((line: string, i: number) => (
+                                  <p key={i}>• {line}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 3. Data Lineage and Traceability sample */}
+                          <div className="bg-white dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl p-4 space-y-4">
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Auditoria de Rastreabilidade & Linhagem</span>
+                            <div className="bg-slate-50 dark:bg-slate-900 p-2.5 rounded-lg border border-slate-100 dark:border-slate-850 space-y-2">
+                              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Metadados de Linhagem da Primeira Linha:</p>
+                              {(() => {
+                                const rowsSample = file.sheetsData?.[0]?.rows || [];
+                                const sample = rowsSample[0] || {};
+                                return (
+                                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-[10px] font-mono">
+                                    <div className="bg-white dark:bg-slate-950 p-1.5 border border-slate-100 dark:border-slate-900 rounded">
+                                      <p className="text-[8px] text-slate-400">ARQUIVO ORIGEM</p>
+                                      <p className="font-bold text-slate-700 dark:text-slate-300 truncate">{sample.arquivo || file.name}</p>
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-950 p-1.5 border border-slate-100 dark:border-slate-900 rounded">
+                                      <p className="text-[8px] text-slate-400">ABA/SHEET</p>
+                                      <p className="font-bold text-slate-700 dark:text-slate-300 truncate">{sample.aba || "Faturamento"}</p>
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-950 p-1.5 border border-slate-100 dark:border-slate-900 rounded">
+                                      <p className="text-[8px] text-slate-400">Nº LINHA EXCEL</p>
+                                      <p className="font-bold text-slate-700 dark:text-slate-300">{sample.linha || 2}</p>
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-950 p-1.5 border border-slate-100 dark:border-slate-900 rounded col-span-2">
+                                      <p className="text-[8px] text-slate-400">REGISTRO DE IMPORTAÇÃO</p>
+                                      <p className="font-bold text-slate-700 dark:text-slate-300 truncate">{sample.dataImportacao || file.importedAt}</p>
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-950 p-1.5 border border-slate-100 dark:border-slate-900 rounded">
+                                      <p className="text-[8px] text-slate-400">OPERADOR AUTORIZADO</p>
+                                      <p className="font-bold text-slate-700 dark:text-slate-300 truncate">{sample.usuario || file.importedBy}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="p-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/10 text-slate-400 italic text-xs">
+                      Selecione uma planilha real no workspace à esquerda para exibir o painel avançado do pipeline analítico, qualidade de score e histórico.
+                    </div>
+                  )}
+                </div>
+
               </div>
+
             </div>
           )}
 

@@ -313,9 +313,11 @@ class DataSourceManager {
         break;
 
       case "SPREADSHEET_DATA":
-        // Fetch rows only from ACTIVE files
+        // Fetch rows only from APPROVED and ACTIVE files
         const activeFiles = this.workspace.files.filter((f) => 
-          this.workspace.activeFileIds.includes(f.id) && f.status === "ACTIVE"
+          this.workspace.activeFileIds.includes(f.id) && 
+          f.status === "ACTIVE" && 
+          f.approvedByConsultant === true
         );
         activeFiles.forEach((file) => {
           file.sheets.forEach((sheet) => {
@@ -352,7 +354,9 @@ class DataSourceManager {
     const raw: LancamentoFinanceiro[] = [];
     if (source === "SPREADSHEET_DATA") {
       const activeFiles = this.workspace.files.filter((f) => 
-        this.workspace.activeFileIds.includes(f.id) && f.status === "ACTIVE"
+        this.workspace.activeFileIds.includes(f.id) && 
+        f.status === "ACTIVE" && 
+        f.approvedByConsultant === true
       );
       activeFiles.forEach((file) => {
         file.sheets.forEach((sheet) => {
@@ -371,16 +375,74 @@ class DataSourceManager {
   }
 
   public addSpreadsheetFile(file: SpreadsheetFile, mode: "APPEND" | "REPLACE" | "SEPARATE" | "PENDING") {
+    const hasLocalStorage = typeof localStorage !== "undefined";
+    
+    // 1. Determine Version (e.g. v1, v2, v3 based on file name)
+    const sameNameFiles = this.workspace.files.filter(f => f.fileName === file.fileName);
+    const verNum = sameNameFiles.length + 1;
+    const currentVersion = `v${verNum}`;
+
+    // 2. Inject real lineage to every row of the sheets
+    const processedSheets = file.sheets.map(sheet => {
+      const processedRows = sheet.rows.map((row, idx) => {
+        return {
+          ...row,
+          arquivo: file.fileName,
+          nome_arquivo: file.fileName,
+          aba: sheet.sheetName,
+          nome_aba: sheet.sheetName,
+          linha: idx + 2,
+          numero_linha: idx + 2,
+          data_importacao: file.importedAt || new Date().toISOString(),
+          dataImportacao: file.importedAt || new Date().toISOString(),
+          usuario: file.importedBy || "Lennon Marcanjo",
+          usuário: file.importedBy || "Lennon Marcanjo"
+        };
+      });
+      return {
+        ...sheet,
+        rows: processedRows
+      };
+    });
+
+    // 3. Compute detailed quality score
+    const allRows: any[] = [];
+    processedSheets.forEach(s => allRows.push(...s.rows));
+    const qual = this.calculateQualityScore(allRows);
+
+    // 4. Create the enhanced SpreadsheetFile
+    const enhancedFile: SpreadsheetFile = {
+      ...file,
+      sheets: processedSheets,
+      totalAbas: processedSheets.length,
+      version: currentVersion,
+      versao: currentVersion,
+      qualityScore: qual.score,
+      qualityLabel: qual.label,
+      scoreQualidade: qual.label,
+      nome: file.fileName,
+      dataImportacao: file.importedAt,
+      usuario: file.importedBy,
+      // Workspaces begin as PENDING_VALIDATION in Sprint Beta to enforce pipeline compliance
+      status: mode === "PENDING" ? "PENDING_APPROVAL" : "PENDING_VALIDATION",
+      approvedByConsultant: false // must be approved explicitly!
+    };
+
     if (mode === "REPLACE") {
-      this.workspace.files = [file];
-      this.workspace.activeFileIds = [file.id];
+      // Inactivate previous files
+      this.workspace.files.forEach(f => {
+        f.status = "INACTIVE";
+        f.approvedByConsultant = false;
+      });
+      this.workspace.files = [enhancedFile];
+      this.workspace.activeFileIds = [enhancedFile.id];
     } else if (mode === "APPEND") {
-      this.workspace.files.push(file);
-      this.workspace.activeFileIds.push(file.id);
+      this.workspace.files.push(enhancedFile);
+      this.workspace.activeFileIds.push(enhancedFile.id);
     } else if (mode === "SEPARATE") {
-      this.workspace.files.push({ ...file, status: "INACTIVE" });
+      this.workspace.files.push({ ...enhancedFile, status: "INACTIVE" });
     } else {
-      this.workspace.files.push({ ...file, status: "PENDING_APPROVAL" });
+      this.workspace.files.push(enhancedFile);
     }
 
     this.workspace.updatedAt = new Date().toISOString();
@@ -389,10 +451,8 @@ class DataSourceManager {
     this.state.activeDataSource = "SPREADSHEET_DATA";
     this.state.approvedByConsultant = false; // require approval for reports
 
-    // Version this import
-    const allImportedRows: LancamentoFinanceiro[] = [];
-    file.sheets.forEach(s => allImportedRows.push(...(s.rows as LancamentoFinanceiro[])));
-    this.createNewVersion("SPREADSHEET", file.fileName, allImportedRows);
+    // Version this import in the global list
+    this.createNewVersion("SPREADSHEET", enhancedFile.fileName, allRows);
 
     this.saveToStorage();
     this.triggerUpdateEvent();
@@ -407,6 +467,12 @@ class DataSourceManager {
       // Fallback to DEMO if no files are imported/active
       this.state.activeDataSource = "DEMO_DATA";
       this.state.approvedByConsultant = true;
+    } else {
+      // Verify if remaining active files are approved
+      const remainingActiveApproved = this.workspace.files.some(f => 
+        this.workspace.activeFileIds.includes(f.id) && f.approvedByConsultant === true
+      );
+      this.state.approvedByConsultant = remainingActiveApproved;
     }
     
     this.saveToStorage();
@@ -415,22 +481,30 @@ class DataSourceManager {
 
   public toggleSpreadsheetFile(fileId: string) {
     const isCurrentlyActive = this.workspace.activeFileIds.includes(fileId);
+    const file = this.workspace.files.find(f => f.id === fileId);
+    
     if (isCurrentlyActive) {
       this.workspace.activeFileIds = this.workspace.activeFileIds.filter((id) => id !== fileId);
-      // update status flag
-      const file = this.workspace.files.find(f => f.id === fileId);
       if (file) file.status = "INACTIVE";
     } else {
       this.workspace.activeFileIds.push(fileId);
-      const file = this.workspace.files.find(f => f.id === fileId);
-      if (file) file.status = "ACTIVE";
+      if (file) {
+        file.status = "ACTIVE";
+      }
     }
+    
     this.workspace.updatedAt = new Date().toISOString();
     
     if (this.workspace.activeFileIds.length > 0) {
       this.state.activeDataSource = "SPREADSHEET_DATA";
+      // Update global approved state based on whether any active file is approved
+      const hasApprovedActive = this.workspace.files.some(f => 
+        this.workspace.activeFileIds.includes(f.id) && f.approvedByConsultant === true
+      );
+      this.state.approvedByConsultant = hasApprovedActive;
     } else {
       this.state.activeDataSource = "DEMO_DATA";
+      this.state.approvedByConsultant = true;
     }
     
     this.saveToStorage();
@@ -539,56 +613,104 @@ class DataSourceManager {
 
     let score = 100;
     const report: string[] = [];
-    const total = rows.length;
-    
-    // 1. Check for empty rows or critical blank fields
-    const criticalFields = ["Grupo", "CNPJ", "Marca", "Empresa", "Mês", "Receita"];
-    const blankCounts: Record<string, number> = {};
-    criticalFields.forEach(f => { blankCounts[f] = 0; });
-    
-    let emptyColumnsCount = 0;
-    let duplicateRows = 0;
-    const rowSignatures = new Set<string>();
+    const totalRows = rows.length;
+    const firstRow = rows[0] || {};
+    const columns = Object.keys(firstRow);
+    const totalCells = totalRows * (columns.length || 1);
 
-    rows.forEach((r, idx) => {
-      // Signature for duplicate detection
-      const sig = `${r.Grupo}-${r.CNPJ}-${r.Marca}-${r.Mês}-${r.Razão}-${r.Receita}-${r.Despesa}`;
-      if (rowSignatures.has(sig)) {
-        duplicateRows++;
-      } else {
-        rowSignatures.add(sig);
-      }
+    // 1. Check for columns without names (colunas sem nome)
+    const namelessCols = columns.filter(k => k.startsWith("__EMPTY") || k.toLowerCase().includes("vazio") || k.trim() === "");
+    if (namelessCols.length > 0) {
+      const deduction = Math.min(30, namelessCols.length * 10);
+      score -= deduction;
+      report.push(`Detetadas ${namelessCols.length} colunas sem cabeçalho amigável (Ex: ${namelessCols.join(", ")}). Desconto: -${deduction}pts.`);
+    }
 
-      criticalFields.forEach(f => {
-        if (r[f] === undefined || r[f] === null || String(r[f]).trim() === "") {
-          blankCounts[f]++;
+    // 2. Check for empty cells (células vazias)
+    let emptyCellsCount = 0;
+    rows.forEach(r => {
+      columns.forEach(col => {
+        const val = r[col];
+        if (val === undefined || val === null || String(val).trim() === "") {
+          emptyCellsCount++;
         }
       });
     });
+    if (emptyCellsCount > 0) {
+      const emptyPct = (emptyCellsCount / totalCells) * 100;
+      const deduction = Math.min(30, Math.round(emptyPct * 1.5));
+      score -= deduction;
+      report.push(`Detetadas ${emptyCellsCount} células vazias de um total de ${totalCells} (${emptyPct.toFixed(1)}%). Desconto: -${deduction}pts.`);
+    }
 
-    // Score deduction rules
-    criticalFields.forEach(f => {
-      if (blankCounts[f] > 0) {
-        const pct = (blankCounts[f] / total) * 100;
-        score -= Math.min(20, Math.round(pct * 1.5));
-        report.push(`Coluna '${f}' possui ${blankCounts[f]} registros vazios (${pct.toFixed(1)}%).`);
+    // 3. Check for invalid dates (datas inválidas)
+    let invalidDatesCount = 0;
+    rows.forEach(r => {
+      const val = r["Mês"] || r["Mes"] || r["data"] || r["data_referencia"];
+      if (!val || val === "N/D" || val === "Sem Data") {
+        invalidDatesCount++;
+      } else {
+        const strVal = String(val).toLowerCase().trim();
+        const hasMonthWord = /janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i.test(strVal);
+        const parsed = Date.parse(strVal.replace(/(\d{2})\/(\d{2})\/(\d{4})/, '$3-$2-$1')); // DD/MM/YYYY support
+        if (isNaN(parsed) && !hasMonthWord && !/^\d{4}-\d{2}$/.test(strVal)) {
+          invalidDatesCount++;
+        }
       }
     });
-
-    if (duplicateRows > 0) {
-      const pct = (duplicateRows / total) * 100;
-      score -= Math.min(15, Math.round(pct * 1.2));
-      report.push(`Detetadas ${duplicateRows} possíveis linhas duplicadas (${pct.toFixed(1)}%).`);
+    if (invalidDatesCount > 0) {
+      const invalidDatePct = (invalidDatesCount / totalRows) * 100;
+      const deduction = Math.min(30, Math.round(invalidDatePct * 1.2));
+      score -= deduction;
+      report.push(`Detetados ${invalidDatesCount} registros com datas inválidas ou vazias no campo temporal (${invalidDatePct.toFixed(1)}%). Desconto: -${deduction}pts.`);
     }
 
-    // Check for weird col names
-    const keys = Object.keys(rows[0] || {});
-    const techCols = keys.filter(k => k.startsWith("__EMPTY") || k.toLowerCase().includes("vazio"));
-    if (techCols.length > 0) {
-      score -= 10;
-      report.push(`Aviso: Detetadas ${techCols.length} colunas sem cabeçalho amigável (Ex: ${techCols.join(", ")}).`);
+    // 4. Check for inconsistent types in numeric columns (tipos inconsistentes)
+    let inconsistentTypesCount = 0;
+    const numericFields = ["Receita", "Custo", "Despesa", "Lucro", "Margem"];
+    rows.forEach(r => {
+      numericFields.forEach(col => {
+        const val = r[col];
+        if (val !== undefined && val !== null && val !== "") {
+          if (typeof val === "string") {
+            const cleanVal = val.trim();
+            const numericValue = Number(cleanVal.replace(/\./g, "").replace(",", "."));
+            if (isNaN(numericValue)) {
+              inconsistentTypesCount++;
+            }
+          } else if (typeof val !== "number") {
+            inconsistentTypesCount++;
+          }
+        }
+      });
+    });
+    if (inconsistentTypesCount > 0) {
+      const totalNumericCells = totalRows * numericFields.length;
+      const incPct = (inconsistentTypesCount / totalNumericCells) * 100;
+      const deduction = Math.min(30, Math.round(incPct * 2));
+      score -= deduction;
+      report.push(`Detetados ${inconsistentTypesCount} valores inconsistentes ou não numéricos em colunas financeiras (${incPct.toFixed(1)}%). Desconto: -${deduction}pts.`);
     }
 
+    // 5. Check for duplications (duplicidades)
+    let duplicateRowsCount = 0;
+    const rowSignatures = new Set<string>();
+    rows.forEach(r => {
+      const sig = `${r.Grupo}-${r.CNPJ}-${r.Marca}-${r.Mês}-${r.Razão}-${r.Receita}-${r.Despesa}`;
+      if (rowSignatures.has(sig)) {
+        duplicateRowsCount++;
+      } else {
+        rowSignatures.add(sig);
+      }
+    });
+    if (duplicateRowsCount > 0) {
+      const dupPct = (duplicateRowsCount / totalRows) * 100;
+      const deduction = Math.min(25, Math.round(dupPct * 1.5));
+      score -= deduction;
+      report.push(`Detetadas ${duplicateRowsCount} possíveis linhas duplicadas de lançamentos idênticos (${dupPct.toFixed(1)}%). Desconto: -${deduction}pts.`);
+    }
+
+    // Assign final label
     score = Math.max(0, Math.min(100, score));
     let label: "Excelente" | "Boa" | "Atenção" | "Crítica" = "Excelente";
     if (score < 40) label = "Crítica";
