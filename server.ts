@@ -7,6 +7,9 @@ import fs from "fs";
 import { Client as SshClient } from "ssh2";
 import net from "net";
 
+import { databaseConnectionManager } from "./src/core/connections/DatabaseConnectionManager";
+import { securityEngine } from "./src/core/security/SecurityEngine";
+
 // Load environment variables
 dotenv.config();
 

@@ -37,7 +37,27 @@ export class SecurityEngine {
    * Asserts if a raw SQL statement is safe for read-only executions.
    */
   public isSqlStatementSafe(query: string): boolean {
-    return sqlSafety.isReadOnly(query);
+    try {
+      this.assertReadOnlyQuery(query);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Asserts if a raw SQL statement is safe for read-only executions. Throws an error if unsafe.
+   */
+  public assertReadOnlyQuery(query: string): void {
+    if (!query) return;
+    const q = query.trim().toUpperCase();
+    const blockedKeywords = ["INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE", "MERGE", "EXEC", "CALL"];
+    for (const keyword of blockedKeywords) {
+      const regex = new RegExp(`\\b${keyword}\\b`, "i");
+      if (regex.test(q)) {
+        throw new Error(`[Security Error] Bloqueio de Consulta: Tentativa de alteração ou execução de instrução destrutiva '${keyword}' rejeitada.`);
+      }
+    }
   }
 }
 
