@@ -38,6 +38,21 @@ export class AutomotivePlugin implements SegmentPlugin {
       { code: "ABSORPTION_RATE", name: "Taxa de Absorção de Pós-Vendas", unit: "percentage" }
     ];
   }
+
+  public getSuggestedMappings(): Record<string, string> {
+    return {
+      Grupo: "Grupo",
+      CNPJ: "CNPJ",
+      Marca: "Bandeira",
+      Empresa: "Loja",
+      Receita: "Valor Venda",
+      Custo: "Custo Direto",
+      Despesa: "Despesas Loja",
+      Mês: "Data Competência",
+      Razão: "Razão Movimento",
+      Categoria: "Centro Custo"
+    };
+  }
 }
 
 // Auto-register plugin

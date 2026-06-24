@@ -28,6 +28,21 @@ export class ServicesPlugin implements SegmentPlugin {
       { code: "BILLABLE_UTILIZATION", name: "Taxa de Utilização Faturável", unit: "percentage" }
     ];
   }
+
+  public getSuggestedMappings(): Record<string, string> {
+    return {
+      Grupo: "Holding",
+      CNPJ: "Documento",
+      Marca: "Portfólio",
+      Empresa: "Unidade Negócio",
+      Receita: "Horas Faturadas",
+      Custo: "Custo Consultores",
+      Despesa: "Overhead",
+      Mês: "Mês",
+      Razão: "Contrato Tipo",
+      Categoria: "Canal"
+    };
+  }
 }
 
 const servicesPlugin = new ServicesPlugin();

@@ -11,6 +11,7 @@ export interface SegmentPlugin {
   getCostCenters(): CostCenter[];
   getRequiredColumns(): string[];
   getSuggestedKpis(records: any[]): any[];
+  getSuggestedMappings?(): Record<string, string>;
 }
 
 export class PluginEngine {

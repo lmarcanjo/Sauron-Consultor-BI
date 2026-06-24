@@ -46,7 +46,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
   // 1. Cliente State
   const [clientProfile, setClientProfile] = useState({
-    name: "Grupo Topázio Corporativo",
+    name: "Nome do Cliente",
     segment: "automotivo",
     consultant: "Lennon Marcanjo",
     email: "lmarcanjo16@gmail.com",
@@ -512,7 +512,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                     value={clientProfile.name}
                     onChange={e => setClientProfile({ ...clientProfile, name: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-bold focus:outline-none focus:border-blue-500"
-                    placeholder="Grupo Topázio Corporativo"
+                    placeholder="Nome do Cliente"
                   />
                 </div>
 
@@ -612,7 +612,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     <div className="space-y-1">
                       <label className="font-bold text-slate-550 block">Apelido do Canal de Rede</label>
-                      <input required value={newVpnName} onChange={e => setNewVpnName(e.target.value)} className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-semibold focus:outline-none" placeholder="ex: Banco Central Topázio FIAT" />
+                      <input required value={newVpnName} onChange={e => setNewVpnName(e.target.value)} className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-200 font-semibold focus:outline-none" placeholder="ex: Banco Central Real" />
                     </div>
                     <div className="space-y-1">
                       <label className="font-bold text-slate-550 block">Protocolo de Comunicação</label>

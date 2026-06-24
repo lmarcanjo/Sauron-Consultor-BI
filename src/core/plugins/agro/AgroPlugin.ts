@@ -31,6 +31,21 @@ export class AgroPlugin implements SegmentPlugin {
       { code: "ROI_CULTURA", name: "Retorno sobre Insumos", unit: "percentage" }
     ];
   }
+
+  public getSuggestedMappings(): Record<string, string> {
+    return {
+      Grupo: "Fazenda",
+      CNPJ: "Matrícula",
+      Marca: "Cultura",
+      Empresa: "Talhão",
+      Receita: "Resultado Bruto",
+      Custo: "Insumos Agro",
+      Despesa: "Custo Maquinário",
+      Mês: "Trimestre",
+      Razão: "Safra",
+      Categoria: "Insumo"
+    };
+  }
 }
 
 // Auto-register plugin

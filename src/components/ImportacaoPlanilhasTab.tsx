@@ -6,8 +6,10 @@ import {
   CheckCircle2, Sliders, Info, Server, Copy, Volume2, Save, Send, ClipboardCheck
 } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
+import { generateDemoSpreadsheetRows } from "../data/demoData";
 import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
 import { dataSourceManager } from "../services/dataSourceManager";
+import { pluginEngine } from "../core/plugins/PluginEngine";
 
 interface ImportacaoPlanilhasProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -145,10 +147,6 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     const excludedKeys = ["id", "Grupo", "CNPJ", "Marca", "Empresa", "Filial", "Mês", "Razão", "Categoria", "Receita", "Custo", "Despesa", "Lucro", "Margem", "Valor"];
     excludedKeys.forEach(k => cols.delete(k));
 
-    if (cols.size === 0) {
-      ["Regiao", "Vendedor", "Safra", "Cidade", "Canal"].forEach(k => cols.add(k));
-    }
-
     return Array.from(cols).sort();
   }, [dataOrigem, rawRows]);
 
@@ -265,25 +263,21 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
 
   // Set default mappings according to segment
   useEffect(() => {
-    if (selectedSegment === "automotivo") {
-      setFieldMappings({
-        Grupo: "Grupo", CNPJ: "CNPJ", Marca: "Bandeira", Empresa: "Loja", Receita: "Valor Venda", Custo: "Custo Direto", Despesa: "Despesas Loja", Mês: "Data Competência", Razão: "Razão Movimento", Categoria: "Centro Custo"
-      });
-    } else if (selectedSegment === "agro") {
-      setFieldMappings({
-        Grupo: "Fazenda", CNPJ: "Matrícula", Marca: "Cultura", Empresa: "Talhão", Receita: "Resultado Bruto", Custo: "Insumos Agro", Despesa: "Custo Maquinário", Mês: "Trimestre", Razão: "Safra", Categoria: "Insumo"
-      });
-    } else if (selectedSegment === "industria") {
-      setFieldMappings({
-        Grupo: "Grupo Industrial", CNPJ: "Inscrição", Marca: "Linha de Produto", Empresa: "Planta Industrial", Receita: "Faturamento Notas", Custo: "Custo Matéria Prima", Despesa: "Despesa Administrativa", Mês: "Período Calendário", Razão: "Razão de Lançamento", Categoria: "Ordem Custos"
-      });
-    } else if (selectedSegment === "servicos") {
-      setFieldMappings({
-        Grupo: "Holding", CNPJ: "Documento", Marca: "Portfólio", Empresa: "Unidade Negócio", Receita: "Horas Faturadas", Custo: "Custo Consultores", Despesa: "Overhead", Mês: "Mês", Razão: "Contrato Tipo", Categoria: "Canal"
-      });
+    const plugin = pluginEngine.getPlugin(selectedSegment);
+    if (plugin && typeof plugin.getSuggestedMappings === "function") {
+      setFieldMappings(plugin.getSuggestedMappings());
     } else {
       setFieldMappings({
-        Grupo: "Grupo", CNPJ: "CNPJ", Marca: "Marca", Empresa: "Empresa", Receita: "Receita", Custo: "Custo", Despesa: "Despesa", Mês: "Mês", Razão: "Razão", Categoria: "Categoria"
+        Grupo: "Grupo",
+        CNPJ: "CNPJ",
+        Marca: "Marca",
+        Empresa: "Empresa",
+        Receita: "Receita",
+        Custo: "Custo",
+        Despesa: "Despesa",
+        Mês: "Mês",
+        Razão: "Razão",
+        Categoria: "Categoria"
       });
     }
   }, [selectedSegment]);
@@ -360,53 +354,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     ];
 
     // Formulate realistic rows according to the selected segment
-    let calculatedRows: any[] = [];
-    const meses = ["Janeiro 2026", "Fevereiro 2026", "Março 2026", "Abril 2026"];
-    const empresaNomes = segment === "automotivo" ? ["Sauron Veículos SP", "Sauron Veículos RJ", "Sauron Seminovos"] 
-                       : segment === "agro" ? ["Fazenda Campo Alto", "Fazenda Vale Verde", "Silo Central"]
-                       : segment === "servicos" ? ["Sauron Advising", "Sauron Systems", "Sauron Labs"]
-                       : ["Planta Fundição", "Planta Montagem", "P&D Hub"];
-
-    const marcas = segment === "automotivo" ? ["Toyota", "Ford", "Chevrolet", "BMW"]
-                 : segment === "agro" ? ["Soja Transgênica", "Milho Safrinha", "Trigo Rústico"]
-                 : segment === "servicos" ? ["Consultoria BI", "Suporte Integrado", "Machine Learning Core"]
-                 : ["Liga Metálica", "Peça Estampada", "Componente Injetado"];
-
-    // Generate ~40 real data units
-    for (let i = 0; i < 40; i++) {
-      const g = "Grupo Sauron S.A.";
-      const e = empresaNomes[i % empresaNomes.length];
-      const m = marcas[i % marcas.length];
-      const cnpj = `12.345.678/000${(i % 3) + 1}-99`;
-      const mes = meses[i % meses.length];
-      const rec = Math.round(150000 + Math.random() * 320000);
-      const cus = Math.round(rec * (0.45 + Math.random() * 0.15));
-      const desp = Math.round(rec * (0.15 + Math.random() * 0.1));
-      const luc = rec - cus - desp;
-      const margem = parseFloat(((luc / rec) * 100).toFixed(1));
-
-      calculatedRows.push({
-        id: `row_${i}`,
-        Grupo: g,
-        CNPJ: cnpj,
-        Marca: m,
-        Empresa: e,
-        Mês: mes,
-        Razão: i % 2 === 0 ? "Comercial de Vendas" : "Faturamento Consignação",
-        Categoria: i % 2 === 0 ? "Produtos do Setor Principal" : "Gerais de Operações",
-        Receita: rec,
-        Custo: cus,
-        Despesa: desp,
-        Lucro: luc,
-        Margem: margem,
-        // Extra spreadsheet columns
-        Regiao: i % 2 === 0 ? "Sudeste" : "Nordeste",
-        Vendedor: `Consultor ${(i % 5) + 1}`,
-        Safra: "2025/2026",
-        CamposVazios: i % 7 === 0 ? "" : "Homologado",
-        PossiveisDuplicados: i === 12 || i === 13 ? "Sim" : "Não"
-      });
-    }
+    const calculatedRows = generateDemoSpreadsheetRows(segment);
 
     // Register into the global SpreadsheetWorkspaceManager
     const fileId = `demo_f_${segment}`;
@@ -821,8 +769,8 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 {[
                   { id: "automotivo", label: "Segmento Automotivo", icon: Car, desc: "Loja, Bandeira, CPV, CC..." },
-                  { id: "agro", label: "Segmento Agronegócio", icon: Tractor, desc: "Safra, Cultura, Talhão, Sacas..." },
-                  { id: "servicos", label: "Prestação de Serviços", icon: LayoutGrid, desc: "Holding, Horas, OPEX, Canal..." },
+                  { id: "agro", label: "Segmento Agronegócio", icon: Tractor, desc: "Cultura, Talhão, Sacas, Produção..." },
+                  { id: "servicos", label: "Prestação de Serviços", icon: LayoutGrid, desc: "Holding, Horas, OPEX, Faturamentos..." },
                   { id: "industria", label: "Linha Industrial", icon: Server, desc: "Matéria Prima, Injeção, Plantas..." }
                 ].map(seg => (
                   <button
@@ -1142,7 +1090,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
                   type="text" 
                   value={newFilterLabel} 
                   onChange={(e) => setNewFilterLabel(e.target.value)} 
-                  placeholder="Ex: Canal de Entrada"
+                  placeholder="Ex: Filtrar Coluna"
                   className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs w-full font-bold" 
                 />
               </div>
@@ -1580,7 +1528,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
                   type="text" 
                   value={newProfileName} 
                   onChange={(e) => setNewProfileName(e.target.value)}
-                  placeholder="Ex: Grupo Topázio — Importador Financeiro" 
+                  placeholder="Ex: Perfil de importação" 
                   className="bg-white MyCustomClass dark:bg-slate-900 border border-slate-250 dark:border-slate-700 px-2.5 py-1.5 rounded text-xs w-full text-slate-800 dark:text-slate-100 font-bold"
                 />
               </div>

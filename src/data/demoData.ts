@@ -210,3 +210,52 @@ export function exportToCSV(data: any[]): string {
 
   return lines.join("\n");
 }
+
+export function generateDemoSpreadsheetRows(segment: "automotivo" | "agro" | "servicos" | "industria"): any[] {
+  const calculatedRows: any[] = [];
+  const meses = ["Janeiro 2026", "Fevereiro 2026", "Março 2026", "Abril 2026"];
+  const empresaNomes = segment === "automotivo" ? ["Sauron Veículos SP", "Sauron Veículos RJ", "Sauron Seminovos"] 
+                     : segment === "agro" ? ["Fazenda Campo Alto", "Fazenda Vale Verde", "Silo Central"]
+                     : segment === "servicos" ? ["Sauron Advising", "Sauron Systems", "Sauron Labs"]
+                     : ["Planta Fundição", "Planta Montagem", "P&D Hub"];
+
+  const marcas = segment === "automotivo" ? ["Toyota", "Ford", "Chevrolet", "BMW"]
+               : segment === "agro" ? ["Soja Transgênica", "Milho Safrinha", "Trigo Rústico"]
+               : segment === "servicos" ? ["Consultoria BI", "Suporte Integrado", "Machine Learning Core"]
+               : ["Liga Metálica", "Peça Estampada", "Componente Injetado"];
+
+  for (let i = 0; i < 40; i++) {
+    const g = "Grupo Sauron S.A.";
+    const e = empresaNomes[i % empresaNomes.length];
+    const m = marcas[i % marcas.length];
+    const cnpj = `12.345.678/000${(i % 3) + 1}-99`;
+    const mes = meses[i % meses.length];
+    const rec = Math.round(150000 + Math.random() * 320000);
+    const cus = Math.round(rec * (0.45 + Math.random() * 0.15));
+    const desp = Math.round(rec * (0.15 + Math.random() * 0.1));
+    const luc = rec - cus - desp;
+    const margem = parseFloat(((luc / rec) * 100).toFixed(1));
+
+    calculatedRows.push({
+      id: `row_${i}`,
+      Grupo: g,
+      CNPJ: cnpj,
+      Marca: m,
+      Empresa: e,
+      Mês: mes,
+      Razão: i % 2 === 0 ? "Comercial de Vendas" : "Faturamento Consignação",
+      Categoria: i % 2 === 0 ? "Produtos do Setor Principal" : "Gerais de Operações",
+      Receita: rec,
+      Custo: cus,
+      Despesa: desp,
+      Lucro: luc,
+      Margem: margem,
+      Regiao: i % 2 === 0 ? "Sudeste" : "Nordeste",
+      Vendedor: `Consultor ${(i % 5) + 1}`,
+      Safra: "2025/2026",
+      CamposVazios: i % 7 === 0 ? "" : "Homologado",
+      PossiveisDuplicados: i === 12 || i === 13 ? "Sim" : "Não"
+    });
+  }
+  return calculatedRows;
+}

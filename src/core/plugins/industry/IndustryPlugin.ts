@@ -28,6 +28,21 @@ export class IndustryPlugin implements SegmentPlugin {
       { code: "OEE", name: "Eficiência Global do Equipamento (OEE)", unit: "percentage" }
     ];
   }
+
+  public getSuggestedMappings(): Record<string, string> {
+    return {
+      Grupo: "Grupo Industrial",
+      CNPJ: "Inscrição",
+      Marca: "Linha de Produto",
+      Empresa: "Planta Industrial",
+      Receita: "Faturamento Notas",
+      Custo: "Custo Matéria Prima",
+      Despesa: "Despesa Administrativa",
+      Mês: "Período Calendário",
+      Razão: "Razão de Lançamento",
+      Categoria: "Ordem Custos"
+    };
+  }
 }
 
 const industryPlugin = new IndustryPlugin();
