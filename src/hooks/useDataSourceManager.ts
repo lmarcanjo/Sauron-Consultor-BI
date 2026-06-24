@@ -62,5 +62,6 @@ export function useDataSourceManager() {
     approveSource,
     rejectSource,
     refreshDataSource,
+    workspace,
   };
 }

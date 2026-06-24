@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Presentation, Plus, Copy, Trash2, Eye, LayoutTemplate, Layers, Settings, Maximize, FileText, ChevronRight, Play, MonitorPlay } from 'lucide-react';
 import { SlideConfig } from './FechamentoMensalTab';
+import { useDataSourceManager } from '../hooks/useDataSourceManager';
 
 interface ApresentacoesTabProps {
   metrics?: any;
@@ -9,10 +10,20 @@ interface ApresentacoesTabProps {
 }
 
 export const ApresentacoesTab: React.FC<ApresentacoesTabProps> = ({ metrics, formatCurrency, onPresent }) => {
+  const { activeDataSource } = useDataSourceManager();
+
   const [presentations, setPresentations] = useState([
     { id: '1', title: 'Fechamento Maio/2026 — Grupo Topázio', date: '2026-06-01', type: 'Fechamento Mensal' },
     { id: '2', title: 'Diagnóstico de Performance: Seminovos', date: '2026-05-15', type: 'Diagnóstico de Loja' },
   ]);
+
+  const visiblePresentations = useMemo(() => {
+    if (activeDataSource === "DEMO_DATA") {
+      return presentations;
+    } else {
+      return presentations.filter(p => !p.title.includes("Topázio") && !p.title.includes("Topazio") && !p.title.includes("Seminovos"));
+    }
+  }, [activeDataSource, presentations]);
 
   const [currentView, setCurrentView] = useState<'list' | 'builder'>('list');
   const [activePresentationId, setActivePresentationId] = useState<string | null>(null);
@@ -234,7 +245,7 @@ export const ApresentacoesTab: React.FC<ApresentacoesTabProps> = ({ metrics, for
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {presentations.map(p => (
+        {visiblePresentations.map(p => (
           <div key={p.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-4 group">
             <div className="flex justify-between items-start">
               <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-lg group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">

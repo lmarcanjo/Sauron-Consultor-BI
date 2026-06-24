@@ -126,4 +126,76 @@ describe("Sauron Data Source Manager Suite", () => {
     expect(isQueryReadOnly("DROP TABLE clientes_vpn;")).toBe(false);
     expect(isQueryReadOnly("ALTER TABLE faturamento DROP COLUMN id;")).toBe(false);
   });
+
+  // --- MANDATORY SPRINT TESTS ---
+  it("verifies initial active source is DEMO_DATA", () => {
+    const manager = dataSourceManager;
+    manager.setActiveSource("DEMO_DATA");
+    expect(manager.getActiveSource()).toBe("DEMO_DATA");
+    expect(manager.isDemoMode()).toBe(true);
+  });
+
+  it("verifies switching active source to SPREADSHEET_DATA", () => {
+    const manager = dataSourceManager;
+    manager.setActiveSource("SPREADSHEET_DATA");
+    expect(manager.getActiveSource()).toBe("SPREADSHEET_DATA");
+    expect(manager.isSpreadsheetMode()).toBe(true);
+  });
+
+  it("verifies mock data is blocked/filtered when a real source is active", () => {
+    const testRecords = [
+      { id: "1", Grupo: "Grupo Amigos Real S/A", CNPJ: "99.999.999/0001-99", Marca: "Real Fiat", Empresa: "Real Fiat S/A", Mês: "Maio", Receita: 10000, Custo: 4000, Despesa: 2000 },
+      { id: "sim_02", Grupo: "Grupo Topázio", CNPJ: "11.111.111/0001-11", Marca: "Topázio Fiat", Empresa: "Topázio Fiat S/A", Mês: "Maio", Receita: 5000, Custo: 2000, Despesa: 1000 }
+    ] as any[];
+
+    // Using the assertNoMockDataWhenRealSource with signature (activeDataSource, records)
+    const filtered = dataSourceManager.assertNoMockDataWhenRealSource("SPREADSHEET_DATA", testRecords);
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].Grupo).toBe("Grupo Amigos Real S/A");
+  });
+
+  it("ensures getActiveRecords returns only active source data", () => {
+    dataSourceManager.setActiveSource("DEMO_DATA");
+    const activeData = dataSourceManager.getActiveRecords();
+    expect(activeData.length).toBeGreaterThan(0);
+    // All demo records have Grupo = "Grupo Topázio"
+    activeData.forEach(rec => {
+      expect(rec.Grupo).toBe("Grupo Topázio");
+    });
+  });
+
+  it("ensures fictional 'Grupo Topázio' does not appear with SPREADSHEET_DATA active", () => {
+    const sampleFile = {
+      id: "real_file_456",
+      fileName: "DRE_Real_Julho.xlsx",
+      importedAt: new Date().toISOString(),
+      importedBy: "Lennon Marcanjo",
+      status: "ACTIVE" as const,
+      totalRows: 2,
+      totalColumns: 2,
+      sheets: [
+        {
+          id: "sheet_02",
+          fileId: "real_file_456",
+          sheetName: "Julho",
+          rows: [
+            { id: "1", Grupo: "Empresa Agro-Agua S/A", CNPJ: "88.888.888/0001-88", Marca: "Agro S/A", Empresa: "Fazenda Agua", Mês: "Julho", Receita: 15000 },
+            { id: "2", Grupo: "Grupo Topázio", CNPJ: "11.111.111/0001-11", Marca: "Topázio Fiat", Empresa: "Topázio Fiat S/A", Mês: "Julho", Receita: 4500 }
+          ],
+          columns: []
+        }
+      ]
+    };
+
+    dataSourceManager.addSpreadsheetFile(sampleFile, "REPLACE");
+    expect(dataSourceManager.getActiveSource()).toBe("SPREADSHEET_DATA");
+
+    const activeRecs = dataSourceManager.getActiveRecords();
+    expect(activeRecs.length).toBe(1);
+    expect(activeRecs[0].Grupo).toBe("Empresa Agro-Agua S/A");
+    
+    // Check fictional 'Grupo Topázio' is entirely absent
+    const hasTopazio = activeRecs.some(r => r.Grupo === "Grupo Topázio" || r.Grupo === "Grupo Topázio Corporativo");
+    expect(hasTopazio).toBe(false);
+  });
 });

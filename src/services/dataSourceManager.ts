@@ -14,13 +14,24 @@ import {
   DataVersion, 
   ImportProfile 
 } from "../types/dataSource";
-import { gerarDadosSimulados } from "../utils/dataGenerator";
+import { gerarDadosSimulados } from "../data/demoData";
 
 // --- GLOBAL QUERY SECURITY / PROTECTIONS ---
 export function assertNoMockDataWhenRealSource(
-  records: LancamentoFinanceiro[],
-  activeDataSource: string
+  first: string | LancamentoFinanceiro[],
+  second: string | LancamentoFinanceiro[]
 ): LancamentoFinanceiro[] {
+  let activeDataSource: string;
+  let records: LancamentoFinanceiro[];
+
+  if (typeof first === "string") {
+    activeDataSource = first;
+    records = second as LancamentoFinanceiro[];
+  } else {
+    records = first;
+    activeDataSource = second as string;
+  }
+
   if (activeDataSource === "DEMO_DATA") {
     return records;
   }
@@ -125,11 +136,109 @@ class DataSourceManager {
     const hasLocalStorage = typeof localStorage !== "undefined";
     this.state.lastUpdatedAt = new Date().toISOString();
     if (hasLocalStorage) {
-      localStorage.setItem("sauron_ds_state", JSON.stringify(this.state));
-      localStorage.setItem("sauron_ds_workspace", JSON.stringify(this.workspace));
-      localStorage.setItem("sauron_ds_adjustments", JSON.stringify(this.consultantAdjustments));
-      localStorage.setItem("sauron_ds_filters", JSON.stringify(this.filterConfigs));
-      localStorage.setItem("sauron_ds_versions", JSON.stringify(this.dataVersions));
+      try {
+        // Safe write for state
+        try {
+          localStorage.setItem("sauron_ds_state", JSON.stringify(this.state));
+        } catch (e) {
+          console.error("[Sauron Storage] Erro ao salvar sauron_ds_state:", e);
+        }
+
+        // Safe write for adjustments
+        try {
+          localStorage.setItem("sauron_ds_adjustments", JSON.stringify(this.consultantAdjustments));
+        } catch (e) {
+          console.error("[Sauron Storage] Erro ao salvar sauron_ds_adjustments:", e);
+        }
+
+        // Safe write for filters
+        try {
+          localStorage.setItem("sauron_ds_filters", JSON.stringify(this.filterConfigs));
+        } catch (e) {
+          console.error("[Sauron Storage] Erro ao salvar sauron_ds_filters:", e);
+        }
+
+        // Safe write for versions with intelligent pruning on quota exceedance
+        try {
+          // Pre-emptively clear data for DISCARDED versions to save a lot of space
+          this.dataVersions.forEach(v => {
+            if (v.status === "DISCARDED") {
+              v.data = [];
+            }
+          });
+
+          localStorage.setItem("sauron_ds_versions", JSON.stringify(this.dataVersions));
+        } catch (versionsError) {
+          console.warn("[Sauron Storage] Falha ao salvar versões completas devido a limite de cota.", versionsError);
+          // Fallback 1: Keep data only for OFFICIAL or the most recent version
+          const lightVersions = this.dataVersions.map((v, idx) => {
+            const isLatestOrOfficial = v.status === "OFFICIAL" || idx === this.dataVersions.length - 1;
+            return {
+              ...v,
+              data: isLatestOrOfficial ? v.data : []
+            };
+          });
+          try {
+            localStorage.setItem("sauron_ds_versions", JSON.stringify(lightVersions));
+            console.log("[Sauron Storage] Versões reduzidas salvas com sucesso.");
+          } catch (e2) {
+            console.error("[Sauron Storage] Mesmo as versões reduzidas excederam a cota. Salvando apenas metadados.", e2);
+            const metadataOnlyVersions = this.dataVersions.map(v => ({
+              ...v,
+              data: []
+            }));
+            try {
+              localStorage.setItem("sauron_ds_versions", JSON.stringify(metadataOnlyVersions));
+            } catch (e3) {
+              console.error("[Sauron Storage] Falha crítica ao salvar histórico de versões.", e3);
+            }
+          }
+        }
+        
+        // Safe write for workspace
+        try {
+          localStorage.setItem("sauron_ds_workspace", JSON.stringify(this.workspace));
+        } catch (workspaceError) {
+          console.warn("[Sauron Storage] Falha ao salvar workspace completo no localStorage devido ao limite de cota.", workspaceError);
+          // If quota exceeded, try to persist a lighter version of workspace
+          const lightWorkspace = {
+            ...this.workspace,
+            files: this.workspace.files.map(file => ({
+              ...file,
+              sheets: file.sheets.map(sheet => {
+                const isActive = this.workspace.activeFileIds.includes(file.id);
+                return {
+                  ...sheet,
+                  rows: isActive ? sheet.rows.slice(0, 500) : [] // Cap rows to keep backup small
+                };
+              })
+            }))
+          };
+          try {
+            localStorage.setItem("sauron_ds_workspace", JSON.stringify(lightWorkspace));
+            console.log("[Sauron Storage] Workspace reduzido salvo com sucesso.");
+          } catch (e2) {
+            console.error("[Sauron Storage] Mesmo o workspace reduzido excedeu a cota. Removendo dados de linha do localStorage.", e2);
+            const metadataOnlyWorkspace = {
+              ...this.workspace,
+              files: this.workspace.files.map(file => ({
+                ...file,
+                sheets: file.sheets.map(sheet => ({
+                  ...sheet,
+                  rows: []
+                }))
+              }))
+            };
+            try {
+              localStorage.setItem("sauron_ds_workspace", JSON.stringify(metadataOnlyWorkspace));
+            } catch (e3) {
+              console.error("[Sauron Storage] Falha crítica ao salvar metadados do workspace.", e3);
+            }
+          }
+        }
+      } catch (globalError) {
+        console.error("[Sauron Storage] Erro global ao salvar dados de configuração no localStorage:", globalError);
+      }
     }
   }
 
@@ -332,7 +441,11 @@ class DataSourceManager {
   public syncDatabaseRecords(records: LancamentoFinanceiro[], sourceName: string) {
     // Sanitize to make sure we don't store mock data in real db records
     this.databaseRecords = this.assertNoMockDataWhenRealSource("DATABASE_DATA", records);
-    localStorage.setItem("sauron_ds_db_data", JSON.stringify(this.databaseRecords));
+    try {
+      localStorage.setItem("sauron_ds_db_data", JSON.stringify(this.databaseRecords));
+    } catch (e) {
+      console.warn("[Sauron Storage] Erro ao salvar sauron_ds_db_data no localStorage (limite excedido):", e);
+    }
     
     this.state.activeDataSource = "DATABASE_DATA";
     this.state.approvedByConsultant = false; // require approval to use in dashboards
@@ -406,7 +519,11 @@ class DataSourceManager {
     } else {
       this.state.activeDataSource = "DATABASE_DATA";
       this.databaseRecords = ver.data;
-      localStorage.setItem("sauron_ds_db_data", JSON.stringify(this.databaseRecords));
+      try {
+        localStorage.setItem("sauron_ds_db_data", JSON.stringify(this.databaseRecords));
+      } catch (e) {
+        console.warn("[Sauron Storage] Erro ao reverter e salvar sauron_ds_db_data no localStorage:", e);
+      }
     }
 
     this.state.approvedByConsultant = true;
@@ -514,7 +631,11 @@ class DataSourceManager {
       lastApplied: new Date().toISOString()
     };
     this.currentImportProfile = profile;
-    localStorage.setItem("sauron_ds_import_profile", JSON.stringify(profile));
+    try {
+      localStorage.setItem("sauron_ds_import_profile", JSON.stringify(profile));
+    } catch (e) {
+      console.warn("[Sauron Storage] Erro ao salvar sauron_ds_import_profile:", e);
+    }
   }
 
   public getSavedProfile(): ImportProfile | null {

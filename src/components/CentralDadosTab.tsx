@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Database, Shield, Network, FileSpreadsheet, Shuffle, Filter, Lock, 
   CheckCircle, RefreshCw, Plus, Play, StopCircle, Trash2, Eye, Server, 
@@ -114,13 +114,66 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     setActiveSource,
     approvedByConsultant,
     approveSource,
-    rejectSource
+    rejectSource,
+    workspace
   } = useDataSourceManager();
 
   const internalActiveDataSource = activeDataSource;
   const approveMixedData = approvedByConsultant;
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+
+  // Compute visible files list dynamically
+  const visibleFilesList = useMemo(() => {
+    if (activeDataSource === "DEMO_DATA") {
+      return uploadedFiles;
+    } else {
+      const workspaceFiles = (workspace?.files || []).map(f => ({
+        id: f.id,
+        name: f.fileName,
+        size: f.totalRows * 120, // estimated size
+        sheets: f.sheets.map(s => s.sheetName),
+        date: f.importedAt.split("T")[0],
+        status: f.status
+      }));
+      // Strict No-Contamination / No-Mock rule: No Topazio files
+      return workspaceFiles.filter(f => !f.name.toLowerCase().includes("topazio") && !f.name.toLowerCase().includes("topázio"));
+    }
+  }, [activeDataSource, uploadedFiles, workspace]);
+
+  // Handle selected file alignment when switching datasets
+  useEffect(() => {
+    if (visibleFilesList.length > 0) {
+      const exists = visibleFilesList.some(f => f.id === selectedFileId);
+      if (!exists) {
+        setSelectedFileId(visibleFilesList[0].id);
+        if (visibleFilesList[0].sheets && visibleFilesList[0].sheets.length > 0) {
+          setActiveSheetName(visibleFilesList[0].sheets[0]);
+        }
+      }
+    } else {
+      setSelectedFileId("");
+      setActiveSheetName("");
+    }
+  }, [visibleFilesList, selectedFileId]);
+
+  // Compute visible filter configs dynamically
+  const visibleFilterConfigs = useMemo(() => {
+    if (activeDataSource === "DEMO_DATA") {
+      return clientFilterConfigs;
+    } else {
+      const recordKeys = new Set<string>();
+      if (dataOrigem && dataOrigem.length > 0) {
+        dataOrigem.forEach(item => {
+          Object.keys(item).forEach(k => recordKeys.add(k.toLowerCase()));
+        });
+      }
+      return clientFilterConfigs.filter(cfg => {
+        const colLower = cfg.column.toLowerCase();
+        return recordKeys.has(colLower) && !colLower.includes("topazio") && !colLower.includes("topázio");
+      });
+    }
+  }, [activeDataSource, clientFilterConfigs, dataOrigem]);
 
   // Load profile, filters, permissions & logs
   useEffect(() => {
@@ -676,13 +729,15 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Left list of files */}
-                  <div className="col-span-1 border border-slate-200 dark:border-slate-800 rounded-xl divide-y divide-slate-100 dark:divide-slate-850 overflow-hidden">
-                    {uploadedFiles.map((f) => (
+                  <div className="col-span-1 border border-slate-200 dark:border-slate-800 rounded-xl divide-y divide-slate-100 dark:divide-slate-850 overflow-hidden bg-white dark:bg-slate-950">
+                    {visibleFilesList.map((f) => (
                       <div 
                         key={f.id}
                         onClick={() => {
                           setSelectedFileId(f.id);
-                          setActiveSheetName(f.sheets[0]);
+                          if (f.sheets && f.sheets.length > 0) {
+                            setActiveSheetName(f.sheets[0]);
+                          }
                         }}
                         className={`p-3 text-xs flex items-center gap-2.5 cursor-pointer transition-colors ${
                           selectedFileId === f.id ? "bg-blue-500/10 border-l-4 border-blue-500" : "hover:bg-slate-50 dark:hover:bg-slate-900"
@@ -690,11 +745,16 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                       >
                         <FileSpreadsheet size={16} className={`${selectedFileId === f.id ? "text-blue-500" : "text-slate-400"}`} />
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold text-slate-800 dark:text-slate-100 truncate leading-tight">{f.name}</p>
-                          <p className="text-[9px] text-slate-400 mt-0.5">{(f.size/1024).toFixed(0)} KB | {f.date}</p>
+                           <p className="font-bold text-slate-800 dark:text-slate-100 truncate leading-tight">{f.name}</p>
+                           <p className="text-[9px] text-slate-400 mt-0.5">{(f.size/1024).toFixed(0)} KB | {f.date}</p>
                         </div>
                       </div>
                     ))}
+                    {visibleFilesList.length === 0 && (
+                      <div className="p-6 text-xs text-center text-slate-400 italic">
+                        Nenhuma planilha real carregada no workspace ainda.
+                      </div>
+                    )}
                   </div>
 
                   {/* Right details: Sheets / Tabs of selected file */}
@@ -706,7 +766,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
                     {/* Tabs row list */}
                     <div className="flex flex-wrap gap-2">
-                      {uploadedFiles.find(f => f.id === selectedFileId)?.sheets.map((sh: string) => {
+                      {visibleFilesList.find(f => f.id === selectedFileId)?.sheets.map((sh: string) => {
                         const isSHTabActive = sh === activeSheetName;
                         return (
                           <button
@@ -722,6 +782,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                           </button>
                         );
                       })}
+                      {(!selectedFileId || visibleFilesList.length === 0) && (
+                        <div className="text-xs text-slate-400 italic">Selecione uma planilha ativa para listar suas abas.</div>
+                      )}
                     </div>
 
                     <div className="bg-white dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850 p-4 space-y-3">
@@ -856,7 +919,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
               {/* Advanced client-facing filters table */}
               <div className="border border-slate-250 dark:border-slate-800 rounded-2xl overflow-hidden shadow-inner bg-slate-50/20">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-100 dark:bg-slate-900 border-b border-slate-250 dark:border-slate-800 text-[10px] font-black uppercase text-slate-405">
+                  <thead className="bg-slate-100 dark:bg-slate-900 border-b border-slate-250 dark:border-slate-800 text-[10px] font-black uppercase text-slate-400">
                     <tr>
                       <th className="py-2 px-3">Variável Origem</th>
                       <th className="py-2 px-3">Etiqueta Amigável (Label)</th>
@@ -866,7 +929,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
-                    {clientFilterConfigs.map((config, idx) => (
+                    {visibleFilterConfigs.map((config, idx) => (
                       <tr key={config.column} className="hover:bg-slate-50 dark:hover:bg-slate-900">
                         <td className="py-3 px-3 font-mono font-bold text-slate-500">{config.column}</td>
                         <td className="py-3 px-3">
@@ -875,8 +938,11 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                             value={config.label}
                             onChange={(e) => {
                               const newFlt = [...clientFilterConfigs];
-                              newFlt[idx].label = e.target.value;
-                              setClientFilterConfigs(newFlt);
+                              const actualIdx = clientFilterConfigs.findIndex(f => f.column === config.column);
+                              if (actualIdx !== -1) {
+                                newFlt[actualIdx].label = e.target.value;
+                                setClientFilterConfigs(newFlt);
+                              }
                             }}
                             className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded px-2 py-0.5 text-slate-800 dark:text-slate-200"
                           />
@@ -886,8 +952,11 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                             value={config.type}
                             onChange={(e) => {
                               const newFlt = [...clientFilterConfigs];
-                              newFlt[idx].type = e.target.value;
-                              setClientFilterConfigs(newFlt);
+                              const actualIdx = clientFilterConfigs.findIndex(f => f.column === config.column);
+                              if (actualIdx !== -1) {
+                                newFlt[actualIdx].type = e.target.value;
+                                setClientFilterConfigs(newFlt);
+                              }
                             }}
                             className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded px-2 py-0.5"
                           >
@@ -902,8 +971,11 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                             value={config.scope}
                             onChange={(e) => {
                               const newFlt = [...clientFilterConfigs];
-                              newFlt[idx].scope = e.target.value;
-                              setClientFilterConfigs(newFlt);
+                              const actualIdx = clientFilterConfigs.findIndex(f => f.column === config.column);
+                              if (actualIdx !== -1) {
+                                newFlt[actualIdx].scope = e.target.value;
+                                setClientFilterConfigs(newFlt);
+                              }
                             }}
                             className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-805 rounded px-2 py-0.5 uppercase text-[9px] font-black"
                           >
@@ -916,8 +988,11 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                           <button
                             onClick={() => {
                               const newFlt = [...clientFilterConfigs];
-                              newFlt[idx].active = !newFlt[idx].active;
-                              setClientFilterConfigs(newFlt);
+                              const actualIdx = clientFilterConfigs.findIndex(f => f.column === config.column);
+                              if (actualIdx !== -1) {
+                                newFlt[actualIdx].active = !newFlt[actualIdx].active;
+                                setClientFilterConfigs(newFlt);
+                              }
                             }}
                             className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-colors cursor-pointer ${
                               config.active ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-600 dark:bg-slate-805"
@@ -928,7 +1003,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                         </td>
                       </tr>
                     ))}
-                    {clientFilterConfigs.length === 0 && (
+                    {visibleFilterConfigs.length === 0 && (
                       <tr>
                         <td colSpan={5} className="py-8 text-center text-slate-400 italic">
                           Nenhum filtro parametrizado ainda. Adicione filtros usando o painel abaixo.
