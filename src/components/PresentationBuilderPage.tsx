@@ -36,49 +36,55 @@ export const PresentationBuilderPage: React.FC<PresentationBuilderPageProps> = (
   formatCurrency = (v: number) => "R$ " + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }) => {
   
-  // 1. Initial Slide deck config
-  const [slides, setSlides] = useState<SlideConfig[]>([
-    { 
-      id: 's1', 
-      title: 'Fechamento de Resultados & Planejamento BI', 
-      subtitle: 'Sauron OS — Consultoria de Alta Performance', 
-      type: 'cover', 
-      visible: true, 
-      notes: 'Iniciar apresentação dando boas vindas aos investidores e diretores da holding. Destacar que todas as fontes foram mapeadas via VPN.' 
-    },
-    { 
-      id: 's2', 
-      title: 'DRE Consolidada e Evolução das Margens', 
-      subtitle: 'Indicadores Líquidos de Saúde Financeira', 
-      type: 'dre', 
-      visible: true, 
-      notes: 'Aponte o volume total de Receita Bruta. Destaque se houve variações no CMV ou despesas administrativas.' 
-    },
-    { 
-      id: 's3', 
-      title: 'Ranking de Faturamento por Filial', 
-      subtitle: 'Desempenho comparativo das marcas e CNPJs', 
-      type: 'ranking', 
-      visible: true, 
-      notes: 'Análise de share interno. Mostre qual filial lidera faturamentos e qual necessita de ajustes de giro ou estoque de passagem.' 
-    },
-    { 
-      id: 's4', 
-      title: 'Composição de Custos por Categoria', 
-      subtitle: 'Matriz estendida de Plano de Contas', 
-      type: 'category', 
-      visible: true, 
-      notes: 'Visualização macro das despesas ordinárias e plano de contas. Identificar gargalos de custos operacionais.' 
-    },
-    { 
-      id: 's5', 
-      title: 'Plano de Metas & Plano de Ação', 
-      subtitle: 'Próximas metas operacionais definidas', 
-      type: 'checklist', 
-      visible: true, 
-      notes: 'Sinalizar metas contábeis para o próximo ciclo de DRE, incluindo diminuição de despesas gerais.' 
-    },
-  ]);
+  // 1. Initial Slide deck config (Start empty and generate dynamically from active metrics)
+  const [slides, setSlides] = useState<SlideConfig[]>([]);
+
+  React.useEffect(() => {
+    if (slides.length === 0) {
+      setSlides([
+        { 
+          id: 's1', 
+          title: 'Fechamento de Resultados & Planejamento BI', 
+          subtitle: 'Sauron OS — Consultoria de Alta Performance', 
+          type: 'cover', 
+          visible: true, 
+          notes: 'Iniciar apresentação dando boas vindas aos investidores e diretores da holding. Destacar que todas as fontes foram mapeadas via VPN.' 
+        },
+        { 
+          id: 's2', 
+          title: 'DRE Consolidada e Evolução das Margens', 
+          subtitle: `Faturamento Consolidado: R$ ${(metrics?.totalReceita || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, 
+          type: 'dre', 
+          visible: true, 
+          notes: 'Aponte o volume total de Receita Bruta. Destaque se houve variações no CMV ou despesas administrativas.' 
+        },
+        { 
+          id: 's3', 
+          title: 'Ranking de Faturamento por Filial', 
+          subtitle: 'Desempenho comparativo das marcas e CNPJs', 
+          type: 'ranking', 
+          visible: true, 
+          notes: 'Análise de share interno. Mostre qual filial lidera faturamentos e qual necessita de ajustes de giro ou estoque de passagem.' 
+        },
+        { 
+          id: 's4', 
+          title: 'Composição de Custos por Categoria', 
+          subtitle: 'Matriz estendida de Plano de Contas', 
+          type: 'category', 
+          visible: true, 
+          notes: 'Visualização macro das despesas ordinárias e plano de contas. Identificar gargalos de custos operacionais.' 
+        },
+        { 
+          id: 's5', 
+          title: 'Plano de Metas & Plano de Ação', 
+          subtitle: 'Próximas metas operacionais definidas', 
+          type: 'checklist', 
+          visible: true, 
+          notes: 'Sinalizar metas contábeis para o próximo ciclo de DRE, incluindo diminuição de despesas gerais.' 
+        },
+      ]);
+    }
+  }, [slides.length, metrics]);
 
   const [selectedSlideId, setSelectedSlideId] = useState<string>('s1');
   const [activeMode, setActiveMode] = useState<'builder' | 'meeting'>('builder');
@@ -95,17 +101,14 @@ export const PresentationBuilderPage: React.FC<PresentationBuilderPageProps> = (
         }
       }
     } catch (e) {}
-    return "Grupo Topázio Corporativo";
+    return "Holding Consolidada";
   }, []);
 
   // Meeting notes and tasks
-  const [meetingActionTasks, setMeetingActionTasks] = useState<string[]>([
-    "Revisar margens brutas da loja FIAT com equipe comercial",
-    "Auditar compras de insumos para frear aumento de CMV"
-  ]);
+  const [meetingActionTasks, setMeetingActionTasks] = useState<string[]>([]);
   const [newActionTask, setNewActionTask] = useState<string>("");
 
-  const selectedSlide = slides.find(s => s.id === selectedSlideId);
+  const selectedSlide = (slides.find(s => s.id === selectedSlideId) || slides[0] || { id: 's1', title: 'Carregando...', subtitle: '', type: 'cover', visible: true, notes: '' }) as SlideConfig;
 
   // 2. Real-Time Data aggregates for chart preview
   const chartDataDRE = useMemo(() => {
@@ -673,7 +676,7 @@ Sauron OS - Inteligência BI de Alta Performance
                         <BookMarked size={48} className="text-white mx-auto animate-bounce" strokeWidth={1} />
                         <div>
                           <div className="text-[9px] bg-blue-600/30 text-blue-300 font-black px-2.5 py-0.5 rounded uppercase inline-block">
-                            GRUPO TOPÁZIO CORPORATIVO
+                            {dynamicClientName.toUpperCase()}
                           </div>
                           <p className="text-[10px] text-slate-500 mt-2 font-medium">Lennon Marcanjo — Consultor Especialista</p>
                         </div>

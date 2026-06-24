@@ -424,8 +424,8 @@ class DataSourceManager {
       dataImportacao: file.importedAt,
       usuario: file.importedBy,
       // Workspaces begin as PENDING_VALIDATION in Sprint Beta to enforce pipeline compliance
-      status: mode === "PENDING" ? "PENDING_APPROVAL" : "PENDING_VALIDATION",
-      approvedByConsultant: false // must be approved explicitly!
+      status: file.status || (mode === "PENDING" ? "PENDING_APPROVAL" : "PENDING_VALIDATION"),
+      approvedByConsultant: file.approvedByConsultant !== undefined ? file.approvedByConsultant : (file.status === "ACTIVE" ? true : false) // must be approved explicitly or pre-approved in tests
     };
 
     if (mode === "REPLACE") {

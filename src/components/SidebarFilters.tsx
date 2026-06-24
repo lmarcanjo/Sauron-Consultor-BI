@@ -6,6 +6,7 @@
 import React, { useState } from "react";
 import { Filter, ChevronDown, ChevronRight, Check, Search, X, Plus, Trash2 } from "lucide-react";
 import { FiltrosDashboard, ActiveDataSourceType } from "../types";
+import { ClientFilterManager } from "../services/clientFilterManager";
 
 interface SidebarFiltersProps {
   available: FiltrosDashboard;
@@ -16,6 +17,16 @@ interface SidebarFiltersProps {
   actualKeys?: string[];
 }
 
+const mapColumnToKey = (col: string): string => {
+  const c = col.toLowerCase();
+  if (c === "grupo") return "grupos";
+  if (c === "cnpj") return "cnpjs";
+  if (c === "marca") return "marcas";
+  if (c === "mês" || c === "mes") return "meses";
+  if (c === "razão" || c === "razao") return "razoes";
+  return col;
+};
+
 export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
   available,
   selected,
@@ -24,6 +35,14 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
   activeDataSource,
   actualKeys = []
 }) => {
+  // Listen for filter configuration updates from consultant
+  const [, setTick] = useState(0);
+  React.useEffect(() => {
+    const handleUpdate = () => setTick(t => t + 1);
+    window.addEventListener("sauron_filters_updated", handleUpdate);
+    return () => window.removeEventListener("sauron_filters_updated", handleUpdate);
+  }, []);
+
   // Fully dynamic open sections & search tags matching any filter key
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     grupos: true,
@@ -65,25 +84,19 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
   const handleAddCustomSidebarFilter = () => {
     if (!newColName) return;
     const cleanKey = newColName.trim();
-    // Initialize in selection so it appears right away
-    onChange({
-      ...selected,
-      [cleanKey]: []
-    });
+    // Add via ClientFilterManager to maintain unified state
+    ClientFilterManager.addFilter(cleanKey, cleanKey, "multi", "standard");
     setOpenSections(prev => ({ ...prev, [cleanKey]: true }));
     setNewColName("");
     setShowQuickCreator(false);
   };
 
   const handleRemoveCustomSidebarFilter = (key: string) => {
+    ClientFilterManager.removeFilter(key);
     const nextSelected = { ...selected };
     delete nextSelected[key];
     onChange(nextSelected);
   };
-
-  // Extract all extra custom keys dynamically
-  const staticKeys = ["grupos", "cnpjs", "marcas", "meses", "razoes"];
-  const dynamicKeys = Object.keys(available).filter(k => !staticKeys.includes(k));
 
   // Helper to render filter group
   const renderFilterCategory = (
@@ -218,8 +231,10 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
     if (rowProperty === "razão") {
       return ["razão", "razao"].some(v => lowerKeys.includes(v));
     }
-    return lowerKeys.includes(rowProperty);
+    return lowerKeys.includes(rowProperty.toLowerCase());
   };
+
+  const activeConfigs = ClientFilterManager.getActiveFilters();
 
   return (
     <div className="bg-slate-900 border border-slate-800 shadow-md p-3.5 rounded-xl h-full flex flex-col font-sans text-slate-200">
@@ -252,7 +267,7 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
             <label className="text-[9px] uppercase font-bold text-slate-400 block">Nome exato da coluna na Planilha</label>
             <input 
               type="text" 
-              placeholder="Ex: Regiao, Vendedor, Safra..." 
+              placeholder="Ex: Vendedor, etc." 
               value={newColName}
               onChange={(e) => setNewColName(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100 font-mono font-bold"
@@ -276,19 +291,18 @@ export const SidebarFilters: React.FC<SidebarFiltersProps> = ({
       )}
 
       <div className="flex-1 overflow-y-auto pt-1 space-y-0.5 custom-scrollbar">
-        {/* Render core standard filters conditionally */}
-        {shouldRenderSection("grupos") && renderFilterCategory("Grupo Econômico", "grupos")}
-        {shouldRenderSection("cnpjs") && renderFilterCategory("CNPJs do Grupo", "cnpjs")}
-        {shouldRenderSection("marcas") && renderFilterCategory("Marcas / Bandeiras", "marcas")}
-        {shouldRenderSection("meses") && renderFilterCategory("Mês de Competência", "meses")}
-        {shouldRenderSection("razoes") && renderFilterCategory("Razão Contábil (Foco)", "razoes")}
-
-        {/* Dynamic Filters Area */}
-        {dynamicKeys.length > 0 && (
-          <div className="border-t border-slate-800 mt-2 pt-2">
-            <span className="text-[8.5px] uppercase font-black text-blue-500 tracking-wider">Filtros Livres Ativos ({dynamicKeys.length})</span>
-            {dynamicKeys.map(key => renderFilterCategory(`Filtro: ${key}`, key, true))}
-          </div>
+        {activeConfigs.map((config) => {
+          const key = mapColumnToKey(config.column);
+          const label = config.label || config.column;
+          if (!shouldRenderSection(key)) return null;
+          return renderFilterCategory(
+            label, 
+            key, 
+            !["grupos", "cnpjs", "marcas", "meses", "razoes"].includes(key)
+          );
+        })}
+        {activeConfigs.length === 0 && (
+          <p className="text-slate-500 italic text-[11px] text-center pt-8">Nenhum filtro ativo configurado pelo consultor.</p>
         )}
       </div>
     </div>

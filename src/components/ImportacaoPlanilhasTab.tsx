@@ -6,6 +6,8 @@ import {
   CheckCircle2, Sliders, Info, Server, Copy, Volume2, Save, Send, ClipboardCheck
 } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
+import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
+import { dataSourceManager } from "../services/dataSourceManager";
 
 interface ImportacaoPlanilhasProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -236,32 +238,26 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
   useEffect(() => {
     const defaultProfiles: ImportProfile[] = [
       {
-        id: "prof_topazio",
-        name: "Grupo Topázio - Mensal Executivo",
-        clientName: "Grupo Topázio",
+        id: "prof_automotivo_padrao",
+        name: "Layout Automotivo Padrão",
+        clientName: "Holding Automotiva",
         segment: "automotivo",
         mappings: { Grupo: "Conglomerado", CNPJ: "Documento", Marca: "Bandeira", Empresa: "Concessionária", Receita: "Vendas Bruto", Custo: "CPV", Despesa: "OPEX", Mês: "Competência", Razão: "Classificação", Categoria: "Conta Contábil" },
         filters: [
-          { id: "f1", columnName: "Bandeira", label: "Marca Veículo", type: "list", appearDashboard: true, appearReports: true, appearSlides: true },
-          { id: "f2", columnName: "Região", label: "Regional", type: "list", appearDashboard: true, appearReports: true, appearSlides: false }
+          { id: "f1", columnName: "Bandeira", label: "Marca Veículo", type: "list", appearDashboard: true, appearReports: true, appearSlides: true }
         ],
         calculatedFields: [
-          { id: "c1", name: "Lucro Líquido Real", formula: "[Vendas Bruto] - [CPV] - [OPEX]", valid: true },
-          { id: "c2", name: "Margem EBIT", formula: "([Vendas Bruto] - [CPV] - [OPEX]) / [Vendas Bruto]", valid: true }
+          { id: "c1", name: "Lucro Líquido Real", formula: "[Vendas Bruto] - [CPV] - [OPEX]", valid: true }
         ]
       },
       {
-        id: "prof_agro_soja",
-        name: "Sítio Alvorada - Safra Soja & Milho",
-        clientName: "Sítio Alvorada",
+        id: "prof_agro_padrao",
+        name: "Layout Agronegócio Padrão",
+        clientName: "Fazenda Integrada",
         segment: "agro",
-        mappings: { Grupo: "Fazenda", CNPJ: "Inscrição Estadual", Marca: "Cultura", Empresa: "Talhão", Receita: "Sacas Produzidas", Custo: "Insumos Aplicados", Despesa: "Logística", Mês: "Trimestre", Razão: "Safra", Categoria: "Insumo" },
-        filters: [
-          { id: "f3", columnName: "Safra", label: "Ano Safra", type: "list", appearDashboard: true, appearReports: true, appearSlides: true }
-        ],
-        calculatedFields: [
-          { id: "c3", name: "Lucratividade por Saca", formula: "([Sacas Produzidas] * 120) - [Insumos Aplicados]", valid: true }
-        ]
+        mappings: { Grupo: "Fazenda", CNPJ: "Inscrição Estadual", Marca: "Cultura", Empresa: "Talhão", Receita: "Sacas Produzidas", Custo: "Insumos Aplicados", Despesa: "Logística", Mês: "Trimestre", Razão: "Ciclo", Categoria: "Insumo" },
+        filters: [],
+        calculatedFields: []
       }
     ];
     setImportProfileList(defaultProfiles);
@@ -292,6 +288,47 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     }
   }, [selectedSegment]);
 
+  // Synchronize sheet data with SpreadsheetWorkspaceManager on mount & state updates
+  useEffect(() => {
+    const workspace = dataSourceManager.getWorkspace();
+    const activeFiles = workspace.files.filter(f => workspace.activeFileIds.includes(f.id));
+    
+    const mappedFiles: RawFile[] = workspace.files.map(f => ({
+      id: f.id,
+      name: f.fileName,
+      size: 150000,
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    }));
+
+    const mappedSheets: RawSheet[] = [];
+    workspace.files.forEach(f => {
+      f.sheets.forEach(s => {
+        mappedSheets.push({
+          id: s.id || `${f.id}_${s.sheetName}`,
+          fileName: f.fileName,
+          sheetName: s.sheetName,
+          selected: workspace.activeFileIds.includes(f.id),
+          classification: "Receitas",
+          rowCount: s.rows.length,
+          customName: s.sheetName
+        });
+      });
+    });
+
+    const mappedRows: any[] = [];
+    activeFiles.forEach(f => {
+      f.sheets.forEach(s => {
+        mappedRows.push(...s.rows);
+      });
+    });
+
+    if (workspace.files.length > 0) {
+      setRawFiles(mappedFiles);
+      setRawSheets(mappedSheets);
+      setRawRows(mappedRows);
+    }
+  }, [currentSource]);
+
   // Synchronize slide deck sheet references with real sheets when imported
   useEffect(() => {
     if (rawSheets && rawSheets.length > 0) {
@@ -311,15 +348,15 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     
     // Create demo file structures
     const demoFiles: RawFile[] = [
-      { id: "f_1", name: `dados_${segment}_vendas.xlsx`, size: 104850, type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-      { id: "f_2", name: `dados_${segment}_custos_cc.csv`, size: 45700, type: "text/csv" }
+      { id: `demo_f_${segment}`, name: `dados_${segment}_vendas.xlsx`, size: 104850, type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      { id: `demo_f_${segment}_custos`, name: `dados_${segment}_custos_cc.csv`, size: 45700, type: "text/csv" }
     ];
 
     const demoSheets: RawSheet[] = [
-      { id: "s_1", fileName: `dados_${segment}_vendas.xlsx`, sheetName: "Vendas_Norte", selected: true, classification: "Receitas", rowCount: 124, customName: "Resultado Operação Norte" },
-      { id: "s_2", fileName: `dados_${segment}_vendas.xlsx`, sheetName: "Vendas_Sul", selected: true, classification: "Receitas", rowCount: 98, customName: "Resultado Operação Sul" },
-      { id: "s_3", fileName: `dados_${segment}_vendas.xlsx`, sheetName: "Controle_Sistemico", selected: false, classification: "Outros", rowCount: 15, customName: "Sistemas Auxiliares" },
-      { id: "s_4", fileName: `dados_${segment}_custos_cc.csv`, sheetName: "default_csv", selected: true, classification: "Despesas", rowCount: 150, customName: "Desoneração e Custos Administrativos" }
+      { id: `demo_s_${segment}_1`, fileName: `dados_${segment}_vendas.xlsx`, sheetName: "Vendas_Norte", selected: true, classification: "Receitas", rowCount: 124, customName: "Resultado Operação Norte" },
+      { id: `demo_s_${segment}_2`, fileName: `dados_${segment}_vendas.xlsx`, sheetName: "Vendas_Sul", selected: true, classification: "Receitas", rowCount: 98, customName: "Resultado Operação Sul" },
+      { id: `demo_s_${segment}_3`, fileName: `dados_${segment}_vendas.xlsx`, sheetName: "Controle_Sistemico", selected: false, classification: "Outros", rowCount: 15, customName: "Sistemas Auxiliares" },
+      { id: `demo_s_${segment}_4`, fileName: `dados_${segment}_custos_cc.csv`, sheetName: "default_csv", selected: true, classification: "Despesas", rowCount: 150, customName: "Desoneração e Custos Administrativos" }
     ];
 
     // Formulate realistic rows according to the selected segment
@@ -362,7 +399,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
         Despesa: desp,
         Lucro: luc,
         Margem: margem,
-        // Extra spreadsheet columns to qualify irregular headers / extra columns requirements
+        // Extra spreadsheet columns
         Regiao: i % 2 === 0 ? "Sudeste" : "Nordeste",
         Vendedor: `Consultor ${(i % 5) + 1}`,
         Safra: "2025/2026",
@@ -370,6 +407,36 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
         PossiveisDuplicados: i === 12 || i === 13 ? "Sim" : "Não"
       });
     }
+
+    // Register into the global SpreadsheetWorkspaceManager
+    const fileId = `demo_f_${segment}`;
+    const demoSpreadsheetFile = {
+      id: fileId,
+      fileName: `dados_${segment}_vendas.xlsx`,
+      nome: `dados_${segment}_vendas.xlsx`,
+      importedAt: new Date().toISOString(),
+      dataImportacao: new Date().toISOString(),
+      importedBy: "Lennon Marcanjo",
+      usuario: "Lennon Marcanjo",
+      status: "ACTIVE" as const,
+      approvedByConsultant: true,
+      totalRows: calculatedRows.length,
+      totalColumns: 10,
+      totalAbas: demoSheets.length,
+      version: "v1",
+      versao: "v1",
+      sheets: demoSheets.map(s => ({
+        id: s.id,
+        fileId: fileId,
+        sheetName: s.sheetName,
+        rows: calculatedRows,
+        columns: []
+      }))
+    };
+
+    SpreadsheetWorkspaceManager.importarPlanilha(demoSpreadsheetFile, "APPEND");
+    SpreadsheetWorkspaceManager.aprovarPlanilha(fileId);
+    SpreadsheetWorkspaceManager.ativarPlanilha(fileId);
 
     setRawFiles(demoFiles);
     setRawSheets(demoSheets);
@@ -379,7 +446,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     setValidationLogs({
       totalRows: calculatedRows.length,
       emptyFieldsCount: 6,
-      negativeValuesCount: 1, // Let's include 1 negative so the auditor correctly highlights it
+      negativeValuesCount: 1,
       duplicatesCount: 2,
       issues: [
         "Identificadas 6 células com campos vazios na aba Vendas_Norte (tratadas como zero).",
@@ -390,12 +457,9 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
 
     // Populate initial custom filters automatically
     setCustomFilters([
-      { id: "f_regiao", columnName: "Regiao", label: "Filtro Especial de Região", type: "list", appearDashboard: true, appearReports: true, appearSlides: true },
       { id: "f_vendedor", columnName: "Vendedor", label: "Consultores Ativos", type: "list", appearDashboard: true, appearReports: true, appearSlides: true }
     ]);
 
-    // Save and load mapping
-    setRawRows(calculatedRows);
     onDataLoaded(calculatedRows as LancamentoFinanceiro[], `Planilhas Combinadas (${demoSheets.filter(s=>s.selected).length} abas de dados)`);
     setActiveStep("abas");
   };

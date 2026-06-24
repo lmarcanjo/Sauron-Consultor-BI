@@ -45,6 +45,7 @@ import {
 
 import { LancamentoFinanceiro, FiltrosDashboard, MetricasConsolidadas, ActiveDataSourceType } from "./types";
 import { useDataSourceManager } from "./hooks/useDataSourceManager";
+import { ClientFilterManager } from "./services/clientFilterManager";
 import { exportToCSV } from "./utils/dataGenerator";
 import { parseCSV } from "./utils/csvParser";
 import { KpiCard } from "./components/KpiCard";
@@ -493,18 +494,25 @@ export default function App() {
       return { grupos: [], cnpjs: [], marcas: [], meses: [], razoes: [] };
     }
 
-    // 1. Grupos are always all available groups in the data set
-    const grupos = Array.from(new Set(dataOrigem.map(d => d.Grupo))).sort();
+    const activeConfigs = ClientFilterManager.getActiveFilters();
+    const hasConfig = (colName: string) => activeConfigs.some(c => c.column.toLowerCase() === colName.toLowerCase());
 
-    // 2. CNPJs are filtered based on selected groups
+    // 1. Grupos
+    const grupos = hasConfig("Grupo")
+      ? Array.from(new Set(dataOrigem.map(d => d.Grupo))).sort()
+      : [];
+
+    // 2. CNPJs
     const selectedGrps = filtros.grupos || [];
     const isGrpFiltered = selectedGrps.length > 0 && selectedGrps.length < grupos.length;
     const recordsForCnpj = isGrpFiltered 
       ? dataOrigem.filter(d => selectedGrps.includes(d.Grupo))
       : dataOrigem;
-    const cnpjs = Array.from(new Set(recordsForCnpj.map(d => d.CNPJ))).sort();
+    const cnpjs = hasConfig("CNPJ")
+      ? Array.from(new Set(recordsForCnpj.map(d => d.CNPJ))).sort()
+      : [];
 
-    // 3. Marcas are filtered based on selected groups AND selected CNPJs
+    // 3. Marcas
     const selectedCnpjs = filtros.cnpjs || [];
     const isCnpjFiltered = selectedCnpjs.length > 0 && selectedCnpjs.length < cnpjs.length;
     const recordsForMarca = dataOrigem.filter(d => {
@@ -512,7 +520,9 @@ export default function App() {
       const matchCnpj = !isCnpjFiltered || selectedCnpjs.includes(d.CNPJ);
       return matchGrp && matchCnpj;
     });
-    const marcas = Array.from(new Set(recordsForMarca.map(d => d.Marca))).sort();
+    const marcas = hasConfig("Marca")
+      ? Array.from(new Set(recordsForMarca.map(d => d.Marca))).sort()
+      : [];
 
     // 4. Meses and razoes likewise adapt contextually
     const selectedMarcas = filtros.marcas || [];
@@ -525,24 +535,31 @@ export default function App() {
       return matchGrp && matchCnpj && matchMarca;
     });
 
-    const meses = Array.from(new Set(recordsOthers.map(d => d.Mês)));
-    const razoes = Array.from(new Set(recordsOthers.map(d => d.Razão))).sort();
+    const meses = hasConfig("Mês")
+      ? Array.from(new Set(recordsOthers.map(d => d.Mês)))
+      : [];
+    const razoes = hasConfig("Razão")
+      ? Array.from(new Set(recordsOthers.map(d => d.Razão))).sort()
+      : [];
 
     // Extract dynamic keys values (Requirement 7)
     const dynamicFiltersValues: Record<string, string[]> = {};
-    for (const key of Object.keys(filtros)) {
-      if (["grupos", "cnpjs", "marcas", "meses", "razoes"].includes(key)) continue;
+    for (const config of activeConfigs) {
+      const col = config.column;
+      if (["Grupo", "CNPJ", "Marca", "Empresa", "Mês", "Razão"].includes(col)) {
+        continue;
+      }
       
       const values = Array.from(new Set(dataOrigem.map(d => {
-        let val = d[key];
+        let val = d[col];
         if (val === undefined) {
-          const capitalized = key.charAt(0).toUpperCase() + key.slice(1);
-          val = d[capitalized] !== undefined ? d[capitalized] : d[Object.keys(d).find(k => k.toLowerCase() === key.toLowerCase()) || ""];
+          const capitalized = col.charAt(0).toUpperCase() + col.slice(1);
+          val = d[capitalized] !== undefined ? d[capitalized] : d[Object.keys(d).find(k => k.toLowerCase() === col.toLowerCase()) || ""];
         }
         return val !== undefined && val !== null ? String(val) : "";
       }).filter(v => v !== "" && v !== "undefined"))).sort();
       
-      dynamicFiltersValues[key] = values;
+      dynamicFiltersValues[col] = values;
     }
 
     return { grupos, cnpjs, marcas, meses, razoes, ...dynamicFiltersValues };

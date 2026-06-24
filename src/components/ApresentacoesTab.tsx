@@ -12,32 +12,32 @@ interface ApresentacoesTabProps {
 export const ApresentacoesTab: React.FC<ApresentacoesTabProps> = ({ metrics, formatCurrency, onPresent }) => {
   const { activeDataSource } = useDataSourceManager();
 
-  const [presentations, setPresentations] = useState([
-    { id: '1', title: 'Fechamento Maio/2026 — Grupo Topázio', date: '2026-06-01', type: 'Fechamento Mensal' },
-    { id: '2', title: 'Diagnóstico de Performance: Seminovos', date: '2026-05-15', type: 'Diagnóstico de Loja' },
-  ]);
+  const [presentations, setPresentations] = useState<any[]>([]);
 
   const visiblePresentations = useMemo(() => {
-    if (activeDataSource === "DEMO_DATA") {
-      return presentations;
-    } else {
-      return presentations.filter(p => !p.title.includes("Topázio") && !p.title.includes("Topazio") && !p.title.includes("Seminovos"));
-    }
-  }, [activeDataSource, presentations]);
+    return presentations;
+  }, [presentations]);
 
   const [currentView, setCurrentView] = useState<'list' | 'builder'>('list');
   const [activePresentationId, setActivePresentationId] = useState<string | null>(null);
 
   // Builder State
-  const [slides, setSlides] = useState<SlideConfig[]>([
-    { id: 'slide1', title: 'Relatório de Fechamento Estratégico', subtitle: 'Sauron OS', type: 'cover', content: 'Apresentação executiva' },
-    { id: 'slide2', title: 'Pauta da Reunião', type: 'agenda', content: 'Tópicos definidos' },
-    { id: 'slide3', title: 'Desempenho Comercial', subtitle: 'Vendedores', type: 'stats', content: 'Receitas por vendedor' },
-  ]);
+  const [slides, setSlides] = useState<SlideConfig[]>([]);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
 
+  React.useEffect(() => {
+    if (slides.length === 0) {
+      const dynamicSlides: SlideConfig[] = [
+        { id: 'slide1', title: 'Relatório de Fechamento de Resultados', subtitle: 'Sauron OS — Consultoria de Alta Performance', type: 'cover', content: 'Análise estratégica consolidada' },
+        { id: 'slide2', title: 'Pauta da Reunião de Diretoria', type: 'agenda', content: 'Discussão de rentabilidade e plano operacional' },
+        { id: 'slide3', title: 'Desempenho Comercial & Metas', subtitle: `Receita Consolidada: R$ ${(metrics?.totalReceita || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, type: 'stats', content: `Margem Líquida Média: ${metrics?.margemMedia || 0}%` },
+      ];
+      setSlides(dynamicSlides);
+    }
+  }, [slides.length, metrics]);
+
   if (currentView === 'builder') {
-    const slide = slides[activeSlideIndex];
+    const slide = slides[activeSlideIndex] || { id: 'loading', title: 'Carregando...', type: 'cover', content: '' };
     return (
       <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden shadow-inner font-sans border border-slate-200 dark:border-slate-800">
         {/* Top Builder Toolbar */}

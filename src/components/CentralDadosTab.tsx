@@ -67,12 +67,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   const [activeTunnelContainer, setActiveTunnelContainer] = useState<string>("");
 
   // 4. Planilhas State
-  const [uploadedFiles, setUploadedFiles] = useState<any[]>([
-    { id: "f1", name: "consolidado_financeiro_topazio_fiat.xlsx", size: 1845120, sheets: ["Faturamento", "Custos_Operacionais", "Layout_DRE"], date: "2026-06-23" },
-    { id: "f2", name: "faturamento_vendas_jeep.csv", size: 345000, sheets: ["Default_Sheet"], date: "2026-06-22" }
-  ]);
-  const [selectedFileId, setSelectedFileId] = useState<string>("f1");
-  const [activeSheetName, setActiveSheetName] = useState<string>("Faturamento");
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [selectedFileId, setSelectedFileId] = useState<string>("");
+  const [activeSheetName, setActiveSheetName] = useState<string>("");
   const [dragActive, setDragActive] = useState<boolean>(false);
 
   // Spreadsheet Beta custom states
@@ -172,8 +169,12 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   // Compute visible files list dynamically
   const visibleFilesList = useMemo(() => {
     if (activeDataSource === "DEMO_DATA") {
-      return uploadedFiles.map(f => ({
+      const demoFilesList = [
+        { id: "demo_f1", name: "demonstrativo_financeiro_consolidado.xlsx", size: 1048576, sheets: ["Faturamento", "Custos_Operacionais", "Layout_DRE"], date: "2026-06-24", status: "ACTIVE" }
+      ];
+      return demoFilesList.map(f => ({
         ...f,
+        status: f.status,
         version: "v1",
         qualityScore: 92,
         qualityLabel: "Excelente" as const,
@@ -240,7 +241,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       }
       return clientFilterConfigs.filter(cfg => {
         const colLower = cfg.column.toLowerCase();
-        return recordKeys.has(colLower) && !colLower.includes("topazio") && !colLower.includes("topázio");
+        return recordKeys.has(colLower);
       });
     }
   }, [activeDataSource, clientFilterConfigs, dataOrigem]);
