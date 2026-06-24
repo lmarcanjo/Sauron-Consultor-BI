@@ -112,4 +112,19 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
       dataSourceManager.setActiveSource(originalSource);
     }
   });
+
+  // Test 5: Verify dataGenerator.ts is fully clean and only does CSV exports
+  it("verifies that src/utils/dataGenerator.ts is clean and contains no mock generation logic or forbidden terms", () => {
+    const generatorPath = path.resolve(__dirname, "../utils/dataGenerator.ts");
+    const content = fs.readFileSync(generatorPath, "utf-8");
+    
+    const forbiddenTerms = ["Grupo Topázio", "Topázio", "gerarDadosSimulados"];
+    
+    forbiddenTerms.forEach(term => {
+      expect(content.includes(term)).toBe(false);
+    });
+
+    // It should have exportToCSV
+    expect(content.includes("exportToCSV")).toBe(true);
+  });
 });

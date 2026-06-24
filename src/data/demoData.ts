@@ -150,6 +150,7 @@ export function gerarDadosSimulados(): LancamentoFinanceiro[] {
             
             list.push({
               id: `${cnpj}-${filial}-${mes}-${razao}-${Math.random()}`,
+              __isDemo: true,
               Grupo: grupo,
               CNPJ: cnpj,
               Marca: marca,
@@ -238,6 +239,7 @@ export function generateDemoSpreadsheetRows(segment: "automotivo" | "agro" | "se
 
     calculatedRows.push({
       id: `row_${i}`,
+      __isDemo: true,
       Grupo: g,
       CNPJ: cnpj,
       Marca: m,

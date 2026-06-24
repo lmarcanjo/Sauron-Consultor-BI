@@ -68,7 +68,7 @@ describe('Financial Calculations', () => {
 
   it('validates spreadsheet row metadata traceability fields', () => {
     const validRow = {
-      Grupo: 'Grupo Topázio',
+      Grupo: 'Grupo Delta',
       CNPJ: '11.111.111/0001-11',
       arquivo: 'DRE_Maio.xlsx',
       aba: 'Aba Executiva',
@@ -79,7 +79,7 @@ describe('Financial Calculations', () => {
     };
     
     const invalidRow = {
-      Grupo: 'Grupo Topázio',
+      Grupo: 'Grupo Delta',
       CNPJ: '11.111.111/0001-11'
     };
 

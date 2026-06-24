@@ -87,7 +87,7 @@ export interface ConsultantAdjustment {
   id: string;
   type: "meta" | "comentario" | "observacao" | "cenario" | "classificacao" | "agrupamento" | "indicador" | "plano_acao" | "insight_favorito" | "bookmark" | "nota";
   targetField?: string; // e.g. "Receita" or "Lucro"
-  targetFilter?: string; // e.g. "Marca=Topázio Fiat"
+  targetFilter?: string; // e.g. "Campo=Valor"
   value: any;
   description: string;
   createdAt: string;

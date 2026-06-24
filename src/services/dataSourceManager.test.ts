@@ -43,7 +43,7 @@ describe("Sauron Data Source Manager Suite", () => {
           sheetName: "Maio",
           rows: [
             { id: "1", Grupo: "Grupo Amigos Real S/A", CNPJ: "99.999.999/0001-99", Marca: "Real Fiat", Empresa: "Real Fiat S/A", Mês: "Maio", Receita: 10000, Custo: 4000, Despesa: 2000, Lucro: 4000, Margem: 40 },
-            { id: "sim_02", Grupo: "Grupo Topázio", CNPJ: "11.111.111/0001-11", Marca: "Topázio Fiat", Empresa: "Topázio Fiat S/A", Mês: "Maio", Receita: 5000, Custo: 2000, Despesa: 1000, Lucro: 2000, Margem: 40 } // fake record mixed in
+            { id: "sim_02", Grupo: "Grupo Topázio", CNPJ: "11.111.111/0001-11", Marca: "Topázio Fiat", Empresa: "Topázio Fiat S/A", Mês: "Maio", Receita: 5000, Custo: 2000, Despesa: 1000, Lucro: 2000, Margem: 40, __isDemo: true } // fake record mixed in
           ],
           columns: []
         }
@@ -145,7 +145,7 @@ describe("Sauron Data Source Manager Suite", () => {
   it("verifies mock data is blocked/filtered when a real source is active", () => {
     const testRecords = [
       { id: "1", Grupo: "Grupo Amigos Real S/A", CNPJ: "99.999.999/0001-99", Marca: "Real Fiat", Empresa: "Real Fiat S/A", Mês: "Maio", Receita: 10000, Custo: 4000, Despesa: 2000 },
-      { id: "sim_02", Grupo: "Grupo Topázio", CNPJ: "11.111.111/0001-11", Marca: "Topázio Fiat", Empresa: "Topázio Fiat S/A", Mês: "Maio", Receita: 5000, Custo: 2000, Despesa: 1000 }
+      { id: "sim_02", Grupo: "Grupo Topázio", CNPJ: "11.111.111/0001-11", Marca: "Topázio Fiat", Empresa: "Topázio Fiat S/A", Mês: "Maio", Receita: 5000, Custo: 2000, Despesa: 1000, __isDemo: true }
     ] as any[];
 
     // Using the assertNoMockDataWhenRealSource with signature (activeDataSource, records)
@@ -180,7 +180,7 @@ describe("Sauron Data Source Manager Suite", () => {
           sheetName: "Julho",
           rows: [
             { id: "1", Grupo: "Empresa Agro-Agua S/A", CNPJ: "88.888.888/0001-88", Marca: "Agro S/A", Empresa: "Fazenda Agua", Mês: "Julho", Receita: 15000 },
-            { id: "2", Grupo: "Grupo Topázio", CNPJ: "11.111.111/0001-11", Marca: "Topázio Fiat", Empresa: "Topázio Fiat S/A", Mês: "Julho", Receita: 4500 }
+            { id: "sim_2", Grupo: "Grupo Topázio", CNPJ: "11.111.111/0001-11", Marca: "Topázio Fiat", Empresa: "Topázio Fiat S/A", Mês: "Julho", Receita: 4500, __isDemo: true }
           ],
           columns: []
         }

@@ -37,13 +37,13 @@ export function assertNoMockDataWhenRealSource(
   }
 
   const isMock = (r: LancamentoFinanceiro) => {
+    const record = r as any;
     return (
-      r.Grupo === "Grupo Topázio" ||
+      record.__isDemo === true ||
+      record.sourceType === "DEMO_DATA" ||
       r.Grupo === "Ficticio" ||
       r.Origem === "Simulado" ||
-      (r.id && String(r.id).startsWith("sim_")) ||
-      (r.Empresa && String(r.Empresa).includes("Topázio")) ||
-      (r.Razão && String(r.Razão).includes("Topázio"))
+      (r.id && String(r.id).startsWith("sim_"))
     );
   };
 
@@ -51,7 +51,7 @@ export function assertNoMockDataWhenRealSource(
   const cleanRecords = records.filter(r => !isMock(r));
 
   if (mockRecords.length > 0) {
-    const errorMsg = `[Sauron Audit] Violação Crítica de Integridade: Dados simulados/fictícios (Grupo Topázio/Simulado) foram detectados em uma fonte de dados real (${activeDataSource})! Operação abortada para evitar contaminação de relatórios executivos.`;
+    const errorMsg = `[Sauron Audit] Violação Crítica de Integridade: Dados simulados/fictícios (Simulado/Demo) foram detectados em uma fonte de dados real (${activeDataSource})! Operação abortada para evitar contaminação de relatórios executivos.`;
     console.error(errorMsg);
 
     // Register audit log in localStorage
