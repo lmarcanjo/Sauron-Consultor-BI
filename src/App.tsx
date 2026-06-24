@@ -893,12 +893,21 @@ export default function App() {
     }
   }, [aiAnalysis, narrarFeedback, aiLoading]);
 
-  // Run initial report on first mount
+  // Run initial report on first mount - safely guarded against infinite retry loops on failure
+  const analyzedMetricsRef = useRef<string>("");
   useEffect(() => {
-    if (metrics.receitaTotal > 0 && Math.abs(metrics.receitaTotal) > 1000 && !aiAnalysis && !aiLoading) {
+    const metricsKey = `${metrics.receitaTotal}-${metrics.lucroTotal}-${metrics.porMarca?.length || 0}`;
+    if (
+      metrics.receitaTotal > 0 && 
+      Math.abs(metrics.receitaTotal) > 1000 && 
+      !aiAnalysis && 
+      !aiLoading && 
+      analyzedMetricsRef.current !== metricsKey
+    ) {
+      analyzedMetricsRef.current = metricsKey;
       handleTriggerAnalysis();
     }
-  }, [metrics, aiAnalysis]);
+  }, [metrics, aiAnalysis, aiLoading]);
 
   // Reset filtering state
   const handleResetFilters = () => {
