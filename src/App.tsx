@@ -90,6 +90,11 @@ import { ExecutiveWorkspace } from "./components/ExecutiveWorkspace";
 import { AppSidebar } from "./components/AppSidebar";
 import { availableTemplates } from "./utils/industryTemplates";
 
+// Sauron Identity & Collaboration Foundation (v0.6.5)
+import { identityEngine } from "./core/identity/IdentityEngine";
+import { accessControlEngine } from "./core/identity/AccessControlEngine";
+import { IdentitySimulationBar } from "./components/IdentitySimulationBar";
+
 export default function App() {
   // --- STATE ---
   const [activeTab, setActiveTab] = useState<string>("executive_workspace");
@@ -161,22 +166,42 @@ export default function App() {
   // DB Extra integrity checker
   const [dbValidationMsg, setDbValidationMsg] = useState<string>("Nenhum teste de integridade rodou ainda. Sincronize com o banco de dados.");
 
+  // SAURON OS SIMULATED IDENTITY SYSTEM (v0.6.5)
+  const [simContextKey, setSimContextKey] = useState<number>(0);
+  const activeSimUser = useMemo(() => {
+    return identityEngine.getCurrentUser();
+  }, [simContextKey]);
+
+  const getLegacyMappedRole = (role: string): "consultor" | "diretor" | "gerente" | "analista" => {
+    if (["Super Admin", "Consultant Admin", "Consultant"].includes(role)) return "consultor";
+    if (["Client Director", "Controller"].includes(role)) return "diretor";
+    if (["Client Manager"].includes(role)) return "gerente";
+    return "analista";
+  };
+
   // SECURITY ROLE SYSTEM - INTEGRATED PROFILE LOGIN SESSIONS
   const [currentUser, setCurrentUser] = useState<{
     name: string;
     email: string;
     role: "consultor" | "diretor" | "gerente" | "analista";
   } | null>(() => {
-    const saved = localStorage.getItem("sauron_user");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
+    const user = identityEngine.getCurrentUser();
+    return {
+      name: user.profile.fullName,
+      email: user.profile.email,
+      role: getLegacyMappedRole(user.role)
+    };
   });
+
+  useEffect(() => {
+    if (activeSimUser) {
+      setCurrentUser({
+        name: activeSimUser.profile.fullName,
+        email: activeSimUser.profile.email,
+        role: getLegacyMappedRole(activeSimUser.role)
+      });
+    }
+  }, [activeSimUser]);
 
   // COMPARATIVE RAPORTS SNAPSHOT CONTROL
   const [reportHistory, setReportHistory] = useState<any[]>([]);
@@ -616,6 +641,17 @@ export default function App() {
   // --- DATA FLOW & FILTERING ---
   const filteredData = useMemo(() => {
     return dataOrigem.filter((item) => {
+      // Access Control Scope Filtering (v0.6.5) - Filter based on active role and workspace allowed companies
+      const allowedCompanies = accessControlEngine.getVisibleCompaniesForUser(activeSimUser, identityEngine.getCurrentWorkspace());
+      if (allowedCompanies && allowedCompanies.length > 0) {
+        const matchCompanyScope = allowedCompanies.some(
+          c => item.Empresa && (item.Empresa === c || item.Empresa.includes(c) || c.includes(item.Empresa))
+        );
+        if (!matchCompanyScope) {
+          return false;
+        }
+      }
+
       // 1. Static filters (with fallback for empty list to prevent blocking)
       const matchGrupo = !filtros.grupos || filtros.grupos.length === 0 || filtros.grupos.includes(item.Grupo);
       const matchCnpj = !filtros.cnpjs || filtros.cnpjs.length === 0 || filtros.cnpjs.includes(item.CNPJ);
@@ -658,7 +694,7 @@ export default function App() {
 
       return true;
     });
-  }, [dataOrigem, filtros]);
+  }, [dataOrigem, filtros, activeSimUser, simContextKey]);
 
   // Compute aggregated KPI telemetry & distributions for chart rendering
   const metrics = useMemo<MetricasConsolidadas>(() => {
@@ -1347,6 +1383,9 @@ export default function App() {
       {/* Main Content wrapper */}
       <div className={`flex flex-col flex-1 min-h-screen w-full transition-all duration-300 relative ${isDesktopSidebarCollapsed ? "lg:pl-16" : "lg:pl-64"}`}>
         
+        {/* Sauron OS Identity & Collaboration Control Center (v0.6.5) */}
+        <IdentitySimulationBar onContextChanged={() => setSimContextKey(prev => prev + 1)} />
+
         {/* HEADER SECTION - High Density Style */}
         <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-3 px-4 md:px-6 shrink-0 shadow-sm z-20 sticky top-0">
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
