@@ -19,6 +19,17 @@ export interface Meeting {
   pendingItems: string[];
 }
 
+export interface WorkspaceDataSource { id: string; name: string; type: string; }
+export interface WorkspaceSpreadsheet { id: string; name: string; path: string; }
+export interface WorkspaceDbConnection { id: string; name: string; host: string; }
+export interface WorkspaceImportProfile { id: string; name: string; rules: any; }
+export interface WorkspaceFilter { id: string; name: string; expression: string; }
+export interface WorkspaceKpi { id: string; name: string; target: number; }
+export interface WorkspaceDashboard { id: string; name: string; layout: any; }
+export interface WorkspacePresentation { id: string; name: string; slides: any[]; }
+export interface WorkspaceHistoryEvent { id: string; event: string; timestamp: string; }
+export interface WorkspaceAuditEvent { id: string; action: string; user: string; timestamp: string; }
+
 export interface WorkspaceProject {
   id: string;
   client: string;
@@ -27,17 +38,18 @@ export interface WorkspaceProject {
   companies: string[];
   brands: string[];
   cnpjs: string[];
-  dbConnections: any[]; // Placeholder for actual DB connection type
-  spreadsheets: any[]; // Placeholder
-  importProfile: any;
-  filters: any[];
-  kpis: any[];
-  dashboards: any[];
-  presentations: any[];
+  dbConnections: WorkspaceDbConnection[];
+  spreadsheets: WorkspaceSpreadsheet[];
+  importProfile: WorkspaceImportProfile | null;
+  filters: WorkspaceFilter[];
+  kpis: WorkspaceKpi[];
+  dashboards: WorkspaceDashboard[];
+  presentations: WorkspacePresentation[];
   actionPlans: ActionPlan[];
+  meetings: Meeting[];
   observations: string;
-  history: any[];
-  auditLog: any[];
+  history: WorkspaceHistoryEvent[];
+  auditLog: WorkspaceAuditEvent[];
   lastUpdated: string;
   isArchived: boolean;
 }
