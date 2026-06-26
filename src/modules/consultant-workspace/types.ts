@@ -1,3 +1,5 @@
+import { ExecutiveSummary, Recommendation, Anomaly, Trend, BenchmarkResult } from '../../core/analytics/types';
+
 export interface ActionPlan {
   id: string;
   description: string;
