@@ -1,6 +1,30 @@
 {
   "auditLogs": [
     {
+      "id": "log_37671b7e-9460-4159-b007-9daf0ba052a6",
+      "timestamp": "2026-06-26T20:54:04.626Z",
+      "eventType": "DB_CONNECTION_TEST_FAILED",
+      "status": "Falha",
+      "description": "Host 'host-invalido-inexistente-123.com' não encontrado (DNS lookup failed).",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "postgres",
+      "host": "host-invalido-inexistente-123.com",
+      "stage": "host",
+      "error": "getaddrinfo ENOTFOUND host-invalido-inexistente-123.com"
+    },
+    {
+      "id": "log_453de90d-36c9-49d5-9ed3-3e59f9afcce3",
+      "timestamp": "2026-06-26T20:53:55.133Z",
+      "eventType": "DB_CONNECTION_TEST_FAILED",
+      "status": "Falha",
+      "description": "Host 'host-invalido-inexistente-123.com' não encontrado (DNS lookup failed).",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "postgres",
+      "host": "host-invalido-inexistente-123.com",
+      "stage": "host",
+      "error": "getaddrinfo ENOTFOUND host-invalido-inexistente-123.com"
+    },
+    {
       "id": "log_6f2d291f-14a4-4c5e-bade-094054546283",
       "timestamp": "2026-06-26T18:24:56.508Z",
       "eventType": "DB_CONNECTION_TEST_FAILED",

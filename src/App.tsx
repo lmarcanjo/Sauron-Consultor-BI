@@ -85,13 +85,14 @@ import { VpnGatewayTab } from "./components/VpnGatewayTab";
 import { PresentationBuilderPage } from "./components/PresentationBuilderPage";
 import { DashboardPage } from "./components/pages/DashboardPage";
 import { ReportsPage } from "./components/pages/ReportsPage";
+import { ExecutiveWorkspace } from "./components/ExecutiveWorkspace";
 
 import { AppSidebar } from "./components/AppSidebar";
 import { availableTemplates } from "./utils/industryTemplates";
 
 export default function App() {
   // --- STATE ---
-  const [activeTab, setActiveTab] = useState<string>("resumo");
+  const [activeTab, setActiveTab] = useState<string>("executive_workspace");
   const [activeIndustryTemplateId, setActiveIndustryTemplateId] = useState<string>("automotive");
   const [selectedContaContabil, setSelectedContaContabil] = useState<string>("");
   const [selectedDepartamento, setSelectedDepartamento] = useState<string>("");
@@ -1930,6 +1931,15 @@ export default function App() {
             <ConsultorIaTab
               metrics={metrics}
               filtros={filtros}
+              formatCurrency={formatCurrencyValue}
+            />
+          )}
+
+          {activeTab === "executive_workspace" && (
+            <ExecutiveWorkspace
+              filteredData={filteredData}
+              activeFiles={activeFiles}
+              onSelectTab={setActiveTab}
               formatCurrency={formatCurrencyValue}
             />
           )}

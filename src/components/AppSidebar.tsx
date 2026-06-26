@@ -1,7 +1,8 @@
 import React from 'react';
 import { 
   BarChart3, Database, Presentation, MonitorPlay, Users, Store, Tag, Calculator, Target,
-  FileText, Award, BookMarked, ShieldAlert, Settings, BrainCircuit, ChevronRight, ChevronLeft, Menu
+  FileText, Award, BookMarked, ShieldAlert, Settings, BrainCircuit, ChevronRight, ChevronLeft, Menu,
+  Briefcase
 } from 'lucide-react';
 
 export const AppSidebar = ({ 
@@ -24,6 +25,7 @@ export const AppSidebar = ({
   const isAutomotive = activeIndustryTemplateId === "automotive";
   
   const menuItems = [
+    { title: "Workspace Executivo", id: "executive_workspace", icon: Briefcase },
     { title: "Dashboard Executivo", id: "resumo", icon: BarChart3 },
     { title: "Relatórios Corporativos", id: "relatorios", icon: BookMarked },
     { title: "DRE Inteligente Gerencial", id: "dre_inteligente", icon: Calculator },
