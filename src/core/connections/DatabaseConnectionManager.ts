@@ -137,7 +137,7 @@ export class DatabaseConnectionManager {
 
       sshBtn.on("ready", () => {
         server.listen(0, "127.0.0.1", () => {
-          const address = server.address() as net.AddressInfo;
+          const address = server.address() as any;
           const localPort = address.port;
           
           resolve({
