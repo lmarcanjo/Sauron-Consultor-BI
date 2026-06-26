@@ -4,87 +4,12 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
-import { Client as SshClient } from "ssh2";
-import net from "net";
 
 import { databaseConnectionManager } from "./src/core/connections/DatabaseConnectionManager";
 import { securityEngine } from "./src/core/security/SecurityEngine";
 
 // Load environment variables
 dotenv.config();
-
-// Helper to bridge database traffic through an SSH VM Connection (SSH Tunnel / Bastion Host)
-function setupSshTunnel(config: any): Promise<{ localHost: string; localPort: number; close: () => Promise<void> }> {
-  return new Promise((resolve, reject) => {
-    const { sshHost, sshPort, sshUser, sshPassword, sshPrivateKey, host, port } = config;
-    
-    const sshBtn = new SshClient();
-    const server = net.createServer((socket) => {
-      sshBtn.forwardOut(
-        "127.0.0.1", 
-        socket.remotePort || 0, 
-        host || "127.0.0.1", 
-        Number(port || 5432), 
-        (err, stream) => {
-          if (err) {
-            console.log("[SSH Tunnel Info] Encaminhamento de trafego finalizado:", String(err?.message || err).replace(/erro/gi, "err").replace(/error/gi, "err"));
-            socket.destroy();
-            return;
-          }
-          socket.pipe(stream).pipe(socket);
-        }
-      );
-    });
-
-    server.unref();
-
-    sshBtn.on("ready", () => {
-      // Listen on random free local port
-      server.listen(0, "127.0.0.1", () => {
-        const address = server.address() as net.AddressInfo;
-        const localPort = address.port;
-        
-        resolve({
-          localHost: "127.0.0.1",
-          localPort,
-          close: () => {
-            return new Promise<void>((res) => {
-              server.close(() => {
-                sshBtn.end();
-                res();
-              });
-            });
-          }
-        });
-      });
-    });
-
-    sshBtn.on("error", (err) => {
-      server.close();
-      reject(new Error(`Erro de autenticação ou conexão na máquina virtual VM (SSH): ${err.message}`));
-    });
-
-    const connectConfig: any = {
-      host: sshHost,
-      port: Number(sshPort || 22),
-      username: sshUser,
-      readyTimeout: 10000
-    };
-
-    if (sshPrivateKey) {
-      connectConfig.privateKey = sshPrivateKey;
-    } else if (sshPassword) {
-      connectConfig.password = sshPassword;
-    }
-
-    try {
-      sshBtn.connect(connectConfig);
-    } catch (e: any) {
-      server.close();
-      reject(new Error(`Erro ao inicializar o SSH Client: ${e.message}`));
-    }
-  });
-}
 
 const app = express();
 const PORT = 3000;

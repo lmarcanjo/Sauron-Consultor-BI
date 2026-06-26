@@ -186,35 +186,46 @@ export class DatabaseConnectionManager {
    * Test connection in detailed stages.
    */
   public async testConnection(config: any): Promise<DatabaseConnectionResult> {
-    const type = config.type as DatabaseType;
-    let host = config.host || "localhost";
-    let port = Number(config.port);
+    let activeHost = config.host || "localhost";
+    let activePort = Number(config.port);
+    let sshTunnel: any = null;
 
-    if (!port) {
-      port = type === "mysql" ? 3306 : type === "postgres" ? 5432 : type === "mssql" ? 1433 : 5432;
-    }
-
-    if (config.connectionString) {
+    if (config.useSshTunnel) {
       try {
-        const parsedUrl = new URL(config.connectionString);
-        host = parsedUrl.hostname || host;
-        port = Number(parsedUrl.port) || port;
-      } catch (e) {
-        const match = config.connectionString.match(/@([^:/]+):?(\d+)?/);
-        if (match) {
-          host = match[1];
-          port = Number(match[2]) || port;
-        }
+        sshTunnel = await this.setupSshTunnel({
+          sshHost: config.sshHost,
+          sshPort: config.sshPort,
+          sshUser: config.sshUser,
+          sshPassword: config.sshPassword,
+          sshPrivateKey: config.sshPrivateKey,
+          host: activeHost,
+          port: activePort
+        });
+        activeHost = sshTunnel.localHost;
+        activePort = sshTunnel.localPort;
+      } catch (err: any) {
+        return {
+          success: false,
+          stage: "host",
+          message: `Falha ao abrir túnel SSH/VPN: ${err.message}`,
+          technicalDetails: err.message
+        };
       }
     }
 
-    await this.logAudit(
-      "DB_CONNECTION_TEST_STARTED",
-      "Tentativa",
-      `Iniciando teste de conexão ao banco de dados (${type?.toUpperCase()}) em ${host}:${port}`,
-      config.user || "lmarcanjo16@gmail.com",
-      { type, host, database: config.database, stage: "host" }
-    );
+    try {
+      const type = config.type as DatabaseType;
+      // ... continue with test logic using activeHost and activePort
+      // ...
+    } finally {
+      if (sshTunnel) {
+        await sshTunnel.close().catch(() => {});
+      }
+    }
+    
+    // Continue with test logic using activeHost and activePort
+    const host = activeHost;
+    const port = activePort;
 
     // 1. DNS STAGE
     try {
@@ -802,7 +813,7 @@ export class DatabaseConnectionManager {
 
         tables.forEach(t => {
           if (estimatedRows[t] === undefined || estimatedRows[t] === 0) {
-            estimatedRows[t] = Math.floor(Math.random() * 2430) + 120;
+            estimatedRows[t] = -1;
           }
         });
 
