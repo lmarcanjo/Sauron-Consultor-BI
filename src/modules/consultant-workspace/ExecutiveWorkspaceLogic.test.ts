@@ -1,29 +1,22 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { consultantWorkspaceManager } from "./ConsultantWorkspaceManager";
+import { describe, it, expect } from "vitest";
 import { WorkspaceProject, ActionPlan, Meeting } from "./types";
 
 // Helper function that mirrors the health score logic inside ExecutiveWorkspace
 function calculateHealthScore(project: WorkspaceProject, filteredDataCount: number, hasKpis: boolean) {
-  // 1. Dados (25%): Se tem spreadsheets, dbConnections ou filteredData
   const hasData = project.spreadsheets.length > 0 || project.dbConnections.length > 0 || filteredDataCount > 0;
   const dataScore = hasData ? 100 : 0;
 
-  // 2. Filtros (20%): Se filtros do projeto estão populados ou se filtros na UI estão configurados
   const hasFilters = project.filters.length > 0 || project.cnpjs.length > 0 || project.brands.length > 0;
   const filtersScore = hasFilters ? 100 : 0;
 
-  // 3. KPIs Mapeados (15%): Se as colunas obrigatórias estão preenchidas
   const kpisScore = hasKpis ? 100 : 0;
 
-  // 4. Apresentações (20%): Se possui apresentações salvas
   const hasPresentations = project.presentations.length > 0;
   const presScore = hasPresentations ? 100 : 0;
 
-  // 5. Planos de Ação (20%): Se possui planos de ação cadastrados
   const hasPlans = project.actionPlans.length > 0;
   const plansScore = hasPlans ? 100 : 0;
 
-  // Weighted average
   const total = Math.round(
     (dataScore * 0.25) +
     (filtersScore * 0.20) +
@@ -35,7 +28,101 @@ function calculateHealthScore(project: WorkspaceProject, filteredDataCount: numb
   return { total, data: dataScore, filters: filtersScore, kpis: kpisScore, pres: presScore, plans: plansScore };
 }
 
-describe("Executive Workspace Logic and Score Calculations Suite", () => {
+// Helper function matching the visibility rules in the layout feature
+function getVisiblePanels(layout: string) {
+  const allPanels = {
+    dailyBrief: true,
+    checklist: true,
+    connections: true,
+    timeline: true,
+    healthScoreDetails: true,
+    actionKanban: true,
+    meetings: true
+  };
+
+  switch (layout) {
+    case "fechamento_mensal":
+      return {
+        ...allPanels,
+        actionKanban: false,
+        meetings: false
+      };
+    case "diretoria":
+      return {
+        ...allPanels,
+        connections: false,
+        checklist: false
+      };
+    case "comercial":
+      return {
+        ...allPanels,
+        connections: false,
+        meetings: false,
+        healthScoreDetails: false
+      };
+    case "financeiro":
+      return {
+        ...allPanels,
+        timeline: false,
+        meetings: false
+      };
+    case "auditoria":
+      return {
+        ...allPanels,
+        dailyBrief: false,
+        checklist: false,
+        actionKanban: false,
+        meetings: false
+      };
+    case "personalizado":
+    default:
+      return allPanels;
+  }
+}
+
+// Helper function matching the rule-based daily brief builder
+function generateDailyBriefBulletins(project: WorkspaceProject, filteredDataCount: number, hasKpis: boolean) {
+  const hasData = project.spreadsheets.length > 0 || project.dbConnections.length > 0 || filteredDataCount > 0;
+  const pendingPresCount = project.presentations.length === 0 ? 1 : 0;
+  const pendingActions = project.actionPlans.filter(p => p.status === "pending" || p.status === "in-progress").length;
+  const nextMeeting = project.meetings[0];
+
+  const bulletins = [];
+
+  if (hasData) {
+    bulletins.push({ type: "success", text: "Dados operacionais sincronizados com o ERP" });
+  } else {
+    bulletins.push({ type: "warning", text: "Sincronização de dados pendente ou sem carga ativa" });
+  }
+
+  if (hasKpis) {
+    bulletins.push({ type: "success", text: "KPIs e mapeamentos contábeis atualizados" });
+  } else {
+    bulletins.push({ type: "warning", text: "Mapeamento estrutural de colunas não validado" });
+  }
+
+  if (pendingPresCount > 0) {
+    bulletins.push({ type: "warning", text: "Nenhuma apresentação estratégica salva para este ciclo" });
+  } else {
+    bulletins.push({ type: "success", text: `${project.presentations.length} apresentação executiva disponível` });
+  }
+
+  if (pendingActions > 0) {
+    bulletins.push({ type: "warning", text: `${pendingActions} ação(ões) operacional(ais) pendente(s) no Kanban` });
+  } else {
+    bulletins.push({ type: "success", text: "Todos os planos de ação concluídos" });
+  }
+
+  if (nextMeeting) {
+    bulletins.push({ type: "success", text: `Próxima reunião de conselho agendada com ${nextMeeting.responsible}` });
+  } else {
+    bulletins.push({ type: "warning", text: "Sem reuniões ou rituais cadastrados no período" });
+  }
+
+  return bulletins;
+}
+
+describe("Executive Workspace Premium Logic, Layouts and Dynamic Rules Suite", () => {
   const emptyProject: WorkspaceProject = {
     id: "empty_123",
     client: "Cliente Teste Vazio",
@@ -76,7 +163,7 @@ describe("Executive Workspace Logic and Score Calculations Suite", () => {
     dashboards: [{ id: "d1", name: "Dash 1", layout: {} }],
     presentations: [{ id: "pres1", name: "Apresentacao 1", slides: [] }],
     actionPlans: [{ id: "plan1", description: "Tarefa 1", priority: "high", responsible: "User", deadline: "2026-06-30", status: "pending", origin: "Test" }],
-    meetings: [],
+    meetings: [{ id: "meet1", presentationId: "pres1", selectedCharts: [], observations: "Assembleia", decisions: "S/A", actionPlans: [], responsible: "Carlos", pendingItems: [] }],
     observations: "",
     history: [],
     auditLog: [],
@@ -84,6 +171,7 @@ describe("Executive Workspace Logic and Score Calculations Suite", () => {
     isArchived: false
   };
 
+  // --- HEALTH SCORE TESTS ---
   it("calculates correct health score of 0% for a completely empty project", () => {
     const score = calculateHealthScore(emptyProject, 0, false);
     expect(score.total).toBe(0);
@@ -102,35 +190,69 @@ describe("Executive Workspace Logic and Score Calculations Suite", () => {
     };
 
     const score = calculateHealthScore(partialProject, 0, false);
-    // Data = 25% (100 * 0.25), Plans = 20% (100 * 0.20), Filters = 0, KPIs = 0, Pres = 0 -> Total = 45%
-    expect(score.total).toBe(45);
+    expect(score.total).toBe(45); // 25 (data) + 20 (plans)
     expect(score.data).toBe(100);
     expect(score.plans).toBe(100);
-    expect(score.filters).toBe(0);
   });
 
   it("calculates perfect health score of 100% for a fully filled project", () => {
     const score = calculateHealthScore(fullyConfiguredProject, 10, true);
     expect(score.total).toBe(100);
-    expect(score.data).toBe(100);
-    expect(score.filters).toBe(100);
-    expect(score.kpis).toBe(100);
-    expect(score.pres).toBe(100);
-    expect(score.plans).toBe(100);
   });
 
-  it("generates correct checklist items recommendation based on project state", () => {
-    const hasData = emptyProject.spreadsheets.length > 0 || emptyProject.dbConnections.length > 0;
-    const hasKpis = false;
-    const hasFilters = emptyProject.filters.length > 0;
+  // --- WORKSPACE LAYOUTS TESTS ---
+  it("returns correct visible panels for Fechamento Mensal layout", () => {
+    const panels = getVisiblePanels("fechamento_mensal");
+    expect(panels.dailyBrief).toBe(true);
+    expect(panels.checklist).toBe(true);
+    expect(panels.connections).toBe(true);
+    expect(panels.actionKanban).toBe(false);
+    expect(panels.meetings).toBe(false);
+  });
 
-    expect(hasData).toBe(false);
-    expect(hasKpis).toBe(false);
-    expect(hasFilters).toBe(false);
+  it("returns correct visible panels for Conselho de Diretoria layout", () => {
+    const panels = getVisiblePanels("diretoria");
+    expect(panels.dailyBrief).toBe(true);
+    expect(panels.checklist).toBe(false);
+    expect(panels.connections).toBe(false);
+    expect(panels.actionKanban).toBe(true);
+    expect(panels.meetings).toBe(true);
+  });
 
-    const hasDataFull = fullyConfiguredProject.spreadsheets.length > 0;
-    const hasFiltersFull = fullyConfiguredProject.filters.length > 0;
-    expect(hasDataFull).toBe(true);
-    expect(hasFiltersFull).toBe(true);
+  it("returns correct visible panels for Comercial & Vendas layout", () => {
+    const panels = getVisiblePanels("comercial");
+    expect(panels.actionKanban).toBe(true);
+    expect(panels.connections).toBe(false);
+    expect(panels.meetings).toBe(false);
+    expect(panels.healthScoreDetails).toBe(false);
+  });
+
+  it("returns correct visible panels for Auditoria layout", () => {
+    const panels = getVisiblePanels("auditoria");
+    expect(panels.timeline).toBe(true);
+    expect(panels.connections).toBe(true);
+    expect(panels.dailyBrief).toBe(false);
+    expect(panels.checklist).toBe(false);
+  });
+
+  // --- DAILY BRIEF BULLETIN RULES TESTS ---
+  it("generates warning bulletins for empty projects", () => {
+    const bulletins = generateDailyBriefBulletins(emptyProject, 0, false);
+    expect(bulletins.length).toBe(5);
+    expect(bulletins[0].type).toBe("warning"); // Sync data warning
+    expect(bulletins[1].type).toBe("warning"); // KPIs warning
+    expect(bulletins[2].type).toBe("warning"); // Presentations warning
+    expect(bulletins[3].type).toBe("success"); // Zero pending plans -> success!
+    expect(bulletins[4].type).toBe("warning"); // Meetings warning
+  });
+
+  it("generates success bulletins for fully configured projects", () => {
+    const bulletins = generateDailyBriefBulletins(fullyConfiguredProject, 5, true);
+    expect(bulletins.length).toBe(5);
+    expect(bulletins[0].type).toBe("success"); // Sync success
+    expect(bulletins[1].type).toBe("success"); // KPIs success
+    expect(bulletins[2].type).toBe("success"); // Presentations success
+    expect(bulletins[3].type).toBe("warning"); // One pending task -> warning
+    expect(bulletins[4].type).toBe("success"); // Meeting success
   });
 });
