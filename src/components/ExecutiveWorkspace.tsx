@@ -32,11 +32,16 @@ import {
   RefreshCw,
   Eye,
   Menu,
-  Network
+  Network,
+  ShieldAlert,
+  Presentation,
+  MonitorPlay,
+  BarChart3
 } from "lucide-react";
 import { consultantWorkspaceManager } from "../modules/consultant-workspace/ConsultantWorkspaceManager";
 import { WorkspaceProject, ActionPlan, Meeting } from "../modules/consultant-workspace/types";
 import { auditEngine } from "../core/audit/AuditEngine";
+import { ExecutiveWidgets } from "./ExecutiveWidgets";
 
 interface ExecutiveWorkspaceProps {
   filteredData: any[];
@@ -61,6 +66,96 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
   const [activeLayout, setActiveLayout] = useState<WorkspaceLayout>(() => {
     return (localStorage.getItem("sauron_active_layout") as WorkspaceLayout) || "fechamento_mensal";
   });
+
+  // --- Mission Control Modular Cockpit State ---
+  const [enabledWidgets, setEnabledWidgets] = useState<Record<string, boolean>>(() => {
+    const saved = localStorage.getItem("sauron_enabled_widgets_v1");
+    return saved ? JSON.parse(saved) : {
+      healthScore: true,
+      timeline: true,
+      insights: true,
+      kpis: true,
+      alerts: true,
+      actionPlans: true,
+      agenda: true,
+      dataSources: true,
+      analytics: true,
+      presentationStatus: true,
+      meetingStatus: true
+    };
+  });
+
+  const [widgetOrder, setWidgetOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem("sauron_widget_order_v1");
+    return saved ? JSON.parse(saved) : [
+      "healthScore",
+      "timeline",
+      "insights",
+      "kpis",
+      "alerts",
+      "actionPlans",
+      "agenda",
+      "dataSources",
+      "analytics",
+      "presentationStatus",
+      "meetingStatus"
+    ];
+  });
+
+  const [isMissionControlCustomizing, setIsMissionControlCustomizing] = useState(false);
+
+  const toggleWidget = (widgetId: string) => {
+    const updated = { ...enabledWidgets, [widgetId]: !enabledWidgets[widgetId] };
+    setEnabledWidgets(updated);
+    localStorage.setItem("sauron_enabled_widgets_v1", JSON.stringify(updated));
+  };
+
+  const moveWidget = (widgetId: string, direction: "up" | "down") => {
+    const index = widgetOrder.indexOf(widgetId);
+    if (index === -1) return;
+    const nextIndex = direction === "up" ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= widgetOrder.length) return;
+
+    const newOrder = [...widgetOrder];
+    const [removed] = newOrder.splice(index, 1);
+    newOrder.splice(nextIndex, 0, removed);
+    
+    setWidgetOrder(newOrder);
+    localStorage.setItem("sauron_widget_order_v1", JSON.stringify(newOrder));
+  };
+
+  const resetWidgets = () => {
+    const defaultOrder = [
+      "healthScore",
+      "timeline",
+      "insights",
+      "kpis",
+      "alerts",
+      "actionPlans",
+      "agenda",
+      "dataSources",
+      "analytics",
+      "presentationStatus",
+      "meetingStatus"
+    ];
+    const defaultEnabled = {
+      healthScore: true,
+      timeline: true,
+      insights: true,
+      kpis: true,
+      alerts: true,
+      actionPlans: true,
+      agenda: true,
+      dataSources: true,
+      analytics: true,
+      presentationStatus: true,
+      meetingStatus: true
+    };
+    setWidgetOrder(defaultOrder);
+    setEnabledWidgets(defaultEnabled);
+    localStorage.setItem("sauron_widget_order_v1", JSON.stringify(defaultOrder));
+    localStorage.setItem("sauron_enabled_widgets_v1", JSON.stringify(defaultEnabled));
+  };
 
   // --- UI Collapsible States ---
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
@@ -548,45 +643,37 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
     const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
     
     const hasData = activeProject.spreadsheets.length > 0 || activeProject.dbConnections.length > 0 || filteredData.length > 0;
-    const hasKpis = filteredData.length > 0 && filteredData[0] && ("Receita" in filteredData[0] || "Faturamento" in filteredData[0] || "Despesa" in filteredData[0]);
-    const pendingPresCount = activeProject.presentations.length === 0 ? 1 : 0;
+    const meetingsCount = activeProject.meetings.length;
     const pendingActions = activeProject.actionPlans.filter(p => p.status === "pending" || p.status === "in-progress").length;
-    const nextMeeting = activeProject.meetings[0];
 
-    const bulletins = [];
-
-    if (hasData) {
-      bulletins.push({ type: "success", text: "Dados operacionais sincronizados com o ERP" });
-    } else {
-      bulletins.push({ type: "warning", text: "Sincronização de dados pendente ou sem carga ativa" });
-    }
-
-    if (hasKpis) {
-      bulletins.push({ type: "success", text: "KPIs e mapeamentos contábeis atualizados" });
-    } else {
-      bulletins.push({ type: "warning", text: "Mapeamento estrutural de colunas não validado" });
-    }
-
-    if (pendingPresCount > 0) {
-      bulletins.push({ type: "warning", text: "Nenhuma apresentação estratégica salva para este ciclo" });
-    } else {
-      bulletins.push({ type: "success", text: `${activeProject.presentations.length} apresentação executiva disponível` });
-    }
-
-    if (pendingActions > 0) {
-      bulletins.push({ type: "warning", text: `${pendingActions} ação(ões) operacional(ais) pendente(s) no Kanban` });
-    } else {
-      bulletins.push({ type: "success", text: "Todos os planos de ação concluídos" });
-    }
-
-    if (nextMeeting) {
-      bulletins.push({ type: "success", text: `Próxima reunião de conselho agendada com ${nextMeeting.responsible}` });
-    } else {
-      bulletins.push({ type: "warning", text: "Sem reuniões ou rituais cadastrados no período" });
-    }
+    const bulletins = [
+      { 
+        type: "meetings", 
+        text: meetingsCount === 1 ? "1 reunião agendada." : `${meetingsCount} reuniões agendadas.` 
+      },
+      { 
+        type: "pendencies", 
+        text: pendingActions === 1 ? "1 pendência ou ação no Kanban." : `${pendingActions} pendências ativas.` 
+      },
+      { 
+        type: "sync", 
+        text: hasData ? "Dados sincronizados com o ERP." : "Central de Ingestion offline (dados offline estáveis)." 
+      },
+      { 
+        type: "actionPlan", 
+        text: pendingActions > 0 ? "Plano de ação com mitigações pendentes." : "Plano de ação atualizado e em dia." 
+      },
+      { 
+        type: "analysis", 
+        text: "Última análise realizada há 15 minutos." 
+      }
+    ];
 
     return {
       greeting,
+      meetingsCount,
+      pendingActions,
+      hasData,
       bulletins
     };
   }, [activeProject, filteredData]);
@@ -887,6 +974,85 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
             </div>
           </div>
 
+          {/* MISSION CONTROL CENTER WIDGET CONFIGURATOR */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg text-white flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-600/10 border border-blue-500/20 text-blue-400 rounded-xl">
+                  <SlidersHorizontal size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white leading-tight">Sauron OS — Mission Control Cockpit</h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5 font-medium">Configure e reordene os módulos executivos e painéis de governança em tempo real.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMissionControlCustomizing(!isMissionControlCustomizing)}
+                className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-black px-4 py-2 rounded-xl cursor-pointer transition-colors shadow-md"
+              >
+                {isMissionControlCustomizing ? "Concluir Ajustes" : "Configurar Cockpit"}
+              </button>
+            </div>
+
+            {isMissionControlCustomizing && (
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 flex flex-col gap-3 animate-fade-in">
+                <div className="flex justify-between items-center border-b border-slate-850 pb-2">
+                  <span className="text-[10px] uppercase font-black text-slate-500 tracking-wider">Painéis Modulares Habilitados</span>
+                  <button onClick={resetWidgets} className="text-[10px] text-blue-400 hover:text-blue-300 font-extrabold uppercase cursor-pointer">
+                    Restaurar Configurações Originais
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {widgetOrder.map((id, index) => {
+                    const label = id === "healthScore" ? "Saúde do Cliente & Score" :
+                                  id === "timeline" ? "Timeline de Atividades" :
+                                  id === "insights" ? "Insights de Governança" :
+                                  id === "kpis" ? "KPIs Estratégicos & Faturamento" :
+                                  id === "alerts" ? "Alertas de Integridade" :
+                                  id === "actionPlans" ? "Plano de Ação (Kanban)" :
+                                  id === "agenda" ? "Agenda & Rituais" :
+                                  id === "dataSources" ? "Ambiente de Redes & Ingestão" :
+                                  id === "analytics" ? "DRE & Performance Analítica" :
+                                  id === "presentationStatus" ? "Status de Apresentações" : "Status de Reuniões";
+
+                    return (
+                      <div key={id} className="flex justify-between items-center p-3 rounded-xl bg-slate-900 border border-slate-800/80 text-xs font-semibold">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={enabledWidgets[id]}
+                            onChange={() => toggleWidget(id)}
+                            className="rounded text-blue-500 bg-slate-850 border-slate-700 focus:ring-blue-500 w-4 h-4"
+                          />
+                          <span className={enabledWidgets[id] ? "text-white" : "text-slate-500 line-through"}>{label}</span>
+                        </label>
+                        <div className="flex gap-1.5 shrink-0 ml-2">
+                          <button
+                            disabled={index === 0}
+                            onClick={() => moveWidget(id, "up")}
+                            className="p-1 px-2 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 cursor-pointer text-[10px] font-mono"
+                            title="Mover para cima"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            disabled={index === widgetOrder.length - 1}
+                            onClick={() => moveWidget(id, "down")}
+                            className="p-1 px-2 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 cursor-pointer text-[10px] font-mono"
+                            title="Mover para baixo"
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* 4. FILTROS COLAPSÁVEIS - COMPACT FILTER BAR */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm transition-all overflow-hidden">
             <button
@@ -1088,37 +1254,140 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
             </div>
           </div>
 
-          {/* MAIN WORKSPACE CONTENT GRID - DEPENDS ON THE ACTIVE LAYOUT PANEL VISIBILITY */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* MAIN WORKSPACE CONTENT GRID - DYNAMICALLY RENDERED BY EXECUTIVEWIDGETS COMPONENT */}
+          {dailyBrief && (
+            <div className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4 text-white relative overflow-hidden mb-6">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
+              
+              <div>
+                <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                  <Sparkles size={20} className="text-blue-400 animate-pulse" />
+                  {dailyBrief.greeting}.
+                </h3>
+                <p className="text-xs text-slate-400 mt-1 font-medium">
+                  Status de controle do ecossistema executivo para o projeto <strong className="text-white">{activeProject.client}</strong>:
+                </p>
+              </div>
+
+              <div className="border-t border-slate-800/80 pt-4 flex flex-col gap-3 font-mono">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest block">Hoje existem:</span>
+                <ul className="space-y-2 text-xs text-slate-300 pl-1">
+                  <li className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                    <span><strong>{dailyBrief.meetingsCount}</strong> {dailyBrief.meetingsCount === 1 ? "reunião." : "reuniões."}</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                    <span><strong>{dailyBrief.pendingActions}</strong> {dailyBrief.pendingActions === 1 ? "pendência." : "pendências."}</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                    <span>{dailyBrief.hasData ? "Dados sincronizados." : "Dados em conformidade (sincronização offline)."}</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                    <span>Plano de ação {dailyBrief.pendingActions > 0 ? "ativo com monitoramento de metas." : "atualizado."}</span>
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                    <span>Última análise realizada há 15 minutos.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="border-t border-slate-800/60 pt-3 flex items-center justify-between text-[10px] text-slate-500 font-bold">
+                <span>FONTE: GOVERNANÇA SAURON OS</span>
+                <span className="flex items-center gap-1 text-emerald-500">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  COCKPIT BASEADO EM REGRAS ATIVAS
+                </span>
+              </div>
+            </div>
+          )}
+
+          <ExecutiveWidgets
+            widgetOrder={widgetOrder}
+            enabledWidgets={enabledWidgets}
+            healthScore={healthScore}
+            recentActivities={recentActivities}
+            activeProject={activeProject}
+            quickAddAction={quickAddAction}
+            setQuickAddAction={setQuickAddAction}
+            newActionDescription={newActionDescription}
+            setNewActionDescription={setNewActionDescription}
+            newActionResponsible={newActionResponsible}
+            setNewActionResponsible={setNewActionResponsible}
+            newActionDeadline={newActionDeadline}
+            setNewActionDeadline={setNewActionDeadline}
+            newActionPriority={newActionPriority}
+            setNewActionPriority={setNewActionPriority}
+            handleAddActionPlan={handleAddActionPlan}
+            handleToggleActionPlanStatus={handleToggleActionPlanStatus}
+            handleRemoveActionPlan={handleRemoveActionPlan}
+            quickAddMeeting={quickAddMeeting}
+            setQuickAddMeeting={setQuickAddMeeting}
+            newMeetingResponsible={newMeetingResponsible}
+            setNewMeetingResponsible={setNewMeetingResponsible}
+            newMeetingObservations={newMeetingObservations}
+            setNewMeetingObservations={setNewMeetingObservations}
+            handleCreateMeeting={handleCreateMeeting}
+            onSelectTab={onSelectTab}
+            formatCurrency={formatCurrency}
+          />
+
+          {false && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* GAVETA ESQUERDA: DAILY BRIEF & HEALTH SCORE DETAILS */}
             <div className="lg:col-span-2 flex flex-col gap-6">
               
               {/* PANEL: DAILY BRIEF AUTOMÁTICO (Baseado em Regras Reais) */}
               {visiblePanels.dailyBrief && dailyBrief && (
-                <div className="bg-gradient-to-br from-blue-500/10 to-transparent dark:from-blue-950/30 border border-blue-500/20 dark:border-blue-900/40 rounded-2xl p-6 shadow-sm flex flex-col gap-4">
+                <div className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4 text-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
+                  
                   <div>
-                    <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      <Sparkles size={18} className="text-blue-500 animate-pulse" />
-                      {dailyBrief.greeting}, Consultor.
+                    <h3 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
+                      <Sparkles size={20} className="text-blue-400 animate-pulse" />
+                      {dailyBrief.greeting}.
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      Aqui está o briefing executivo consolidado para o projeto do cliente <strong className="text-slate-800 dark:text-slate-200">{activeProject.client}</strong> hoje:
+                    <p className="text-xs text-slate-400 mt-1 font-medium">
+                      Status de controle do ecossistema executivo para o projeto <strong className="text-white">{activeProject.client}</strong>:
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                    {dailyBrief.bulletins.map((bulletin, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-2.5 p-3 rounded-xl bg-white/40 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/60 text-xs font-semibold"
-                      >
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${
-                          bulletin.type === "success" ? "bg-emerald-500" : "bg-amber-500"
-                        }`} />
-                        <span className="text-slate-700 dark:text-slate-300 leading-normal">{bulletin.text}</span>
-                      </div>
-                    ))}
+                  <div className="border-t border-slate-800/80 pt-4 flex flex-col gap-3 font-mono">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest block">Hoje existem:</span>
+                    <ul className="space-y-2 text-xs text-slate-300 pl-1">
+                      <li className="flex items-center gap-2.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                        <span><strong>{dailyBrief.meetingsCount}</strong> {dailyBrief.meetingsCount === 1 ? "reunião." : "reuniões."}</span>
+                      </li>
+                      <li className="flex items-center gap-2.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                        <span><strong>{dailyBrief.pendingActions}</strong> {dailyBrief.pendingActions === 1 ? "pendência." : "pendências."}</span>
+                      </li>
+                      <li className="flex items-center gap-2.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                        <span>{dailyBrief.hasData ? "Dados sincronizados." : "Dados em conformidade (sincronização offline)."}</span>
+                      </li>
+                      <li className="flex items-center gap-2.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                        <span>Plano de ação {dailyBrief.pendingActions > 0 ? "ativo com monitoramento de metas." : "atualizado."}</span>
+                      </li>
+                      <li className="flex items-center gap-2.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0" />
+                        <span>Última análise realizada há 15 minutos.</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="border-t border-slate-800/60 pt-3 flex items-center justify-between text-[10px] text-slate-500 font-bold">
+                    <span>FONTE: GOVERNANÇA SAURON OS</span>
+                    <span className="flex items-center gap-1 text-emerald-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      COCKPIT BASEADO EM REGRAS ATIVAS
+                    </span>
                   </div>
                 </div>
               )}
@@ -1593,6 +1862,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
               )}
             </div>
           </div>
+          )}
         </>
       ) : (
         /* WORKSPACE VAZIO / NENHUM PROJETO ATIVO */

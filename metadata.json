@@ -1,6 +1,6 @@
 {
-  "name": "Sauron",
-  "description": "Agente consultivo de inteligência de negócios para grupos com múltiplos CNPJs, marcas e filiais.",
+  "name": "Sauron OS",
+  "description": "Sauron OS: Enterprise Consulting Operating System. O sistema operacional definitivo para gestão de consultoria estratégica, mapeamento financeiro e controle executivo.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

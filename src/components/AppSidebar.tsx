@@ -61,14 +61,14 @@ export const AppSidebar = ({
       icon: BarChart3,
       groupKey: "analytics",
       subItems: [
-        { title: "Dashboard Executivo", id: "resumo", icon: BarChart3 },
+        { title: "Executive Overview", id: "resumo", icon: BarChart3 },
         { title: "DRE Inteligente", id: "dre_inteligente", icon: Calculator },
         { title: "Fechamento Mensal", id: "fechamento_mensal", icon: Calculator },
         { title: "Comercial e Vendas", id: "comercial", icon: Store },
         { title: "Performance Vendedores", id: "vendedores", icon: Users },
         { title: "Comissões", id: "comissoes", icon: Calculator },
         { title: "Modelo Consultivo", id: "modelo_consultivo", icon: FileText },
-        { title: "Consultor IA", id: "consultor_ia", icon: BrainCircuit },
+        { title: "Sauron OS AI", id: "consultor_ia", icon: BrainCircuit },
         { title: "Obstáculos", id: "obstaculos", icon: ShieldAlert },
         ...(isAutomotive ? [
           { title: "Pós-Vendas (Oficina)", id: "posvendas", icon: Target },
@@ -123,7 +123,7 @@ export const AppSidebar = ({
             {!isDesktopCollapsed && (
               <div className="flex flex-col whitespace-nowrap overflow-hidden">
                 <span className="font-bold text-white text-sm tracking-tight">Sauron OS</span>
-                <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Consultor BI</span>
+                <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Consulting OS</span>
               </div>
             )}
           </div>

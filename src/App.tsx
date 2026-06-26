@@ -1359,8 +1359,8 @@ export default function App() {
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
                 </button>
-                <span className="text-[10px] bg-sauron-navy text-white px-2 py-0.5 rounded font-mono font-bold tracking-wider uppercase">Sauron</span>
-                <span className="text-[11px] hidden sm:inline text-slate-500 font-medium tracking-wide">Consultor BI Agent OS</span>
+                <span className="text-[10px] bg-sauron-navy text-white px-2 py-0.5 rounded font-mono font-bold tracking-wider uppercase">Sauron OS</span>
+                <span className="text-[11px] hidden sm:inline text-slate-500 font-medium tracking-wide">Enterprise Consulting Operating System</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-sm md:text-base font-extrabold text-sauron-navy tracking-tight flex items-center gap-1.5">

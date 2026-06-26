@@ -52,7 +52,7 @@ export const FechamentoMensalTab: React.FC<FechamentoMensalTabProps> = ({
     {
       id: "slide_cover",
       title: "Relatório de Fechamento Estratégico",
-      subtitle: "Sauron — Consultor BI Agent OS",
+      subtitle: "Sauron OS — Enterprise Consulting Operating System",
       type: "cover",
       content: "Apresentação executiva de governança e controle de faturamento consolidado."
     },

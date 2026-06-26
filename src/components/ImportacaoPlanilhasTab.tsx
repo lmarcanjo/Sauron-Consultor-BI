@@ -692,7 +692,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
         <div className="space-y-1 z-10">
           <div className="flex items-center gap-2">
             <span className="p-1.5 bg-blue-600 rounded text-white font-extrabold text-xs">SAURON XLS</span>
-            <span className="text-[10px] uppercase font-black tracking-widest text-blue-400">Consultor BI Agent OS</span>
+            <span className="text-[10px] uppercase font-black tracking-widest text-blue-400">Sauron OS - Mission Control</span>
           </div>
           <h1 className="text-xl font-black text-white leading-tight">Módulo de Planilhas Gerenciais e Apresentações</h1>
           <p className="text-slate-400 text-xs max-w-2xl leading-relaxed">
