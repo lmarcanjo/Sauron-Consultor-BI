@@ -88,7 +88,7 @@ export class DatabaseConnectionManager {
       }
 
       const logEntry = {
-        id: "log_" + Math.random().toString(36).substring(2, 11),
+        id: "log_" + crypto.randomUUID(),
         timestamp: new Date().toISOString(),
         eventType,
         status,
@@ -186,6 +186,7 @@ export class DatabaseConnectionManager {
    * Test connection in detailed stages.
    */
   public async testConnection(config: any): Promise<DatabaseConnectionResult> {
+    const type = config.type as DatabaseType;
     let activeHost = config.host || "localhost";
     let activePort = Number(config.port);
     let sshTunnel: any = null;
@@ -859,7 +860,7 @@ export class DatabaseConnectionManager {
 
         tables.forEach(t => {
           if (estimatedRows[t] === undefined || estimatedRows[t] === 0) {
-            estimatedRows[t] = Math.floor(Math.random() * 3120) + 150;
+            estimatedRows[t] = -1;
           }
         });
 
@@ -913,7 +914,7 @@ export class DatabaseConnectionManager {
         });
 
         tables.forEach(t => {
-          estimatedRows[t] = Math.floor(Math.random() * 2000) + 100;
+          estimatedRows[t] = -1;
         });
 
         await pool.close().catch(() => {});
@@ -953,7 +954,7 @@ export class DatabaseConnectionManager {
         }
 
         tables.forEach(t => {
-          estimatedRows[t] = Math.floor(Math.random() * 2000) + 100;
+          estimatedRows[t] = -1;
         });
 
         await connection.close().catch(() => {});
@@ -982,7 +983,7 @@ export class DatabaseConnectionManager {
         }
 
         tables.forEach(t => {
-          estimatedRows[t] = Math.floor(Math.random() * 1500) + 50;
+          estimatedRows[t] = -1;
         });
 
         await client.close().catch(() => {});
@@ -1349,7 +1350,7 @@ export class DatabaseConnectionManager {
       }
 
       return {
-        id: String(row.id || row.ID || row._id || row.uuid || Math.random().toString(36).substring(2, 11)),
+        id: String(row.id || row.ID || row._id || row.uuid || crypto.randomUUID()),
         Grupo: getValue("Grupo") !== undefined ? String(getValue("Grupo")) : "",
         CNPJ: getValue("CNPJ") !== undefined ? String(getValue("CNPJ")) : "",
         Marca: getValue("Marca") !== undefined ? String(getValue("Marca")) : "",
