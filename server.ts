@@ -144,7 +144,7 @@ function logAudit(eventType: string, status: "Tentativa" | "Sucesso" | "Falha" |
     const sysDb = readSystemDb();
     if (!sysDb.auditLogs) sysDb.auditLogs = [];
     const logEntry = {
-      id: "log_" + Math.random().toString(36).substring(2, 11),
+      id: "log_" + crypto.randomUUID().substring(0, 8),
       timestamp: new Date().toISOString(),
       eventType,
       status,
@@ -252,7 +252,7 @@ app.post("/api/db/sync", async (req, res) => {
 
     const sourceName = `Sincronização Banco (${config.database || "Remoto"})`;
     const newSnapshot = {
-      id: "sh_" + Math.random().toString(36).substring(2, 11),
+      id: "sh_" + crypto.randomUUID().substring(0, 8),
       timestamp: new Date().toISOString(),
       sourceName: sourceName,
       rowCount: data.length,
@@ -340,7 +340,7 @@ app.post("/api/reports/save", (req, res) => {
     const margemMedia = sumMetrics.receitaTotal > 0 ? (sumMetrics.lucroTotal / sumMetrics.receitaTotal) * 100 : 0;
 
     const newSnapshot = {
-      id: "sh_" + Math.random().toString(36).substring(2, 11),
+      id: "sh_" + crypto.randomUUID().substring(0, 8),
       timestamp: new Date().toISOString(),
       sourceName: sourceName || "Relatório Manual",
       rowCount: data.length,
@@ -718,7 +718,7 @@ app.get("/api/vpn/list", (req, res) => {
 app.post("/api/vpn/add", (req, res) => {
   const configs = getVpnConfigs();
   const newConfig = {
-    id: Math.random().toString(36).substring(2, 10),
+    id: crypto.randomUUID().substring(0, 8),
     ...req.body,
     status: "disconnected",
     containerId: "",

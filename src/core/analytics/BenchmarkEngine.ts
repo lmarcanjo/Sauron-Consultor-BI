@@ -4,17 +4,19 @@ export class BenchmarkEngine {
   compare(context: AnalysisContext): BenchmarkResult[] {
     const results: BenchmarkResult[] = [];
     
-    // Logic for comparing entities
-    const total = context.comparatives.reduce((acc, curr) => acc + curr.value, 0);
-    const avg = context.comparatives.length > 0 ? total / context.comparatives.length : 0;
+    // Sort to rank
+    const sorted = [...context.comparatives].sort((a, b) => b.value - a.value);
+    const total = sorted.reduce((acc, curr) => acc + curr.value, 0);
+    const avg = sorted.length > 0 ? total / sorted.length : 0;
     
-    context.comparatives.forEach(c => {
+    sorted.forEach((c, index) => {
         results.push({
             entityId: c.entityId,
             benchmarkValue: c.value,
             averageValue: avg,
             difference: c.value - avg,
-            status: c.value > avg ? 'above' : 'below'
+            status: c.value > avg ? 'above' : 'below',
+            ranking: index + 1
         });
     });
 

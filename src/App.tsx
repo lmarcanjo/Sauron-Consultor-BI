@@ -1068,7 +1068,7 @@ export default function App() {
               };
 
               const cleanRow: any = {
-                id: `up_row_${Date.now()}_${idx}_${Math.random()}`,
+                id: `up_row_${Date.now()}_${idx}_${crypto.randomUUID().substring(0, 8)}`,
                 Grupo: row["Grupo"] || row["Grupo Economico"] || row["Grupo Econômico"] || "Geral",
                 CNPJ: row["CNPJ"] || row["Cnpj"] || "00.000.000/0001-00",
                 Marca: row["Marca"] || row["Bandeira"] || "N/D",

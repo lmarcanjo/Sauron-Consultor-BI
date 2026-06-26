@@ -1,4 +1,4 @@
-import { WorkspaceProject, ActionPlan, Meeting, WorkspaceSpreadsheet, WorkspaceDbConnection, WorkspaceImportProfile, WorkspaceFilter, WorkspaceKpi, WorkspaceDashboard, WorkspacePresentation, WorkspaceHistoryEvent, WorkspaceAuditEvent } from './types';
+import { WorkspaceProject, ActionPlan, Meeting, WorkspaceSpreadsheet, WorkspaceDbConnection, WorkspaceImportProfile, WorkspaceFilter, WorkspaceKpi, WorkspaceDashboard, WorkspacePresentation, WorkspaceHistoryEvent, WorkspaceAuditEvent, AnalysisResult } from './types';
 import { WorkspaceRepository } from './WorkspaceRepository';
 
 export class ConsultantWorkspaceManager {
@@ -100,6 +100,14 @@ export class ConsultantWorkspaceManager {
         const index = project.actionPlans.findIndex(a => a.id === plan.id);
         if (index !== -1) project.actionPlans[index] = plan;
         else project.actionPlans.push(plan);
+        await this.updateProject(project);
+    }
+  }
+
+  async saveAnalysis(projectId: string, analysis: AnalysisResult) {
+    const project = await this.repository.getProject(projectId);
+    if (project) {
+        project.analysis = analysis;
         await this.updateProject(project);
     }
   }

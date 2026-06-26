@@ -30,6 +30,15 @@ export interface WorkspacePresentation { id: string; name: string; slides: any[]
 export interface WorkspaceHistoryEvent { id: string; event: string; timestamp: string; }
 export interface WorkspaceAuditEvent { id: string; action: string; user: string; timestamp: string; }
 
+export interface AnalysisResult {
+  executiveSummary: ExecutiveSummary;
+  recommendations: Recommendation[];
+  anomalies: Anomaly[];
+  trends: Trend[];
+  benchmarks: BenchmarkResult[];
+  lastUpdated: string;
+}
+
 export interface WorkspaceProject {
   id: string;
   client: string;
@@ -52,4 +61,5 @@ export interface WorkspaceProject {
   auditLog: WorkspaceAuditEvent[];
   lastUpdated: string;
   isArchived: boolean;
+  analysis?: AnalysisResult;
 }

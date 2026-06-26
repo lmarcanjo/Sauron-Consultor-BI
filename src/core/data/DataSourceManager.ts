@@ -60,7 +60,7 @@ export function assertNoMockDataWhenRealSource(
         const savedLogs = localStorage.getItem("sauron_audit_logs");
         const logs = savedLogs ? JSON.parse(savedLogs) : [];
         logs.push({
-          id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          id: `audit_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`,
           timestamp: new Date().toISOString(),
           type: "DATA_CONTAMINATION_ATTEMPT",
           severity: "CRITICAL",

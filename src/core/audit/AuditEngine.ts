@@ -37,7 +37,7 @@ export class AuditEngine {
   ): AuditLog {
     const hasLocalStorage = typeof localStorage !== "undefined";
     const log: AuditLog = {
-      id: `audit_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: `audit_${Date.now()}_${crypto.randomUUID().substring(0, 8)}`,
       timestamp: new Date().toISOString(),
       type,
       severity,

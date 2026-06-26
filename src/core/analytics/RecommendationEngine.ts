@@ -4,19 +4,22 @@ export class RecommendationEngine {
   analyze(context: AnalysisContext): Recommendation[] {
     const recommendations: Recommendation[] = [];
 
-    // Example deterministic logic
-    context.kpis.forEach(kpi => {
-        if (kpi.value < 0) {
-            recommendations.push({
-                problem: `KPI ${kpi.name} negativo`,
-                opportunity: `Melhorar eficiência de ${kpi.name}`,
-                recommendation: `Revisar custos associados ao ${kpi.name}`,
-                priority: 'high',
-                impactExpected: 'Aumento de margem',
-                justification: 'KPI negativo impacta diretamente o resultado.'
-            });
-        }
-    });
+    // Se margem caiu e despesa administrativa subiu
+    const margem = context.kpis.find(k => k.name === 'Margem')?.value || 0;
+    const despesasAdm = context.dre.find(d => d.account === 'Despesas Administrativas')?.value || 0;
+    
+    if (margem < 15 && despesasAdm > 100000) {
+        recommendations.push({
+            problem: 'Margem baixa com despesas administrativas elevadas',
+            evidence: `Margem: ${margem}%, Despesas: ${despesasAdm}`,
+            action: 'Revisar contratos recorrentes e política de gastos.',
+            priority: 'high',
+            impactExpected: 'Aumento de 2-3 p.p. na margem',
+            responsible: 'Diretoria',
+            deadline: '30 dias',
+            origin: 'DRE/KPI'
+        });
+    }
 
     return recommendations;
   }
