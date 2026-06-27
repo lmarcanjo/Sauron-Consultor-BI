@@ -40,7 +40,10 @@ import {
   Award,
   Presentation,
   CheckCircle2,
-  ShieldAlert
+  ShieldAlert,
+  ShieldCheck,
+  Network,
+  Activity
 } from "lucide-react";
 
 import { LancamentoFinanceiro, FiltrosDashboard, MetricasConsolidadas, ActiveDataSourceType } from "./types";
@@ -94,6 +97,7 @@ import { availableTemplates } from "./utils/industryTemplates";
 import { identityEngine } from "./core/identity/IdentityEngine";
 import { accessControlEngine } from "./core/identity/AccessControlEngine";
 import { IdentitySimulationBar } from "./components/IdentitySimulationBar";
+import { digitalTwinEngine } from "./core/identity/digitalTwin/DigitalTwinEngine";
 
 export default function App() {
   // --- STATE ---
@@ -170,6 +174,10 @@ export default function App() {
   const [simContextKey, setSimContextKey] = useState<number>(0);
   const activeSimUser = useMemo(() => {
     return identityEngine.getCurrentUser();
+  }, [simContextKey]);
+
+  const activeSimOrg = useMemo(() => {
+    return identityEngine.getCurrentOrganization();
   }, [simContextKey]);
 
   const getLegacyMappedRole = (role: string): "consultor" | "diretor" | "gerente" | "analista" => {
@@ -1378,6 +1386,7 @@ export default function App() {
         setIsMobileOpen={setIsMobileSidebarOpen}
         isDesktopCollapsed={isDesktopSidebarCollapsed}
         setIsDesktopCollapsed={setIsDesktopSidebarCollapsed}
+        userRole={activeSimUser?.role}
       />
 
       {/* Main Content wrapper */}
@@ -1584,6 +1593,44 @@ export default function App() {
 
         {/* WORKSPACE MAIN AREA SCROLLABLE */}
         <main className="flex-1 w-full p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950">
+          
+          {/* CONTEXT BAR (v0.6.8 - Consulting OS Cognitive Anchor) */}
+          <div className="bg-slate-900 text-slate-300 px-4 py-2.5 border border-slate-800 rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-4 text-xs font-sans">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="bg-blue-600 text-white font-extrabold px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-mono">CLIENTE</span>
+              <span className="font-extrabold text-white">Grupo Topázio Veículos</span>
+              <span className="text-slate-500">•</span>
+              <span className="font-medium text-slate-400">Marcas: Nissan, Renault, Seminovos</span>
+              <span className="text-slate-500">•</span>
+              <span className="font-medium text-slate-400">CNPJs: 2 ativos</span>
+            </div>
+            
+            <div className="flex items-center gap-3 text-[11px] font-mono">
+              <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded border border-slate-850 text-slate-300">
+                <Sliders size={11} className="text-blue-400" />
+                <span className="font-semibold text-blue-400">Filtros:</span>
+                <button 
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                  className="hover:underline font-bold text-white cursor-pointer"
+                >
+                  {Object.keys(filtros).reduce((acc,k)=>filtros[k as keyof FiltrosDashboard]?acc+1:acc,0)} ativos
+                </button>
+              </div>
+              
+              <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded border border-slate-850">
+                <Database size={11} className="text-emerald-400" />
+                <span className="font-bold text-emerald-400">Ingestão:</span>
+                <span className="text-white font-semibold">{activeDataSource === "DATABASE_DATA" ? "Live DB" : activeDataSource === "SPREADSHEET_DATA" ? "Planilhas" : "Demonstração"}</span>
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded border border-slate-850">
+                <ShieldCheck size={11} className="text-indigo-400" />
+                <span className="font-bold text-indigo-400">Org:</span>
+                <span className="text-white font-semibold truncate max-w-[120px]" title={activeSimOrg?.name}>{activeSimOrg?.name || "Arcanjo Consulting"}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Header/Breadcrumb local da página */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm shrink-0">
             <div>
@@ -1603,7 +1650,7 @@ export default function App() {
                 <Sliders size={14} className="animate-pulse" /> Gerenciar Filtros
               </button>
               <button 
-                onClick={() => document.getElementById("filter-drawer")?.classList.toggle("translate-x-full")}
+                onClick={() => setIsFilterDrawerOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs uppercase rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
               >
                 <Sliders size={14} /> Filtros Ativos ({Object.keys(filtros).reduce((acc,k)=>filtros[k as keyof FiltrosDashboard]?acc+1:acc,0)})
@@ -1665,34 +1712,7 @@ export default function App() {
             </div>
           )}
           
-          <div className="flex-1 flex flex-col xl:flex-row gap-5">
-            {/* Filter Drawer (Hidden by default on mobile, right side) */}
-            <section 
-              id="filter-drawer" 
-              className="fixed xl:static top-0 right-0 h-screen xl:h-auto w-80 xl:w-72 bg-white dark:bg-slate-900 xl:bg-transparent shadow-2xl xl:shadow-none border-l xl:border-l-0 border-slate-200 dark:border-slate-800 p-4 xl:p-0 z-50 xl:z-0 translate-x-full xl:translate-x-0 transition-transform overflow-y-auto"
-            >
-              <div className="flex justify-between items-center xl:hidden mb-4 border-b border-slate-200 dark:border-slate-800 pb-2">
-                <h3 className="text-sm font-black uppercase text-slate-800 dark:text-white flex items-center gap-2">
-                  <Sliders size={14} /> Filtros de Contexto
-                </h3>
-                <button 
-                  onClick={() => document.getElementById("filter-drawer")?.classList.add("translate-x-full")}
-                  className="p-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500"
-                >
-                  ✕
-                </button>
-              </div>
-              <SidebarFilters
-                key={activeDataSource}
-                available={availableFilters}
-                selected={filtros}
-                onChange={setFiltros}
-                onReset={handleResetFilters}
-                activeDataSource={activeDataSource}
-                actualKeys={actualKeys}
-              />
-            </section>
-
+          <div className="flex-1 flex flex-col gap-5">
             {/* ANALYTICS CONTAINER */}
             <section className="flex-1 space-y-4 overflow-x-hidden">
 
@@ -1938,8 +1958,94 @@ export default function App() {
             />
           )}
 
-          {activeTab === "perfis" && currentUser?.role === "consultor" && (
+          {(activeTab === "perfis" || activeTab === "organizacao_twin" || activeTab === "usuarios_twin" || activeTab === "permissoes_twin") && (
             <PerfisConfigTab />
+          )}
+
+          {activeTab === "digital_twin" && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="bg-white dark:bg-slate-900 p-6 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/50">
+                  <div>
+                    <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                      <Network size={18} className="text-blue-500" /> Digital Twin Corporativo — Grupo Topázio
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gêmeo Digital e representação estrutural-relacional das empresas, marcas, filiais e departamentos.</p>
+                  </div>
+                  <span className="text-[10px] font-mono font-black uppercase text-blue-500 bg-blue-500/10 px-2 py-1 rounded">Visualizador Estrutural</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                  {/* Company Twin Nissan */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Topázio Nissan</h4>
+                      <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium">Concessionária oficial Nissan do grupo. Abrange serviços de pós-venda, oficina mecânica estruturada e pátio de novos/seminovos.</p>
+                    <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] space-y-1 text-slate-450 font-mono">
+                      <p>• Lojas mapeadas: <span className="font-bold text-slate-700 dark:text-slate-300">Nissan Sul, Nissan Norte</span></p>
+                      <p>• Headcount total: <span className="font-bold text-slate-700 dark:text-slate-300">42 funcionários</span></p>
+                      <p>• Departamentos: <span className="font-bold text-slate-700 dark:text-slate-300">Vendas, Oficina, Peças, F&I</span></p>
+                    </div>
+                  </div>
+
+                  {/* Company Twin Renault */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Topázio Renault</h4>
+                      <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium">Operação Renault integrada à holding. Processo completo de faturamento direto e canais de peças corporativas homologadas.</p>
+                    <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] space-y-1 text-slate-450 font-mono">
+                      <p>• Lojas mapeadas: <span className="font-bold text-slate-700 dark:text-slate-300">Renault Centro, Renault Leste</span></p>
+                      <p>• Headcount total: <span className="font-bold text-slate-700 dark:text-slate-300">38 funcionários</span></p>
+                      <p>• Departamentos: <span className="font-bold text-slate-700 dark:text-slate-300">Vendas, Oficina, F&I, Financeiro</span></p>
+                    </div>
+                  </div>
+
+                  {/* Company Twin Seminovos */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Topázio Seminovos</h4>
+                      <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium">Bandeira própria multimarcas focada em alta rotação de estoque, avaliação integrada de carros usados e preparação rápida mecânica.</p>
+                    <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] space-y-1 text-slate-450 font-mono">
+                      <p>• Lojas mapeadas: <span className="font-bold text-slate-700 dark:text-slate-300">Seminovos Hub Castelo</span></p>
+                      <p>• Headcount total: <span className="font-bold text-slate-700 dark:text-slate-300">16 funcionários</span></p>
+                      <p>• Departamentos: <span className="font-bold text-slate-700 dark:text-slate-300">Vendas, Preparação, Avaliação</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Relational graph schema preview */}
+                <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
+                  <h4 className="text-xs font-extrabold uppercase text-slate-700 dark:text-slate-350 flex items-center gap-1">
+                    <Activity size={12} className="text-blue-500" /> Estatísticas Relacionais do Gêmeo Digital
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Total Lojas</span>
+                      <p className="text-lg font-black text-blue-500 mt-1 font-mono">5</p>
+                    </div>
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Headcount Holding</span>
+                      <p className="text-lg font-black text-blue-500 mt-1 font-mono">96</p>
+                    </div>
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Sistemas Integrados</span>
+                      <p className="text-lg font-black text-blue-500 mt-1 font-mono">3 (Siel, DealerNet)</p>
+                    </div>
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Sincronização</span>
+                      <p className="text-lg font-black text-emerald-500 mt-1 font-mono">OK</p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
           )}
 
           {activeTab === "vpn_gateway" && (
