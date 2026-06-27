@@ -5,7 +5,7 @@ import {
   Layers, ArrowRight, Sparkles, Award, BookOpen, Check, ChevronDown, ChevronUp,
   Activity, Settings, HelpCircle, FileText, SlidersHorizontal, Bell, RefreshCw, Eye,
   Menu, Network, ShieldAlert, Presentation, MonitorPlay, BarChart3, Trash, CheckSquare,
-  ClipboardList, CheckSquare2, FileCheck, ArrowUpRight, Play, ExternalLink
+  ClipboardList, CheckSquare2, FileCheck, ArrowUpRight, Play, ExternalLink, ShieldX, CheckSquare as CheckIcon
 } from "lucide-react";
 import { consultantWorkspaceManager } from "../modules/consultant-workspace/ConsultantWorkspaceManager";
 import { WorkspaceProject, ActionPlan, Meeting } from "../modules/consultant-workspace/types";
@@ -43,6 +43,9 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
   const [newTaskDesc, setNewTaskDesc] = useState("");
   const [newTaskResp, setNewTaskResp] = useState("");
   const [newTaskPriority, setNewTaskPriority] = useState<"low" | "medium" | "high">("medium");
+
+  // --- Interactive Maturity Dimension checklist expansion ---
+  const [activeMaturityDimension, setActiveMaturityDimension] = useState<string | null>("dados");
 
   // --- Decisions List inside Decision Center ---
   const [decisions, setDecisions] = useState<Array<{
@@ -149,8 +152,9 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
         ],
         observations: "Projeto de reestruturação operacional e controle financeiro do Grupo Topázio.",
         history: [
-          { id: "h_1", event: "Setup inicial do projeto concluído", timestamp: "2026-06-01T10:00:00Z" },
-          { id: "h_2", event: "Importação de dados financeiros consolidada", timestamp: "2026-06-15T14:30:00Z" }
+          { id: "h_1", event: "Setup de Alinhamento Estratégico Realizado", timestamp: "2026-06-01T10:00:00Z" },
+          { id: "h_2", event: "Primeiro Diagnóstico de Vazamentos de Caixa Concluído", timestamp: "2026-06-15T14:30:00Z" },
+          { id: "h_3", event: "Homologação do Modelo Contábil de CMV Ativado", timestamp: "2026-06-20T11:15:00Z" }
         ],
         auditLog: []
       });
@@ -215,8 +219,8 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
       dashboards: [],
       presentations: [],
       actionPlans: [],
-      observations: `Projeto criado para o cliente ${newProjectName}.`,
-      history: [{ id: "h_1", event: "Projeto inicializado", timestamp: new Date().toISOString() }],
+      observations: `Caso de consultoria criado para ${newProjectName}.`,
+      history: [{ id: "h_1", event: "Caso de Consultoria inicializado", timestamp: new Date().toISOString() }],
       auditLog: []
     });
 
@@ -231,7 +235,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
 
     auditEngine.logEvent(
       "PROJECT_CREATED",
-      `Criou o projeto de consultoria: ${newProj.client}`,
+      `Criou o caso de consultoria: ${newProj.client}`,
       "INFO",
       { projectId: newProj.id }
     );
@@ -271,7 +275,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
       id: crypto.randomUUID(),
       description: newTaskDesc,
       priority: newTaskPriority,
-      responsible: newTaskResp || currentUser.profile.fullName,
+      responsible: newTaskResp || (currentUser?.profile?.fullName || "Consultor"),
       deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       status: "pending",
       origin: "Comando Central"
@@ -331,6 +335,130 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
     };
   }, [filteredData]);
 
+  // Dimension details checklists mapped to activeMaturityDimension
+  const dimensionChecklists = {
+    dados: [
+      { id: "d1", label: "Ingestão de faturamento ativa e automatizada", checked: true },
+      { id: "d2", label: "Mascaramento de CPFs/Dados pessoais em conformidade com LGPD", checked: true },
+      { id: "d3", label: "Validação contábil de contas e centros de custos concluída", checked: true },
+    ],
+    kpis: [
+      { id: "k1", label: "Definição de margem de contribuição mínima por segmento", checked: true },
+      { id: "k2", label: "Estabelecer meta de vendas de seminovos para Q3", checked: true },
+      { id: "k3", label: "Homologação de CMV alvo para compras de peças corporativas", checked: false },
+    ],
+    filtros: [
+      { id: "f1", label: "Filtros de Grupos Econômicos mapeados e parametrizados", checked: true },
+      { id: "f2", label: "Divisão lógica de faturamento por marcas ativada", checked: true },
+      { id: "f3", label: "Segmentação dinâmica por canais comerciais disponível", checked: true },
+    ],
+    storytelling: [
+      { id: "s1", label: "Criação do deck mensal consolidado para o conselho", checked: true },
+      { id: "s2", label: "Story Builder estruturado por árvores de resultados", checked: true },
+      { id: "s3", label: "Identificação visual de quebra de faturamento no slide 2", checked: true },
+    ],
+    reunioes: [
+      { id: "r1", label: "Sessão de Conselho agendada na agenda do Board", checked: true },
+      { id: "r2", label: "Ata de reunião anterior redigida e homologada", checked: true },
+      { id: "r3", label: "Definição formal de ritos semanais de faturamento", checked: true },
+    ],
+    plano: [
+      { id: "p1", label: "Atribuição de responsáveis por plano de reestruturação de CMV", checked: true },
+      { id: "p2", label: "Agendamento de follow-up semanal de vendas", checked: false },
+      { id: "p3", label: "Homologação de pendências de caixa remanescentes", checked: false },
+    ]
+  };
+
+  // --- EMPTY STATE RENDERING ---
+  if (projects.length === 0 || !activeProject) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] p-8 text-center space-y-6 max-w-2xl mx-auto">
+        <div className="w-16 h-16 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center">
+          <Building size={32} />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-black uppercase tracking-wider text-slate-800 dark:text-white">
+            Bem-vindo ao Sauron OS
+          </h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+            O Consulting Operating System de alta confiabilidade para consultores e conselhos executivos. Para inicializar, crie um novo caso de consultoria ou carregue o cenário de demonstração certificado.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+          <button
+            onClick={async () => {
+              const defaultProject = await consultantWorkspaceManager.createProject({
+                client: "Grupo Topázio Veículos",
+                group: "Grupo Topázio",
+                segment: "Automotivo (Concessionárias)",
+                companies: ["Topázio Nissan", "Topázio Renault", "Topázio Seminovos"],
+                brands: ["Nissan", "Renault"],
+                cnpjs: ["00.123.456/0001-01", "00.123.456/0002-02"],
+                dbConnections: [
+                  { id: "db_1", name: "Sauron Cloud PostgreSQL", host: "postgresql.sauron-platform.internal" }
+                ],
+                spreadsheets: [
+                  { id: "ss_1", name: "Fechamento_Junho_2026.xlsx", path: "/imports/Fechamento_Junho_2026.xlsx" }
+                ],
+                importProfile: {
+                  id: "prof_1",
+                  name: "Perfil Importação Nissan",
+                  rules: {}
+                },
+                filters: [],
+                kpis: [
+                  { id: "kpi_1", name: "Faturamento Bruto", target: 4500000 },
+                  { id: "kpi_2", name: "Margem Bruta (%)", target: 14.5 }
+                ],
+                dashboards: [],
+                presentations: [],
+                actionPlans: [
+                  {
+                    id: "act_1",
+                    description: "Renegociar taxas de adiantamento de recebíveis com banco Nissan",
+                    priority: "high",
+                    responsible: "Ana Finanças",
+                    deadline: "2026-07-10",
+                    status: "in-progress",
+                    origin: "DRE"
+                  }
+                ],
+                observations: "Projeto de reestruturação operacional e controle financeiro.",
+                history: [
+                  { id: "h_1", event: "Setup de Alinhamento Estratégico Realizado", timestamp: new Date().toISOString() }
+                ],
+                auditLog: []
+              });
+              setProjects([defaultProject]);
+              setActiveProject(defaultProject);
+              setTasks(defaultProject.actionPlans || []);
+              setMeetings([{
+                id: "m_1",
+                presentationId: "pres_junho",
+                selectedCharts: ["DRE", "Margens"],
+                observations: "Definição do CMV alvo para Q3/2026",
+                decisions: "CMV reduzido em 1.5pp homologado",
+                actionPlans: [],
+                responsible: "Gabriel Arcanjo",
+                pendingItems: ["Aprovação diretoria"]
+              }]);
+            }}
+            className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wide rounded-xl shadow-lg shadow-blue-600/20 cursor-pointer transition-all flex items-center justify-center gap-2"
+          >
+            <Sparkles size={14} />
+            Inicializar Caso de Demonstração
+          </button>
+          <button
+            onClick={() => setIsCreatingProject(true)}
+            className="px-5 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black text-xs uppercase tracking-wide rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer transition-all"
+          >
+            Criar Caso de Consultoria
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 font-sans">
       
@@ -361,10 +489,10 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsCreatingProject(!isCreatingProject)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-755 text-slate-700 dark:text-slate-200 font-extrabold text-[10px] uppercase rounded-lg border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 font-extrabold text-[10px] uppercase rounded-lg border border-slate-200 dark:border-slate-700 transition cursor-pointer"
           >
             <FolderPlus size={13} />
-            <span>Novo Projeto</span>
+            <span>Novo Caso</span>
           </button>
         </div>
       </div>
@@ -372,11 +500,11 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
       {/* Creation Modal/Collapse */}
       {isCreatingProject && (
         <form onSubmit={handleCreateProject} className="p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4 animate-fade-in">
-          <p className="text-xs font-black uppercase text-slate-700 dark:text-slate-300">Inicializar Novo Projeto de Consultoria</p>
+          <p className="text-xs font-black uppercase text-slate-700 dark:text-slate-300">Inicializar Novo Caso de Consultoria</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input
               type="text"
-              placeholder="Nome do Cliente (ex: Topázio Nissan)"
+              placeholder="Nome do Caso/Cliente"
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
               className="px-3 py-2 text-xs bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-800 dark:text-white"
@@ -423,42 +551,165 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="space-y-1">
             <h1 className="text-xl font-bold tracking-tight text-slate-800 dark:text-white font-sans">
-              Bem-vindo ao Centro de Comando Executivo, <span className="text-blue-500 font-extrabold">{currentUser.profile.fullName}</span>
+              Bem-vindo ao Centro de Comando Executivo, <span className="text-blue-500 font-extrabold">{currentUser?.profile?.fullName || "Consultor"}</span>
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Cliente: <strong className="text-slate-700 dark:text-slate-200">{activeProject?.client}</strong> ({activeProject?.segment}) • Organização: <strong className="text-slate-700 dark:text-slate-200">{currentOrg.name}</strong>
+              Caso de Consultoria: <strong className="text-slate-700 dark:text-slate-200">{activeProject?.client}</strong> ({activeProject?.segment}) • Organização: <strong className="text-slate-700 dark:text-slate-200">{currentOrg.name}</strong>
             </p>
           </div>
           <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-full text-[10px] font-mono text-blue-700 dark:text-blue-400 uppercase font-black tracking-wider">
             <CheckCircle2 size={12} className="text-blue-500 shrink-0" />
-            Dados Atualizados Hoje • 4 Alertas Ativos
+            Dados Atualizados • 4 Recomendações Ativas
           </div>
         </div>
 
         {/* Dynamic Executive Brief Narrative (Rule-based) */}
         <div className="mt-4 p-3 bg-white/60 dark:bg-slate-900/40 backdrop-blur-xs rounded-xl border border-slate-200/50 dark:border-slate-800/60 text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
           <span className="font-extrabold text-blue-600 dark:text-blue-400 uppercase mr-1">Resumo Executivo do Período:</span>
-          O projeto do {activeProject?.client} encontra-se em estágio operacional <span className="text-emerald-500 font-bold">saudável (Score 88/100)</span>. 
+          O caso de consultoria do {activeProject?.client} apresenta um índice de maturidade operacional <span className="text-emerald-500 font-bold">saudável (Score 88/100)</span>. 
           O faturamento projetado aponta para <span className="font-bold text-slate-900 dark:text-slate-100">{formatCurrency(stats.revenue)}</span>, com margem geral de {stats.margin}%. 
-          Há {decisions.filter(d => d.status === "pending").length} decisões estratégicas pendentes no Conselho Executivo que requerem sua deliberação imediata, além de {tasks.filter(t => t.status !== "completed").length} ações prioritárias pendentes de follow-up técnico.
+          Há {decisions.filter(d => d.status === "pending").length} decisões pendentes de deliberação imediata no Decision Center, e {tasks.filter(t => t.status !== "completed").length} planos operacionais em andamento para este ciclo.
         </div>
       </section>
 
       {/* Grid of Command Center Cockpit Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Column (Client Pulse & Health Score) */}
+        {/* Left Column (Main Cockpit View) */}
         <div className="lg:col-span-2 space-y-6">
 
           {/* ────────────────────────────────────────────────────────────────────────
-              2. CLIENT PULSE
+              2. ÍNDICE DE MATURIDADE OPERACIONAL
               ──────────────────────────────────────────────────────────────────────── */}
           <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/50">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                <Activity size={14} className="text-indigo-500" /> Client Pulse — Saúde do Período
+                <Award size={14} className="text-indigo-500" /> Índice de Maturidade Operacional (Health Score)
               </h3>
-              <span className="text-[10px] text-slate-400 font-semibold font-mono">Consolidado em Tempo Real</span>
+              <span className="text-[10px] text-slate-400 font-mono">Clique nas Dimensões para Ver Detalhes</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+              {/* Big Score Widget */}
+              <div className="md:col-span-1 text-center py-5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850">
+                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Score Geral</p>
+                <p className="text-4xl font-extrabold text-blue-600 dark:text-blue-400 mt-1 font-mono tracking-tight">88</p>
+                <span className="text-[8px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-full font-bold uppercase mt-1 inline-block">Maturidade Alta</span>
+              </div>
+
+              {/* Six Dimensions Checklist Selector Grid */}
+              <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                {/* Dim 1: Dados */}
+                <button
+                  type="button"
+                  onClick={() => setActiveMaturityDimension(activeMaturityDimension === "dados" ? null : "dados")}
+                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${activeMaturityDimension === "dados" ? "bg-indigo-500/10 border-indigo-500 text-indigo-750 dark:text-indigo-300" : "bg-slate-50 dark:bg-slate-950 border-slate-150 dark:border-slate-850 hover:bg-slate-100"}`}
+                >
+                  <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+                  <div>
+                    <p className="font-extrabold text-[10px]">1. Dados (ETL)</p>
+                    <span className="text-[9px] font-mono text-slate-400">3 de 3 concluídas</span>
+                  </div>
+                </button>
+
+                {/* Dim 2: KPIs */}
+                <button
+                  type="button"
+                  onClick={() => setActiveMaturityDimension(activeMaturityDimension === "kpis" ? null : "kpis")}
+                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${activeMaturityDimension === "kpis" ? "bg-indigo-500/10 border-indigo-500 text-indigo-750 dark:text-indigo-300" : "bg-slate-50 dark:bg-slate-950 border-slate-150 dark:border-slate-850 hover:bg-slate-100"}`}
+                >
+                  <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+                  <div>
+                    <p className="font-extrabold text-[10px]">2. KPIs (Metas)</p>
+                    <span className="text-[9px] font-mono text-slate-400">2 de 3 concluídas</span>
+                  </div>
+                </button>
+
+                {/* Dim 3: Filtros */}
+                <button
+                  type="button"
+                  onClick={() => setActiveMaturityDimension(activeMaturityDimension === "filtros" ? null : "filtros")}
+                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${activeMaturityDimension === "filtros" ? "bg-indigo-500/10 border-indigo-500 text-indigo-750 dark:text-indigo-300" : "bg-slate-50 dark:bg-slate-950 border-slate-150 dark:border-slate-850 hover:bg-slate-100"}`}
+                >
+                  <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+                  <div>
+                    <p className="font-extrabold text-[10px]">3. Filtros (Ativos)</p>
+                    <span className="text-[9px] font-mono text-slate-400">3 de 3 concluídas</span>
+                  </div>
+                </button>
+
+                {/* Dim 4: Storytelling */}
+                <button
+                  type="button"
+                  onClick={() => setActiveMaturityDimension(activeMaturityDimension === "storytelling" ? null : "storytelling")}
+                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${activeMaturityDimension === "storytelling" ? "bg-indigo-500/10 border-indigo-500 text-indigo-750 dark:text-indigo-300" : "bg-slate-50 dark:bg-slate-950 border-slate-150 dark:border-slate-850 hover:bg-slate-100"}`}
+                >
+                  <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+                  <div>
+                    <p className="font-extrabold text-[10px]">4. Storytelling</p>
+                    <span className="text-[9px] font-mono text-slate-400">3 de 3 concluídas</span>
+                  </div>
+                </button>
+
+                {/* Dim 5: Reuniões */}
+                <button
+                  type="button"
+                  onClick={() => setActiveMaturityDimension(activeMaturityDimension === "reunioes" ? null : "reunioes")}
+                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${activeMaturityDimension === "reunioes" ? "bg-indigo-500/10 border-indigo-500 text-indigo-750 dark:text-indigo-300" : "bg-slate-50 dark:bg-slate-950 border-slate-150 dark:border-slate-850 hover:bg-slate-100"}`}
+                >
+                  <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+                  <div>
+                    <p className="font-extrabold text-[10px]">5. Rituais Board</p>
+                    <span className="text-[9px] font-mono text-slate-400">3 de 3 concluídas</span>
+                  </div>
+                </button>
+
+                {/* Dim 6: Plano */}
+                <button
+                  type="button"
+                  onClick={() => setActiveMaturityDimension(activeMaturityDimension === "plano" ? null : "plano")}
+                  className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all ${activeMaturityDimension === "plano" ? "bg-indigo-500/10 border-indigo-500 text-indigo-750 dark:text-indigo-300" : "bg-slate-50 dark:bg-slate-950 border-slate-150 dark:border-slate-850 hover:bg-slate-100"}`}
+                >
+                  <AlertTriangle size={13} className="text-amber-500 shrink-0 animate-pulse" />
+                  <div>
+                    <p className="font-extrabold text-[10px]">6. Plano Executivo</p>
+                    <span className="text-[9px] font-mono text-amber-500">1 de 3 concluídas</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Checklist details drawer inside card */}
+            {activeMaturityDimension && (
+              <div className="mt-3 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-2 animate-fade-in">
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                  Checklist Operacional de Qualidade — {activeMaturityDimension.toUpperCase()}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                  {dimensionChecklists[activeMaturityDimension as keyof typeof dimensionChecklists]?.map((item) => (
+                    <div key={item.id} className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded flex items-center justify-center border ${item.checked ? 'bg-blue-500/10 border-blue-500/30 text-blue-600' : 'bg-slate-100 dark:bg-slate-900 border-slate-200 text-transparent'}`}>
+                        {item.checked && <Check size={12} strokeWidth={3} />}
+                      </div>
+                      <span className={item.checked ? "text-slate-600 dark:text-slate-300 font-medium" : "text-slate-400 font-medium italic"}>
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* ────────────────────────────────────────────────────────────────────────
+              3. CLIENT PULSE
+              ──────────────────────────────────────────────────────────────────────── */}
+          <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/50">
+              <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                <Activity size={14} className="text-indigo-500" /> Client Pulse — Saúde de Resultados do Período
+              </h3>
+              <span className="text-[10px] text-slate-400 font-semibold font-mono">Consolidação Operacional</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -516,7 +767,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
               {/* Pulse 4 */}
               <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Plano de Ação Executado</span>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Planos Concluídos</span>
                   <span className="text-[10px] text-blue-500 font-black font-mono">
                     {Math.round((tasks.filter(t => t.status === "completed").length / (tasks.length || 1)) * 100)}%
                   </span>
@@ -525,89 +776,9 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
                   <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${(tasks.filter(t => t.status === "completed").length / (tasks.length || 1)) * 100}%` }} />
                 </div>
                 <p className="text-[10px] text-slate-500 font-medium font-mono flex justify-between">
-                  <span>Total Ações: {tasks.length}</span>
+                  <span>Iniciativas: {tasks.length}</span>
                   <span>Concluídas: {tasks.filter(t => t.status === "completed").length}</span>
                 </p>
-              </div>
-            </div>
-          </section>
-
-          {/* ────────────────────────────────────────────────────────────────────────
-              3. HEALTH SCORE
-              ──────────────────────────────────────────────────────────────────────── */}
-          <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/50">
-              <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                <Award size={14} className="text-emerald-500" /> Índice de Maturidade Estratégica (Health Score)
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-              
-              {/* Big Score Widget */}
-              <div className="md:col-span-1 text-center py-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-150 dark:border-slate-850">
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Score Geral</p>
-                <p className="text-4xl font-extrabold text-blue-600 dark:text-blue-400 mt-1 font-mono tracking-tight">88</p>
-                <span className="text-[8px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-full font-bold uppercase mt-1 inline-block">Maturidade Alta</span>
-              </div>
-
-              {/* Six Dimensions Checklist */}
-              <div className="md:col-span-3 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-                
-                {/* Dim 1 */}
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
-                  <div>
-                    <p className="font-extrabold text-[10px] text-slate-700 dark:text-slate-300">Dados (ETL)</p>
-                    <span className="text-[9px] font-mono text-slate-400">100% íntegro</span>
-                  </div>
-                </div>
-
-                {/* Dim 2 */}
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
-                  <div>
-                    <p className="font-extrabold text-[10px] text-slate-700 dark:text-slate-300">KPIs (Metas)</p>
-                    <span className="text-[9px] font-mono text-slate-400">84% atingido</span>
-                  </div>
-                </div>
-
-                {/* Dim 3 */}
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
-                  <div>
-                    <p className="font-extrabold text-[10px] text-slate-700 dark:text-slate-300">Filtros (Ativos)</p>
-                    <span className="text-[9px] font-mono text-slate-400">Contexto pleno</span>
-                  </div>
-                </div>
-
-                {/* Dim 4 */}
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
-                  <div>
-                    <p className="font-extrabold text-[10px] text-slate-700 dark:text-slate-300">Storytelling</p>
-                    <span className="text-[9px] font-mono text-slate-400">Deck Pronto</span>
-                  </div>
-                </div>
-
-                {/* Dim 5 */}
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
-                  <div>
-                    <p className="font-extrabold text-[10px] text-slate-700 dark:text-slate-300">Reuniões</p>
-                    <span className="text-[9px] font-mono text-slate-400">Ritual em dia</span>
-                  </div>
-                </div>
-
-                {/* Dim 6 */}
-                <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center gap-2">
-                  <AlertTriangle size={14} className="text-amber-500 shrink-0 animate-pulse" />
-                  <div>
-                    <p className="font-extrabold text-[10px] text-slate-700 dark:text-slate-300">Plano de Ação</p>
-                    <span className="text-[9px] font-mono text-amber-500">2 pendências</span>
-                  </div>
-                </div>
-
               </div>
             </div>
           </section>
@@ -618,9 +789,9 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
           <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/50">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                <Sparkles size={14} className="text-blue-500" /> Decision Center — Recomendações Estruturais
+                <Sparkles size={14} className="text-blue-500" /> Decision Center — Deliberações Recomendadas
               </h3>
-              <span className="text-[9px] font-mono text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded uppercase font-black">Algoritmo Ativo</span>
+              <span className="text-[9px] font-mono text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded uppercase font-black">Algoritmo Homologado</span>
             </div>
 
             <div className="space-y-3">
@@ -645,7 +816,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
                       <span className="text-[9px] font-mono font-bold text-emerald-600 dark:text-emerald-400">{dec.impact}</span>
                     </div>
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-snug">{dec.title}</p>
-                    <p className="text-[9px] text-slate-450 font-mono">Gerado deterministicamente por: {dec.recommendedBy}</p>
+                    <p className="text-[9px] text-slate-400 font-mono">Recomendação via: {dec.recommendedBy}</p>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end">
@@ -666,7 +837,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
                       </>
                     ) : (
                       <span className="text-[10px] font-mono font-black uppercase text-slate-400 flex items-center gap-1">
-                        <Check size={12} strokeWidth={3} /> {dec.status === "approved" ? "Homologado" : "Arquivado"}
+                        <Check size={12} strokeWidth={3} /> {dec.status === "approved" ? "Aprovado" : "Arquivado"}
                       </span>
                     )}
                   </div>
@@ -676,24 +847,94 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
           </section>
 
           {/* ────────────────────────────────────────────────────────────────────────
-              5. PRÓXIMAS AÇÕES
+              5. RITUAIS DO MÉTODO SAURON
+              ──────────────────────────────────────────────────────────────────────── */}
+          <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
+            <div className="pb-2 border-b border-slate-100 dark:border-slate-800/50 flex justify-between items-center">
+              <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                <MonitorPlay size={14} className="text-indigo-500" /> Rituais do Método Sauron
+              </h3>
+              <button 
+                onClick={() => onSelectTab("modo_reuniao")}
+                className="text-[10px] text-indigo-500 hover:text-indigo-600 font-black uppercase flex items-center gap-0.5 cursor-pointer"
+              >
+                Board Room <Play size={10} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              {/* Ritual 1 */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-2 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-slate-800 dark:text-slate-100">Dossiê de Conselho</span>
+                    <span className="text-[8px] px-1.5 py-0.2 bg-emerald-500/10 text-emerald-500 rounded font-bold uppercase">Preparado</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">Última revisão do fechamento operacional e validação de CMV de peças para o board.</p>
+                </div>
+                <button
+                  onClick={() => onSelectTab("apresentacoes")}
+                  className="w-full mt-2 py-1 bg-slate-150 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-[10px] font-extrabold uppercase rounded-lg text-center cursor-pointer transition-colors"
+                >
+                  Ver Slides
+                </button>
+              </div>
+
+              {/* Ritual 2 */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-2 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-slate-800 dark:text-slate-100">Rito Quinzenal</span>
+                    <span className="text-[8px] px-1.5 py-0.2 bg-blue-500/10 text-blue-500 rounded font-bold uppercase">Agendado</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">Comitê de reestruturação tributária monofásica de peças e faturamento de oficina.</p>
+                </div>
+                <button
+                  onClick={() => onSelectTab("modo_reuniao")}
+                  className="w-full mt-2 py-1 bg-blue-550/10 text-blue-500 hover:bg-blue-550/20 text-[10px] font-extrabold uppercase rounded-lg text-center cursor-pointer transition-colors"
+                >
+                  Abrir Ata
+                </button>
+              </div>
+
+              {/* Ritual 3 */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-2 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-slate-800 dark:text-slate-100">Fechamento de Ciclo</span>
+                    <span className="text-[8px] px-1.5 py-0.2 bg-amber-500/10 text-amber-500 rounded font-bold uppercase">Pendente</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">Análise de lacunas fiscais e apuração de comissões finais dos gerentes de filiais.</p>
+                </div>
+                <button
+                  onClick={() => onSelectTab("fechamento_mensal")}
+                  className="w-full mt-2 py-1 bg-amber-550/10 text-amber-500 hover:bg-amber-550/20 text-[10px] font-extrabold uppercase rounded-lg text-center cursor-pointer transition-colors"
+                >
+                  Iniciar Conciliação
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* ────────────────────────────────────────────────────────────────────────
+              6. PRÓXIMAS AÇÕES DO PROJETO
               ──────────────────────────────────────────────────────────────────────── */}
           <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/50">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
                 <CheckSquare size={14} className="text-blue-500" /> Próximas Ações do Projeto
               </h3>
-              <span className="text-[10px] text-slate-400 font-bold font-mono">Cadência Semanal</span>
+              <span className="text-[10px] text-slate-400 font-bold font-mono">Plano Operacional Semanal</span>
             </div>
 
             {/* Form to add action plan item */}
             <form onSubmit={handleAddTask} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Adicionar tarefa operacional ao plano de ação..."
+                placeholder="Adicionar tarefa operacional ao plano executivo..."
                 value={newTaskDesc}
                 onChange={(e) => setNewTaskDesc(e.target.value)}
-                className="flex-1 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-lg text-slate-800 dark:text-slate-105 placeholder-slate-450 focus:outline-none focus:border-blue-500 font-medium"
+                className="flex-1 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-lg text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 font-medium"
                 required
               />
               <input
@@ -701,7 +942,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
                 placeholder="Responsável"
                 value={newTaskResp}
                 onChange={(e) => setNewTaskResp(e.target.value)}
-                className="w-24 sm:w-32 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-lg text-slate-800 dark:text-slate-105 placeholder-slate-450 focus:outline-none focus:border-blue-500 font-medium"
+                className="w-24 sm:w-32 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-lg text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 font-medium"
               />
               <button
                 type="submit"
@@ -714,7 +955,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
             {/* Checklist items */}
             <div className="space-y-2">
               {tasks.length === 0 ? (
-                <p className="py-6 text-center text-xs text-slate-450">Nenhuma tarefa operacional pendente.</p>
+                <p className="py-6 text-center text-xs text-slate-400">Nenhuma tarefa pendente neste caso.</p>
               ) : (
                 tasks.map((task) => {
                   const isCompleted = task.status === "completed";
@@ -729,6 +970,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
                     >
                       <div className="flex items-start gap-2.5 min-w-0 flex-1">
                         <button
+                          type="button"
                           onClick={() => handleToggleTask(task.id)}
                           className={`mt-0.5 w-4.5 h-4.5 rounded border flex items-center justify-center transition-all cursor-pointer ${
                             isCompleted ? "bg-emerald-500 border-emerald-600 text-white" :
@@ -740,11 +982,11 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
                         </button>
                         <div className="min-w-0 flex-1">
                           <p className={`text-xs font-bold leading-normal truncate ${
-                            isCompleted ? "line-through text-slate-450" : "text-slate-800 dark:text-slate-100"
+                            isCompleted ? "line-through text-slate-400" : "text-slate-800 dark:text-slate-100"
                           }`}>
                             {task.description}
                           </p>
-                          <div className="flex items-center gap-2 mt-1 text-[9px] text-slate-450 font-mono">
+                          <div className="flex items-center gap-2 mt-1 text-[9px] text-slate-400 font-mono">
                             <span className="font-extrabold uppercase text-slate-500 flex items-center gap-0.5">
                               <Users size={10} /> {task.responsible}
                             </span>
@@ -779,269 +1021,162 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
           </section>
 
           {/* ────────────────────────────────────────────────────────────────────────
-              6. KPIs ESTRATÉGICOS
+              7. KPIs ESTRATÉGICOS
               ──────────────────────────────────────────────────────────────────────── */}
           <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/50">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                <BarChart3 size={14} className="text-indigo-500" /> KPIs Estratégicos e Metas de Conselho
+                <BarChart3 size={14} className="text-indigo-500" /> KPIs Estratégicos (Metas de Conselho)
               </h3>
               <button 
                 onClick={() => onSelectTab("comercial")}
                 className="text-[10px] text-blue-500 hover:text-blue-600 font-extrabold uppercase flex items-center gap-0.5"
               >
-                Análise Completa <ArrowRight size={10} />
+                Mapeamento Geral <ArrowRight size={10} />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* KPI 1 */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-1">
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Faturamento</p>
-                <p className="text-lg font-extrabold text-slate-850 dark:text-slate-100 font-mono leading-none">{formatCurrency(stats.revenue)}</p>
-                <div className="flex justify-between text-[9px] text-slate-450 font-mono pt-1">
-                  <span>Meta: R$ 4.5M</span>
-                  <span className="text-emerald-500 font-bold">85%</span>
+              <div className="p-3 bg-slate-900 text-white border border-slate-950 rounded-xl space-y-1 shadow-sm">
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Faturamento</p>
+                <p className="text-base font-extrabold font-mono tracking-tight text-white leading-none">{formatCurrency(stats.revenue)}</p>
+                <div className="flex justify-between text-[9px] text-slate-400 font-mono pt-1 border-t border-slate-800 mt-1">
+                  <span>Alvo: R$ 4.5M</span>
+                  <span className="text-emerald-400 font-bold">85%</span>
                 </div>
               </div>
 
               {/* KPI 2 */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-1">
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Margem Bruta</p>
-                <p className="text-lg font-extrabold text-slate-850 dark:text-slate-100 font-mono leading-none">{stats.margin}%</p>
-                <div className="flex justify-between text-[9px] text-slate-450 font-mono pt-1">
-                  <span>Meta: 14.5%</span>
-                  <span className="text-amber-500 font-bold">95%</span>
+              <div className="p-3 bg-slate-900 text-white border border-slate-950 rounded-xl space-y-1 shadow-sm">
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Margem Bruta</p>
+                <p className="text-base font-extrabold font-mono tracking-tight text-white leading-none">{stats.margin}%</p>
+                <div className="flex justify-between text-[9px] text-slate-400 font-mono pt-1 border-t border-slate-800 mt-1">
+                  <span>Alvo: 14.5%</span>
+                  <span className="text-amber-400 font-bold">95%</span>
                 </div>
               </div>
 
               {/* KPI 3 */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-1">
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Overhead Custos</p>
-                <p className="text-lg font-extrabold text-slate-850 dark:text-slate-100 font-mono leading-none">R$ 410k</p>
-                <div className="flex justify-between text-[9px] text-slate-450 font-mono pt-1">
+              <div className="p-3 bg-slate-900 text-white border border-slate-950 rounded-xl space-y-1 shadow-sm">
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Overhead Fixos</p>
+                <p className="text-base font-extrabold font-mono tracking-tight text-white leading-none">R$ 410k</p>
+                <div className="flex justify-between text-[9px] text-slate-400 font-mono pt-1 border-t border-slate-800 mt-1">
                   <span>Teto: R$ 450k</span>
-                  <span className="text-emerald-500 font-bold">Saudável</span>
+                  <span className="text-emerald-400 font-bold">Sob Controle</span>
                 </div>
               </div>
 
               {/* KPI 4 */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-1">
-                <p className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">EBITDA Gerencial</p>
-                <p className="text-lg font-extrabold text-slate-850 dark:text-slate-100 font-mono leading-none">R$ 412k</p>
-                <div className="flex justify-between text-[9px] text-slate-450 font-mono pt-1">
-                  <span>Meta: R$ 380k</span>
-                  <span className="text-emerald-500 font-bold">+8%</span>
+              <div className="p-3 bg-slate-900 text-white border border-slate-950 rounded-xl space-y-1 shadow-sm">
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">EBITDA Gerencial</p>
+                <p className="text-base font-extrabold font-mono tracking-tight text-white leading-none">R$ 412k</p>
+                <div className="flex justify-between text-[9px] text-slate-400 font-mono pt-1 border-t border-slate-800 mt-1">
+                  <span>Alvo: R$ 380k</span>
+                  <span className="text-emerald-400 font-bold">+8%</span>
                 </div>
               </div>
-
             </div>
           </section>
 
           {/* ────────────────────────────────────────────────────────────────────────
-              7. WORKSPACE TIMELINE
+              8. HISTÓRICO EXECUTIVO (Timeline de Progresso da Consultoria)
               ──────────────────────────────────────────────────────────────────────── */}
           <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
             <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/50">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                <Calendar size={14} className="text-indigo-500" /> Trilha Cronológica de Resultados (Timeline)
+                <Calendar size={14} className="text-indigo-500" /> Histórico Executivo de Avanços
               </h3>
-              <span className="text-[10px] text-slate-400 font-bold font-mono">Ciclo Operacional Semestre/2026</span>
+              <span className="text-[10px] text-slate-400 font-bold font-mono">Evolução do Caso</span>
             </div>
 
-            {/* Horizontal timeline */}
-            <div className="relative pt-2 pb-4 overflow-x-auto whitespace-nowrap custom-scrollbar flex items-center gap-1 justify-between min-w-full">
-              <div className="absolute top-8 left-0 right-0 h-1 bg-slate-150 dark:bg-slate-800 -z-10" />
-
-              {/* Jan */}
-              <div className="text-center px-4 relative flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold font-mono text-xs border border-blue-500/20">01</div>
-                <p className="text-[10px] font-extrabold text-slate-800 dark:text-slate-200 mt-2">Janeiro</p>
-                <span className="text-[8px] font-mono text-slate-400">Setup Geral</span>
+            <div className="space-y-4 relative pl-4 border-l border-slate-200 dark:border-slate-800 ml-1.5 py-1 text-xs">
+              <div className="relative">
+                <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
+                <p className="font-bold text-slate-800 dark:text-slate-200">Roteiro Contábil e CMV Homologado</p>
+                <p className="text-[9px] text-slate-400 font-mono">20/Jun/2026 — Rito de CMV fechado com sucesso</p>
               </div>
 
-              {/* Feb */}
-              <div className="text-center px-4 relative flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold font-mono text-xs border border-blue-500/20">02</div>
-                <p className="text-[10px] font-extrabold text-slate-800 dark:text-slate-200 mt-2">Fevereiro</p>
-                <span className="text-[8px] font-mono text-slate-400">Auditoria</span>
+              <div className="relative">
+                <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900" />
+                <p className="font-bold text-slate-800 dark:text-slate-200">Diagnóstico de Vazamentos de Caixa</p>
+                <p className="text-[9px] text-slate-400 font-mono">15/Jun/2026 — Identificados pontos de CMV alto em peças Nissan</p>
               </div>
 
-              {/* Mar */}
-              <div className="text-center px-4 relative flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold font-mono text-xs border border-blue-500/20">03</div>
-                <p className="text-[10px] font-extrabold text-slate-800 dark:text-slate-200 mt-2">Março</p>
-                <span className="text-[8px] font-mono text-slate-400">DRE Inicial</span>
+              <div className="relative">
+                <div className="absolute -left-6 top-1 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900" />
+                <p className="font-bold text-slate-800 dark:text-slate-200">Setup de Alinhamento Estratégico</p>
+                <p className="text-[9px] text-slate-400 font-mono">01/Jun/2026 — Integração e criação do caso no Sauron OS</p>
               </div>
-
-              {/* Apr */}
-              <div className="text-center px-4 relative flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold font-mono text-xs border border-blue-500/20">04</div>
-                <p className="text-[10px] font-extrabold text-slate-800 dark:text-slate-200 mt-2">Abril</p>
-                <span className="text-[8px] font-mono text-slate-400">CMV Otimizado</span>
-              </div>
-
-              {/* May */}
-              <div className="text-center px-4 relative flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold font-mono text-xs shadow-md shadow-emerald-500/20">05</div>
-                <p className="text-[10px] font-extrabold text-slate-800 dark:text-slate-200 mt-2">Maio</p>
-                <span className="text-[8px] font-mono text-emerald-500 font-bold">Meta Batida</span>
-              </div>
-
-              {/* Jun */}
-              <div className="text-center px-4 relative flex flex-col items-center">
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold font-mono text-xs animate-pulse shadow-md shadow-blue-500/30">06</div>
-                <p className="text-[10px] font-extrabold text-blue-500 mt-2">Junho</p>
-                <span className="text-[8px] font-mono text-blue-400 font-bold">Consolidando</span>
-              </div>
-
             </div>
           </section>
 
         </div>
 
-        {/* Right Column (Status dos Dados, Reuniões, Plano de Ação Status) */}
+        {/* Right Column (Ancillary panels) */}
         <div className="space-y-6">
 
           {/* ────────────────────────────────────────────────────────────────────────
-              8. STATUS DOS DADOS
+              9. STATUS DOS DADOS
               ──────────────────────────────────────────────────────────────────────── */}
           <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
             <div className="pb-2 border-b border-slate-100 dark:border-slate-800/50 flex justify-between items-center">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                <Database size={14} className="text-blue-500" /> Status da Conexão e Ingestão
+                <Database size={14} className="text-blue-500" /> Status da Governança e Dados
               </h3>
-              <button 
-                onClick={() => onSelectTab("importacao")}
-                className="text-[10px] text-blue-500 hover:text-blue-600 font-extrabold uppercase flex items-center gap-0.5"
-              >
-                Conectar <ExternalLink size={10} />
-              </button>
             </div>
 
             <div className="space-y-2.5">
-              
-              {/* Micro card 1 */}
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between">
+              {/* Database */}
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <Database size={14} className="text-emerald-500" />
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Banco de Dados Cloud</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Banco de Dados Relacional</span>
                 </div>
                 <span className="text-[8px] font-mono font-black uppercase px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-full">
-                  Ativo
+                  Conectado
                 </span>
               </div>
 
-              {/* Micro card 2 */}
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between">
+              {/* Spreadsheets */}
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <FileText size={14} className="text-emerald-500" />
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Planilhas Financeiras</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Planilhas Financeiras</span>
                 </div>
                 <span className="text-[8px] font-mono font-black uppercase px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded-full">
-                  3 Abas
+                  Ativas
                 </span>
               </div>
 
-              {/* Micro card 3 */}
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between">
+              {/* VPN Gateway */}
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <ShieldCheck size={14} className="text-blue-500" />
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">VPN Gateway Corporativo</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Criptografia VPN</span>
                 </div>
                 <span className="text-[8px] font-mono font-black uppercase px-2 py-0.5 bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 rounded-full">
-                  Seguro
+                  Segura
                 </span>
               </div>
-
-              {/* Micro card 4 */}
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity size={14} className="text-indigo-500 animate-pulse" />
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">APIs Ingestão Externa</span>
-                </div>
-                <span className="text-[8px] font-mono font-black uppercase px-2 py-0.5 bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 rounded-full">
-                  Online
-                </span>
-              </div>
-
             </div>
           </section>
 
           {/* ────────────────────────────────────────────────────────────────────────
-              9. REUNIÕES (Ritual Center)
+              10. PLANO EXECUTIVO (Progresso Global)
               ──────────────────────────────────────────────────────────────────────── */}
           <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
             <div className="pb-2 border-b border-slate-100 dark:border-slate-800/50 flex justify-between items-center">
               <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                <MonitorPlay size={14} className="text-indigo-500" /> Cadência de Rituais Executivos
-              </h3>
-              <button 
-                onClick={() => onSelectTab("modo_reuniao")}
-                className="text-[10px] text-indigo-500 hover:text-indigo-600 font-extrabold uppercase flex items-center gap-0.5"
-              >
-                Board Room <Play size={10} />
-              </button>
-            </div>
-
-            <div className="space-y-3.5">
-              
-              {/* Ritual 1 */}
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">Conselho Executivo de Resultados</span>
-                  <span className="text-[9px] px-1.5 py-0.2 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 rounded font-semibold font-mono">Q3/2026</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-450 font-medium">
-                  <span>Próxima: 10/Jul/2026</span>
-                  <span className="text-amber-500 font-extrabold">A preparar</span>
-                </div>
-              </div>
-
-              {/* Ritual 2 */}
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">Comitê Financeiro Geral</span>
-                  <span className="text-[9px] px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 rounded font-semibold font-mono">Quinzenal</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-450 font-medium">
-                  <span>Próxima: 15/Jul/2026</span>
-                  <span className="text-emerald-500 font-extrabold">Agendada</span>
-                </div>
-              </div>
-
-              {/* Ritual 3 */}
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">Reunião Mensal de Alinhamento</span>
-                  <span className="text-[9px] px-1.5 py-0.2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded font-semibold font-mono">Mensal</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-450 font-medium">
-                  <span>Última: 26/Jun/2026</span>
-                  <span className="text-slate-400 font-extrabold">Concluída</span>
-                </div>
-              </div>
-
-            </div>
-          </section>
-
-          {/* ────────────────────────────────────────────────────────────────────────
-              10. PLANO DE AÇÃO (Kanban/Progress Status)
-              ──────────────────────────────────────────────────────────────────────── */}
-          <section className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
-            <div className="pb-2 border-b border-slate-100 dark:border-slate-800/50 flex justify-between items-center">
-              <h3 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-2">
-                <CheckSquare2 size={14} className="text-emerald-500" /> Evolução de Planos Operacionais
+                <CheckSquare2 size={14} className="text-emerald-500" /> Evolução do Plano Executivo
               </h3>
             </div>
 
-            <div className="space-y-3.5">
-              
-              {/* Plan progress 1 */}
+            <div className="space-y-3.5 text-xs">
+              {/* Progress 1 */}
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-extrabold text-slate-800 dark:text-slate-200">Revisão de CMV (Peças e Oficina)</span>
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-slate-800 dark:text-slate-200">Revisão CMV (Oficina e Peças)</span>
                   <span className="font-bold text-slate-500 font-mono text-[10px]">75%</span>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
@@ -1049,28 +1184,27 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
                 </div>
               </div>
 
-              {/* Plan progress 2 */}
+              {/* Progress 2 */}
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-extrabold text-slate-800 dark:text-slate-200">Renegociação de Fornecedores</span>
-                  <span className="font-bold text-slate-500 font-mono text-[10px]">40%</span>
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-slate-800 dark:text-slate-200">Redução de CMV Lubrificantes</span>
+                  <span className="font-bold text-slate-500 font-mono text-[10px]">10%</span>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: "40%" }} />
+                  <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: "10%" }} />
                 </div>
               </div>
 
-              {/* Plan progress 3 */}
+              {/* Progress 3 */}
               <div className="space-y-1.5">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-extrabold text-slate-800 dark:text-slate-200">Precificação de Veículos</span>
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold text-slate-800 dark:text-slate-200">Reenquadramento Fical Monofásico</span>
                   <span className="font-bold text-slate-500 font-mono text-[10px]">100%</span>
                 </div>
                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                   <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: "100%" }} />
                 </div>
               </div>
-
             </div>
           </section>
 

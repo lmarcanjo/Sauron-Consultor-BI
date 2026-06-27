@@ -58,6 +58,7 @@ import { TraceabilityPanel } from "./components/TraceabilityPanel";
 import { StreamlitExporter } from "./components/StreamlitExporter";
 import { DatabaseConnector } from "./components/DatabaseConnector";
 import { DynamicFilterDrawer } from "./components/DynamicFilterDrawer";
+import { CentralDadosDrawer } from "./components/CentralDadosDrawer";
 
 // Modular Sector Components
 import { ContabilTab } from "./components/ContabilTab";
@@ -131,6 +132,7 @@ export default function App() {
 
   const [camposAusentes, setCamposAusentes] = useState<string[]>([]);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
+  const [isCentralDadosOpen, setIsCentralDadosOpen] = useState<boolean>(false);
   const [visibleFilters, setVisibleFilters] = useState<string[]>(["grupos", "cnpjs", "marcas", "meses", "razoes"]);
   const [spreadsheetMetadata, setSpreadsheetMetadata] = useState<{
     fileName: string;
@@ -1451,111 +1453,40 @@ export default function App() {
             </div>
 
             <div className="flex gap-2 items-center w-full lg:w-auto overflow-x-auto hide-scrollbar pb-1">
-              {/* Segment Selector Dropdown */}
-              <select
-                value={activeIndustryTemplateId}
-                onChange={(e) => setActiveIndustryTemplateId(e.target.value)}
-                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded text-[11px] font-bold px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 h-8 uppercase tracking-wide shrink-0"
-              >
-                {availableTemplates.map(template => (
-                  <option key={template.id} value={template.id}>
-                    SEGMENTO: {template.name}
-                  </option>
-                ))}
-              </select>
+              {/* Hidden file input for spreadsheet loader */}
+              <input
+                type="file"
+                multiple
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                accept=".csv, .xlsx, .xls"
+                className="hidden"
+              />
 
-              {(currentUser?.role === "consultor" || currentUser?.role === "diretor") && (
-                <>
-                  <input
-                    type="file"
-                    multiple
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept=".csv, .xlsx, .xls"
-                    className="hidden"
-                  />
-                  <button
-                    onClick={triggerFileSelect}
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-900 text-slate-705 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-805 rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0"
-                  >
-                    <Upload size={11} className="text-slate-500 shrink-0" />
-                    <span className="hidden sm:inline">Importar Planilhas</span>
-                  </button>
-                </>
-              )}
-
-              {/* Toggle Empresas Reais vs Fictícias */}
-              {activeDataSource === "DEMO_DATA" ? (
-                <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded p-0.5 select-none shrink-0 items-center">
-                  <button
-                    type="button"
-                    onClick={() => handleVisualizacaoChange("ficticias")}
-                    className={`flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
-                      visualizacaoEmpresas === "ficticias"
-                        ? "bg-amber-500 text-white shadow-md font-black"
-                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                    }`}
-                    title="Modo Demonstração: Marcas e dados fictícios gerados pelo Sauron"
-                  >
-                    <div className={`w-1.5 h-1.5 rounded-full ${visualizacaoEmpresas === "ficticias" ? "bg-white animate-pulse" : "bg-amber-500"}`} />
-                    <span className="hidden md:inline">Modo Demonstração</span>
-                    <span className="md:hidden">Mock</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleVisualizacaoChange("reais")}
-                    className={`flex items-center justify-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 font-bold text-[10px] uppercase rounded transition-all cursor-pointer h-7 ${
-                      visualizacaoEmpresas === "reais"
-                        ? "bg-emerald-600 text-white shadow-md font-black"
-                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                    }`}
-                    title="Modo Dados Reais: Registros reais vindos de conexões ativas ou planilhas importadas"
-                  >
-                    <div className={`w-1.5 h-1.5 rounded-full ${visualizacaoEmpresas === "reais" ? "bg-white animate-ping" : "bg-emerald-500"}`} />
-                    <span className="hidden md:inline">Dados Reais</span>
-                    <span className="md:hidden">Reais</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-slate-900 border border-blue-200 dark:border-slate-800 rounded text-[10px] text-blue-700 dark:text-blue-400 font-extrabold uppercase select-none shrink-0 h-8">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                  </span>
-                  <span>
-                    {activeDataSource === "SPREADSHEET_DATA" ? "Planilha Ativa (Real)" : activeDataSource === "DATABASE_DATA" ? "Banco Ativo (Real)" : "Cenário Consultor"}
-                  </span>
-                </div>
-              )}
-
-              {/* Live Database Synchronizer Actions */}
+              {/* Discrete Central de Dados button */}
               <button
-                onClick={handleSyncDatabaseData}
-                disabled={isSyncing}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0 shadow-sm"
-                title="Atualiza imediatamente as informações conectando ao banco de dados configurado"
+                onClick={() => setIsCentralDadosOpen(true)}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] uppercase tracking-wide font-black cursor-pointer h-8 shrink-0 shadow-xs"
+                title="Configurações de banco de dados, planilhas, VPN, segmentos e APIs"
               >
-                <RefreshCw size={12} className={`${isSyncing ? "animate-spin" : ""}`} />
-                <span className="hidden md:inline">Sincronizar Banco</span>
+                <Database size={11} className="text-blue-500 shrink-0" />
+                <span>Central de Dados</span>
               </button>
 
+              {/* Discrete Filtros Ativos button */}
               <button
-                onClick={handleTriggerAnalysis}
-                disabled={aiLoading}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-all rounded text-[10px] uppercase tracking-wide font-extrabold cursor-pointer h-8 shrink-0 shadow-sm"
+                onClick={() => setIsFilterDrawerOpen(true)}
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] uppercase tracking-wide font-black cursor-pointer h-8 shrink-0 shadow-xs"
+                title="Abrir painel lateral de filtragem dinâmica"
               >
-                {aiLoading ? (
-                  <RefreshCw size={12} className="animate-spin" />
-                ) : (
-                  <Sparkles size={12} />
-                )}
-                <span className="hidden sm:inline">Reanalisar com IA</span>
+                <Sliders size={11} className="text-indigo-500 shrink-0" />
+                <span>Filtros ativos ({Object.keys(filtros).reduce((acc,k)=>filtros[k as keyof FiltrosDashboard]?acc+1:acc,0)})</span>
               </button>
 
               {/* Dark Mode Theme Selector */}
               <button
                 onClick={() => setDarkMode(!darkMode)}
-                className="flex items-center justify-center gap-1 px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 rounded text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-[10px] uppercase font-extrabold tracking-wide h-8 shrink-0"
+                className="flex items-center justify-center gap-1 px-2.5 py-1.5 border border-slate-200 dark:border-slate-800 rounded text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-[10px] uppercase font-extrabold tracking-wide h-8 shrink-0 shadow-xs"
                 title={darkMode ? "Ativar Modo Claro" : "Ativar Modo Escuro"}
               >
                 {darkMode ? (
@@ -1583,7 +1514,7 @@ export default function App() {
                     title="Sair da sessão"
                   >
                     <Lock size={10} className="sm:mr-0.5" />
-                    <span className="hidden sm:inline">Sair</span>
+                    <span className="hidden sm:inline ml-0.5">Sair</span>
                   </button>
                 </div>
               )}
@@ -2121,6 +2052,23 @@ export default function App() {
         onChangeVisibleFilters={setVisibleFilters}
         activeDataSource={activeDataSource}
         actualKeys={actualKeys}
+      />
+
+      <CentralDadosDrawer
+        isOpen={isCentralDadosOpen}
+        onClose={() => setIsCentralDadosOpen(false)}
+        activeIndustryTemplateId={activeIndustryTemplateId}
+        onChangeIndustryTemplateId={setActiveIndustryTemplateId}
+        availableTemplates={availableTemplates}
+        activeDataSource={activeDataSource}
+        onChangeActiveDataSource={handleVisualizacaoChange}
+        onTriggerFileSelect={triggerFileSelect}
+        nomeFonte={nomeFonte}
+        isSyncing={isSyncing}
+        onSyncDatabase={handleSyncDatabaseData}
+        isVpnSimulated={isVpnSimulated}
+        spreadsheetMetadata={spreadsheetMetadata}
+        currentUser={currentUser}
       />
 
       <LgpdConsent />
