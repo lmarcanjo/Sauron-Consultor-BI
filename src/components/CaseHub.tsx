@@ -647,7 +647,18 @@ export const CaseHub: React.FC<CaseHubProps> = ({
 
           {/* TAB: Reuniões */}
           {activeTabId === "reunioes" && (
-            <MeetingModePage onExit={() => setActiveTabId("resumo")} />
+            <MeetingModePage 
+              onExit={() => setActiveTabId("resumo")} 
+              activeProject={activeProject}
+              onUpdateProject={async (updatedProj) => {
+                await consultantWorkspaceManager.updateProject(updatedProj);
+                setActiveProject(updatedProj);
+                setProjects(prev => prev.map(p => p.id === updatedProj.id ? updatedProj : p));
+              }}
+              filteredData={filteredData}
+              formatCurrency={formatCurrency}
+              widgetContext={widgetContext}
+            />
           )}
 
           {/* TAB: Planos Táticos */}

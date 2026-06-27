@@ -88,6 +88,15 @@ class SearchEngine {
             contextEntity: { id: "case_alpha", type: "case", name: "Grupo Comercial Alpha" }
           },
           { 
+            id: "proj_topazio", 
+            title: "Grupo Topázio", 
+            subtitle: "Holding de calçados e confecção", 
+            category: "Caso", 
+            targetTab: "executive_workspace",
+            requiredPermission: "workspace.view",
+            contextEntity: { id: "case_topazio", type: "case", name: "Grupo Topázio" }
+          },
+          { 
             id: "c_1", 
             title: "Alpha Nissan", 
             subtitle: "Concessionária Nissan do Grupo Alpha (Feira de Santana)", 
