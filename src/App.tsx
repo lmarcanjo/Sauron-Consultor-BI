@@ -92,6 +92,7 @@ import { DashboardPage } from "./components/pages/DashboardPage";
 import { ReportsPage } from "./components/pages/ReportsPage";
 import { ExecutiveWorkspace } from "./components/ExecutiveWorkspace";
 import { CommandPalette } from "./components/CommandPalette";
+import { SDLStudio } from "./components/SDLStudio";
 
 import { AppSidebar } from "./components/AppSidebar";
 import { availableTemplates } from "./utils/industryTemplates";
@@ -1655,7 +1656,7 @@ export default function App() {
               )}
 
            {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
-          {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 && !["vpn_gateway", "central_dados", "importacao", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin"].includes(activeTab) ? (
+          {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 && !["vpn_gateway", "central_dados", "importacao", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio"].includes(activeTab) ? (
             <div id="real-data-empty-state" className="bg-amber-50/70 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-900 rounded-xl p-8 text-center space-y-4 shadow-sm animate-fade-in mt-2 flex flex-col items-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
                 <Database size={22} className="animate-spin" style={{ animationDuration: '3s' }} />
@@ -1682,7 +1683,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-          ) : activeDataSource !== "DEMO_DATA" && !dataSourceManager.isApproved() && !["importacao", "vpn_gateway", "central_dados", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin"].includes(activeTab) ? (
+          ) : activeDataSource !== "DEMO_DATA" && !dataSourceManager.isApproved() && !["importacao", "vpn_gateway", "central_dados", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio"].includes(activeTab) ? (
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 max-w-xl mx-auto my-12 text-center shadow-md space-y-6 animate-fadeIn">
               <div className="mx-auto w-16 h-16 bg-amber-50 dark:bg-amber-950/30 text-amber-500 rounded-full flex items-center justify-center border border-amber-200 dark:border-amber-900">
                 <ShieldAlert size={32} className="animate-pulse text-amber-500" />
@@ -1717,6 +1718,10 @@ export default function App() {
             </div>
           ) : (
             <>
+              {activeTab === "sdl_studio" && (
+                <SDLStudio onExit={() => setActiveTab("executive_workspace")} />
+              )}
+
               {activeTab === "dre_inteligente" && (
             <IntelligentDRETab
               filteredData={filteredData}

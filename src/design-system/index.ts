@@ -4,6 +4,13 @@
  */
 
 import React from "react";
+import { tokens } from "./tokens";
+import { ThemeEngine } from "./theme/ThemeEngine";
+import { ThemeProvider, useSauronTheme } from "./theme/ThemeProvider";
+import { MotionEngine } from "./motion/MotionEngine";
+
+// Export sub-engines for external usage
+export { tokens, ThemeEngine, ThemeProvider, useSauronTheme, MotionEngine };
 
 // ────────────────────────────────────────────────────────────────────────
 // DESIGN SYSTEM TOKENS & INTERACTIVE LAYERS (Sauron DS)

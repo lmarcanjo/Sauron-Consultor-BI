@@ -173,7 +173,8 @@ export const AppSidebar: React.FC<SidebarProps> = ({
             { title: "Sessões", id: "executive_workspace", tab: "reunioes", icon: MonitorPlay },
             { title: "Planos", id: "executive_workspace", tab: "planos", icon: CheckSquare },
             { title: "Pessoas", id: "executive_workspace", tab: "pessoas", icon: Users },
-            { title: "Administração", id: "perfis", tab: null, icon: Settings }
+            { title: "Administração", id: "perfis", tab: null, icon: Settings },
+            ...(userRole === "Super Admin" ? [{ title: "SDL Studio", id: "sdl_studio", tab: null, icon: Layers }] : [])
           ].map((item, idx) => {
             const isItemActive = () => {
               if (item.id === "executive_workspace" && activePage === "executive_workspace") {
