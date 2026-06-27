@@ -29,14 +29,16 @@ export const AppSidebar: React.FC<SidebarProps> = ({
 }) => {
   const isAutomotive = activeIndustryTemplateId === "automotive";
 
-  // Accordion states for the 7 premium flow groups
+  // Accordion states for the 9 premium flow groups
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    centro_comando: true,
     conhecer_cliente: true,
-    conectar_dados: true,
-    entender_negocio: true,
-    preparar_reuniao: false,
-    conduzir_reuniao: false,
+    conectar_dados: false,
+    diagnosticar_negocio: false,
+    preparar_decisao: false,
+    conduzir_sessao: false,
     executar_plano: false,
+    evoluir_resultado: false,
     administracao: false
   });
 
@@ -55,19 +57,19 @@ export const AppSidebar: React.FC<SidebarProps> = ({
     if (isAdmin) return true;
     
     if (role === "Client Director" || role === "Controller") {
-      return ["conhecer_cliente", "entender_negocio", "preparar_reuniao", "conduzir_reuniao", "executar_plano"].includes(groupKey);
+      return ["centro_comando", "conhecer_cliente", "diagnosticar_negocio", "preparar_decisao", "conduzir_sessao", "executar_plano", "evoluir_resultado"].includes(groupKey);
     }
     if (role === "Client Manager") {
-      return ["entender_negocio", "conduzir_reuniao", "executar_plano"].includes(groupKey);
+      return ["centro_comando", "diagnosticar_negocio", "conduzir_sessao", "executar_plano", "evoluir_resultado"].includes(groupKey);
     }
     if (role === "Financial User") {
-      return ["entender_negocio", "conduzir_reuniao"].includes(groupKey);
+      return ["centro_comando", "diagnosticar_negocio", "conduzir_sessao", "evoluir_resultado"].includes(groupKey);
     }
     if (role === "Auditor") {
-      return ["conhecer_cliente", "conectar_dados", "entender_negocio", "administracao"].includes(groupKey);
+      return ["centro_comando", "conhecer_cliente", "conectar_dados", "diagnosticar_negocio", "evoluir_resultado", "administracao"].includes(groupKey);
     }
     if (role === "Guest" || role === "Viewer") {
-      return ["entender_negocio"].includes(groupKey);
+      return ["centro_comando", "diagnosticar_negocio"].includes(groupKey);
     }
     return true;
   };
@@ -82,137 +84,49 @@ export const AppSidebar: React.FC<SidebarProps> = ({
     // Auditor has read-only access to specific sub-items
     if (role === "Auditor") {
       if (groupKey === "conhecer_cliente") return ["digital_twin", "area_consultor"].includes(subId);
-      if (groupKey === "conectar_dados") return ["importacao", "etl", "validacao"].includes(subId);
-      if (groupKey === "entender_negocio") return ["executive_workspace", "resumo", "dre_inteligente", "obstaculos"].includes(subId);
-      if (groupKey === "administracao") return ["auditoria", "lgpd"].includes(subId);
+      if (groupKey === "conectar_dados") return ["importacao", "banco_connector", "vpn_gateway"].includes(subId);
+      if (groupKey === "diagnosticar_negocio") return ["resumo", "dre_inteligente", "obstaculos"].includes(subId);
+      if (groupKey === "evoluir_resultado") return ["historico_executivo", "resultados_consolidados"].includes(subId);
+      if (groupKey === "administracao") return ["auditoria_logs", "admin_lgpd"].includes(subId);
       return false;
     }
 
     if (role === "Client Director" || role === "Controller") {
       if (groupKey === "conhecer_cliente") return ["digital_twin", "area_consultor"].includes(subId);
-      if (groupKey === "entender_negocio") return ["executive_workspace", "resumo", "dre_inteligente", "obstaculos", "modelo_consultivo"].includes(subId);
-      if (groupKey === "preparar_reuniao") return ["apresentacoes", "templates", "consultor_ia"].includes(subId);
-      if (groupKey === "conduzir_reuniao") return true;
+      if (groupKey === "diagnosticar_negocio") return ["resumo", "dre_inteligente", "obstaculos", "modelo_consultivo", "comercial", "financeiro", "relatorios"].includes(subId);
+      if (groupKey === "preparar_decisao") return ["apresentacoes", "apresentacoes_templates", "consultor_ia_decision"].includes(subId);
+      if (groupKey === "conduzir_sessao") return true;
       if (groupKey === "executar_plano") return true;
+      if (groupKey === "evoluir_resultado") return true;
       return false;
     }
 
     if (role === "Client Manager") {
-      if (groupKey === "entender_negocio") return ["executive_workspace", "resumo", "obstaculos"].includes(subId);
-      if (groupKey === "conduzir_reuniao") return ["modo_reuniao", "decisoes"].includes(subId);
-      if (groupKey === "executar_plano") return ["area_consultor", "prazos", "pendencias"].includes(subId);
+      if (groupKey === "diagnosticar_negocio") return ["resumo", "obstaculos", "comercial"].includes(subId);
+      if (groupKey === "conduzir_sessao") return ["modo_reuniao", "reuniao_decisoes"].includes(subId);
+      if (groupKey === "executar_plano") return ["plano_executivo", "plano_prazos", "plano_pendencias"].includes(subId);
+      if (groupKey === "evoluir_resultado") return ["resultados_consolidados", "comissoes"].includes(subId);
       return false;
     }
 
     if (role === "Financial User") {
-      if (groupKey === "entender_negocio") return ["executive_workspace", "resumo", "dre_inteligente"].includes(subId);
-      if (groupKey === "conduzir_reuniao") return ["modo_reuniao"].includes(subId);
+      if (groupKey === "diagnosticar_negocio") return ["resumo", "dre_inteligente", "financeiro"].includes(subId);
+      if (groupKey === "conduzir_sessao") return ["modo_reuniao"].includes(subId);
+      if (groupKey === "evoluir_resultado") return ["fechamento_mensal", "comissoes"].includes(subId);
       return false;
     }
 
     if (role === "Guest" || role === "Viewer") {
-      if (groupKey === "entender_negocio") return ["executive_workspace"].includes(subId);
+      if (groupKey === "centro_comando") return ["executive_workspace"].includes(subId);
+      if (groupKey === "diagnosticar_negocio") return ["resumo"].includes(subId);
       return false;
     }
 
     return true;
   };
 
-  // Structured menu matching the 7 flows of consulting
-  const consultingFlowStructure = [
-    {
-      groupKey: "conhecer_cliente",
-      title: "1. Conhecer Cliente",
-      icon: Users,
-      subItems: [
-        { title: "Digital Twin", id: "digital_twin", icon: Network },
-        { title: "Organização", id: "organizacao_twin", icon: ShieldCheck },
-        { title: "Usuários", id: "usuarios_twin", icon: Users },
-        { title: "Permissões", id: "permissoes_twin", icon: Key },
-        { title: "Projetos", id: "area_consultor", icon: FolderOpen }
-      ]
-    },
-    {
-      groupKey: "conectar_dados",
-      title: "2. Conectar Dados",
-      icon: Database,
-      subItems: [
-        { title: "Planilhas", id: "importacao", icon: FileText },
-        { title: "Banco", id: "banco_connector", icon: Database },
-        { title: "VPN Gateway", id: "vpn_gateway", icon: ShieldAlert },
-        { title: "APIs Feed", id: "apis_feed", icon: Activity },
-        { title: "Pipeline ETL", id: "etl_pipeline", icon: Layers },
-        { title: "Validação de Dados", id: "validacao_dados", icon: CheckCircle2 }
-      ]
-    },
-    {
-      groupKey: "entender_negocio",
-      title: "3. Entender o Negócio",
-      icon: BarChart3,
-      subItems: [
-        { title: "Centro de Comando", id: "executive_workspace", icon: Briefcase },
-        { title: "Análise Comercial", id: "comercial", icon: BarChart3 },
-        { title: "DRE Inteligente", id: "dre_inteligente", icon: Calculator },
-        { title: "Fechamento Mensal", id: "fechamento_mensal", icon: Calculator },
-        { title: "Diagnóstico Obstáculos", id: "obstaculos", icon: Target },
-        { title: "Performance Vendedores", id: "vendedores", icon: Users },
-        { title: "Benchmarks Industriais", id: "modelo_consultivo", icon: Award },
-        ...(isAutomotive ? [
-          { title: "Pós-Vendas (Oficina)", id: "posvendas", icon: Target },
-          { title: "Peças & Acessórios", id: "pecas", icon: Target },
-          { title: "Gestão de Estoque", id: "estoque", icon: Target }
-        ] : []),
-        { title: "Financeiro & Tesouraria", id: "financeiro", icon: Calculator }
-      ]
-    },
-    {
-      groupKey: "preparar_reuniao",
-      title: "4. Preparar Reunião",
-      icon: Presentation,
-      subItems: [
-        { title: "Story Builder", id: "apresentacoes", icon: Presentation },
-        { title: "Deck de Apresentações", id: "apresentacoes_deck", icon: Presentation },
-        { title: "Templates de Slides", id: "apresentacoes_templates", icon: Presentation },
-        { title: "Insights selecionados", id: "consultor_ia", icon: BrainCircuit }
-      ]
-    },
-    {
-      groupKey: "conduzir_reuniao",
-      title: "5. Conduzir Reunião",
-      icon: MonitorPlay,
-      subItems: [
-        { title: "Meeting Mode", id: "modo_reuniao", icon: MonitorPlay },
-        { title: "Ata da Reunião", id: "reuniao_ata", icon: ClipboardList },
-        { title: "Decisões do Conselho", id: "reuniao_decisoes", icon: CheckCircle2 },
-        { title: "Perguntas de Negócio", id: "reuniao_perguntas", icon: HelpCircle },
-        { title: "Notas e Transcrições", id: "reuniao_notas", icon: FileText }
-      ]
-    },
-    {
-      groupKey: "executar_plano",
-      title: "6. Executar Plano",
-      icon: CheckSquare,
-      subItems: [
-        { title: "Planos de Ação", id: "area_consultor", icon: CheckSquare },
-        { title: "Responsáveis", id: "plano_responsaveis", icon: Users },
-        { title: "Prazos e Metas", id: "plano_prazos", icon: History },
-        { title: "Follow-up Semanal", id: "plano_followup", icon: Activity },
-        { title: "Pendências de Caixa", id: "plano_pendencias", icon: ShieldAlert }
-      ]
-    },
-    {
-      groupKey: "administracao",
-      title: "7. Administração",
-      icon: Settings,
-      subItems: [
-        { title: "Configurações Perfis", id: "perfis", icon: Settings },
-        { title: "Trilha de Auditoria", id: "auditoria_logs", icon: History },
-        { title: "Feature Flags", id: "admin_flags", icon: Shield },
-        { title: "Segurança de Acessos", id: "admin_security", icon: Lock },
-        { title: "LGPD Compliance", id: "admin_lgpd", icon: ShieldCheck }
-      ]
-    }
-  ];
+  // Structured menu matching the 9 flows of consulting
+  const consultingFlowStructure = getConsultingFlowStructure(isAutomotive);
 
   return (
     <>
@@ -287,25 +201,36 @@ export const AppSidebar: React.FC<SidebarProps> = ({
                     {visibleSubItems.map((sub) => {
                       const isItemActive = activePage === sub.id || 
                         (sub.id === "apresentacoes_deck" && activePage === "apresentacoes") ||
+                        (sub.id === "narrativa_executiva" && activePage === "apresentacoes") ||
+                        (sub.id === "story_builder" && activePage === "apresentacoes") ||
                         (sub.id === "apresentacoes_templates" && activePage === "apresentacoes") ||
+                        (sub.id === "consultor_ia_decision" && activePage === "consultor_ia") ||
                         (sub.id === "banco_connector" && activePage === "importacao") ||
                         (sub.id === "etl_pipeline" && activePage === "importacao") ||
+                        (sub.id === "sincronizacao" && activePage === "importacao") ||
+                        (sub.id === "fonte_ativa" && activePage === "importacao") ||
                         (sub.id === "validacao_dados" && activePage === "importacao") ||
                         (sub.id === "apis_feed" && activePage === "importacao") ||
                         (sub.id === "reuniao_ata" && activePage === "modo_reuniao") ||
                         (sub.id === "reuniao_decisoes" && activePage === "modo_reuniao") ||
                         (sub.id === "reuniao_perguntas" && activePage === "modo_reuniao") ||
                         (sub.id === "reuniao_notas" && activePage === "modo_reuniao") ||
+                        (sub.id === "plano_executivo" && activePage === "area_consultor") ||
                         (sub.id === "plano_responsaveis" && activePage === "area_consultor") ||
                         (sub.id === "plano_prazos" && activePage === "area_consultor") ||
                         (sub.id === "plano_followup" && activePage === "area_consultor") ||
                         (sub.id === "plano_pendencias" && activePage === "area_consultor") ||
+                        (sub.id === "historico_executivo" && activePage === "relatorios") ||
+                        (sub.id === "resultados_consolidados" && activePage === "resumo") ||
+                        (sub.id === "comparativos_mensais" && activePage === "resumo") ||
                         (sub.id === "auditoria_logs" && activePage === "perfis") ||
                         (sub.id === "admin_flags" && activePage === "perfis") ||
                         (sub.id === "admin_security" && activePage === "perfis") ||
                         (sub.id === "admin_lgpd" && activePage === "perfis") ||
                         (sub.id === "usuarios_twin" && activePage === "perfis") ||
                         (sub.id === "permissoes_twin" && activePage === "perfis") ||
+                        (sub.id === "admin_invites" && activePage === "perfis") ||
+                        (sub.id === "admin_shares" && activePage === "perfis") ||
                         (sub.id === "organizacao_twin" && activePage === "perfis");
 
                       return (
@@ -366,3 +291,122 @@ export const AppSidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+
+// Structured menu matching the 9 flows of consulting
+export const getConsultingFlowStructure = (isAutomotive: boolean) => [
+  {
+    groupKey: "centro_comando",
+    title: "Centro de Comando",
+    icon: Briefcase,
+    subItems: [
+      { title: "Centro de Comando", id: "executive_workspace", icon: Briefcase }
+    ]
+  },
+  {
+    groupKey: "conhecer_cliente",
+    title: "Conhecer Cliente",
+    icon: Users,
+    subItems: [
+      { title: "Gêmeo Digital", id: "digital_twin", icon: Network },
+      { title: "Projetos de Consultoria", id: "area_consultor", icon: FolderOpen }
+    ]
+  },
+  {
+    groupKey: "conectar_dados",
+    title: "Conectar Dados",
+    icon: Database,
+    subItems: [
+      { title: "Central de Dados", id: "importacao", icon: FileText },
+      { title: "Banco de Dados", id: "banco_connector", icon: Database },
+      { title: "VPN", id: "vpn_gateway", icon: ShieldAlert },
+      { title: "APIs", id: "apis_feed", icon: Activity },
+      { title: "LGPD", id: "admin_lgpd", icon: ShieldCheck },
+      { title: "Sincronização", id: "sincronizacao", icon: History },
+      { title: "Fonte Ativa", id: "fonte_ativa", icon: Users },
+      { title: "Validação", id: "validacao_dados", icon: CheckCircle2 }
+    ]
+  },
+  {
+    groupKey: "diagnosticar_negocio",
+    title: "Diagnosticar Negócio",
+    icon: Target,
+    subItems: [
+      { title: "Diagnóstico Executivo", id: "resumo", icon: BarChart3 },
+      { title: "KPIs Comerciais", id: "comercial", icon: Target },
+      ...(isAutomotive ? [
+        { title: "KPIs Pós-Vendas", id: "posvendas", icon: Target },
+        { title: "Peças & Acessórios", id: "pecas", icon: Target },
+        { title: "Gestão de Estoque", id: "estoque", icon: Target }
+      ] : []),
+      { title: "KPIs Financeiros", id: "financeiro", icon: Calculator },
+      { title: "DRE Inteligente", id: "dre_inteligente", icon: Calculator },
+      { title: "Benchmarks Industriais", id: "modelo_consultivo", icon: Award },
+      { title: "Diagnóstico de Anomalias", id: "obstaculos", icon: ShieldAlert },
+      { title: "Recomendações de IA", id: "consultor_ia", icon: BrainCircuit },
+      { title: "Dossiês Executivos", id: "relatorios", icon: FileText }
+    ]
+  },
+  {
+    groupKey: "preparar_decisao",
+    title: "Preparar Decisão",
+    icon: Presentation,
+    subItems: [
+      { title: "Narrativa Executiva", id: "narrativa_executiva", icon: FileText },
+      { title: "Deck de Apresentações", id: "apresentacoes", icon: Presentation },
+      { title: "Story Builder", id: "story_builder", icon: Layers },
+      { title: "Templates de Decks", id: "apresentacoes_templates", icon: Layers },
+      { title: "Insights Selecionados", id: "consultor_ia_decision", icon: BrainCircuit }
+    ]
+  },
+  {
+    groupKey: "conduzir_sessao",
+    title: "Conduzir Sessão",
+    icon: MonitorPlay,
+    subItems: [
+      { title: "Sessão Executiva", id: "modo_reuniao", icon: MonitorPlay },
+      { title: "Ata da Reunião", id: "reuniao_ata", icon: ClipboardList },
+      { title: "Decisões Estratégicas", id: "reuniao_decisoes", icon: CheckCircle2 },
+      { title: "Perguntas de Negócio", id: "reuniao_perguntas", icon: HelpCircle },
+      { title: "Notas e Transcrições", id: "reuniao_notas", icon: FileText }
+    ]
+  },
+  {
+    groupKey: "executar_plano",
+    title: "Executar Plano",
+    icon: CheckSquare,
+    subItems: [
+      { title: "Plano Executivo", id: "plano_executivo", icon: CheckSquare },
+      { title: "Responsáveis", id: "plano_responsaveis", icon: Users },
+      { title: "Prazos e Metas", id: "plano_prazos", icon: History },
+      { title: "Pendências de Caixa", id: "plano_pendencias", icon: ShieldAlert },
+      { title: "Follow-up Semanal", id: "plano_followup", icon: Activity }
+    ]
+  },
+  {
+    groupKey: "evoluir_resultado",
+    title: "Evoluir Resultado",
+    icon: History,
+    subItems: [
+      { title: "Histórico Executivo", id: "historico_executivo", icon: History },
+      { title: "Resultados Consolidados", id: "resultados_consolidados", icon: BarChart3 },
+      { title: "Comparativos Mensais", id: "comparativos_mensais", icon: Layers },
+      { title: "Evolução Mensal", id: "fechamento_mensal", icon: Calculator },
+      { title: "People Intelligence", id: "comissoes", icon: Users }
+    ]
+  },
+  {
+    groupKey: "administracao",
+    title: "Administração",
+    icon: Settings,
+    subItems: [
+      { title: "Usuários", id: "usuarios_twin", icon: Users },
+      { title: "Organizações", id: "organizacao_twin", icon: ShieldCheck },
+      { title: "Permissões", id: "permissoes_twin", icon: Key },
+      { title: "Convites", id: "admin_invites", icon: FileText },
+      { title: "Compartilhamentos", id: "admin_shares", icon: Layers },
+      { title: "Configurações", id: "perfis", icon: Settings },
+      { title: "Auditoria", id: "auditoria_logs", icon: History },
+      { title: "Segurança", id: "admin_security", icon: Lock }
+    ]
+  }
+];

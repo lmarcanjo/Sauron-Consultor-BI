@@ -100,17 +100,29 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelectTab }) =
             <div className="p-3 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider space-y-2">
               <p className="flex items-center gap-1.5"><Terminal size={12} className="text-blue-500" /> Atalhos Rápidos:</p>
               <div className="grid grid-cols-2 gap-2 text-[9px] font-mono text-slate-500 font-semibold lowercase">
-                <button onClick={() => { onSelectTab("central_dados"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <FileText size={10} /> central de dados
+                <button onClick={() => { onSelectTab("executive_workspace"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
+                  <Terminal size={10} className="text-blue-500" /> centro de comando
                 </button>
-                <button onClick={() => { onSelectTab("consultor_workspace"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <FolderOpen size={10} /> workspace do consultor
+                <button onClick={() => { onSelectTab("importacao"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
+                  <FileText size={10} className="text-blue-500" /> central de dados
                 </button>
-                <button onClick={() => { onSelectTab("apresentacoes"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <Calendar size={10} /> apresentações / atas
+                <button onClick={() => { onSelectTab("area_consultor"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
+                  <FolderOpen size={10} className="text-blue-500" /> criar caso / projetos
                 </button>
-                <button onClick={() => { onSelectTab("modo_reuniao"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <HelpCircle size={10} /> modo reunião / board room
+                <button onClick={() => { onSelectTab("comissoes"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
+                  <User size={10} className="text-blue-500" /> people intelligence
+                </button>
+                <button onClick={() => { onSelectTab("comissoes"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
+                  <User size={10} className="text-emerald-500" /> dossiê do colaborador
+                </button>
+                <button onClick={() => { onSelectTab("apresentacoes"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
+                  <Calendar size={10} className="text-blue-500" /> narrativa executiva
+                </button>
+                <button onClick={() => { onSelectTab("modo_reuniao"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
+                  <HelpCircle size={10} className="text-blue-500" /> iniciar sessão executiva
+                </button>
+                <button onClick={() => { onSelectTab("area_consultor"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
+                  <FolderOpen size={10} className="text-emerald-500" /> plano executivo
                 </button>
               </div>
             </div>

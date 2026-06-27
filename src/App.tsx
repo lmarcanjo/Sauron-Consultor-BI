@@ -68,6 +68,7 @@ import { PecasTab } from "./components/PecasTab";
 import { EstoqueTab } from "./components/EstoqueTab";
 import { FinanceiroTab } from "./components/FinanceiroTab";
 import { ComissoesTab } from "./components/ComissoesTab";
+import { PeopleIntelligenceTab } from "./components/PeopleIntelligenceTab";
 import { LoginScreen } from "./components/LoginScreen";
 import { PerfisConfigTab } from "./components/PerfisConfigTab";
 import { LgpdConsent } from "./components/LgpdConsent";
@@ -1530,7 +1531,7 @@ export default function App() {
           <div className="bg-slate-900 text-slate-300 px-4 py-2.5 border border-slate-800 rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-4 text-xs font-sans">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="bg-blue-600 text-white font-extrabold px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-mono">CLIENTE</span>
-              <span className="font-extrabold text-white">Grupo Topázio Veículos</span>
+              <span className="font-extrabold text-white">Grupo Comercial Alpha</span>
               <span className="text-slate-500">•</span>
               <span className="font-medium text-slate-400">Marcas: Nissan, Renault, Seminovos</span>
               <span className="text-slate-500">•</span>
@@ -1702,8 +1703,8 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
-          {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 && !["vpn_gateway", "central_dados", "importacao", "perfis"].includes(activeTab) ? (
+           {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
+          {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 && !["vpn_gateway", "central_dados", "importacao", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin"].includes(activeTab) ? (
             <div id="real-data-empty-state" className="bg-amber-50/70 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-900 rounded-xl p-8 text-center space-y-4 shadow-sm animate-fade-in mt-2 flex flex-col items-center">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
                 <Database size={22} className="animate-spin" style={{ animationDuration: '3s' }} />
@@ -1730,7 +1731,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-          ) : activeDataSource !== "DEMO_DATA" && !dataSourceManager.isApproved() && !["importacao", "vpn_gateway", "central_dados", "perfis"].includes(activeTab) ? (
+          ) : activeDataSource !== "DEMO_DATA" && !dataSourceManager.isApproved() && !["importacao", "vpn_gateway", "central_dados", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin"].includes(activeTab) ? (
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 max-w-xl mx-auto my-12 text-center shadow-md space-y-6 animate-fadeIn">
               <div className="mx-auto w-16 h-16 bg-amber-50 dark:bg-amber-950/30 text-amber-500 rounded-full flex items-center justify-center border border-amber-200 dark:border-amber-900">
                 <ShieldAlert size={32} className="animate-pulse text-amber-500" />
@@ -1789,7 +1790,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === "importacao" && (
+          {["importacao", "banco_connector", "etl_pipeline", "validacao_dados", "apis_feed", "sincronizacao", "fonte_ativa", "vpn_gateway"].includes(activeTab) && (
              <CentralDadosTab
               dataOrigem={dataOrigem}
               onDataLoaded={handleDatabaseDataLoaded}
@@ -1800,7 +1801,7 @@ export default function App() {
               fieldMappings={fieldMappings}
             />
           )}
-          {activeTab === "apresentacoes" && (
+          {["apresentacoes", "narrativa_executiva", "story_builder", "apresentacoes_templates"].includes(activeTab) && (
             <PresentationBuilderPage 
               dataOrigem={dataOrigem}
               filteredData={filteredData}
@@ -1815,7 +1816,7 @@ export default function App() {
               formatCurrency={formatCurrencyValue}
             />
           )}
-          {activeTab === "modo_reuniao" && (
+          {["modo_reuniao", "reuniao_ata", "reuniao_decisoes", "reuniao_perguntas", "reuniao_notas"].includes(activeTab) && (
             <MeetingModePage onExit={() => setActiveTab("apresentacoes")} />
           )}
 
@@ -1855,7 +1856,8 @@ export default function App() {
           )}
 
           {activeTab === "comissoes" && (
-            <ComissoesTab
+            <PeopleIntelligenceTab
+              dataOrigem={filteredData}
               metrics={metrics}
               formatCurrency={formatCurrencyValue}
               calculatedCommissions={{
@@ -1890,7 +1892,7 @@ export default function App() {
             />
           )}
 
-          {(activeTab === "perfis" || activeTab === "organizacao_twin" || activeTab === "usuarios_twin" || activeTab === "permissoes_twin") && (
+          {["perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security"].includes(activeTab) && (
             <PerfisConfigTab />
           )}
 
@@ -1900,7 +1902,7 @@ export default function App() {
                 <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/50">
                   <div>
                     <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                      <Network size={18} className="text-blue-500" /> Digital Twin Corporativo — Grupo Topázio
+                      <Network size={18} className="text-blue-500" /> Digital Twin Corporativo — Grupo Comercial Alpha
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gêmeo Digital e representação estrutural-relacional das empresas, marcas, filiais e departamentos.</p>
                   </div>
@@ -1911,7 +1913,7 @@ export default function App() {
                   {/* Company Twin Nissan */}
                   <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
                     <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Topázio Nissan</h4>
+                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Alpha Nissan</h4>
                       <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
                     </div>
                     <p className="text-xs text-slate-500 font-medium">Concessionária oficial Nissan do grupo. Abrange serviços de pós-venda, oficina mecânica estruturada e pátio de novos/seminovos.</p>
@@ -1925,7 +1927,7 @@ export default function App() {
                   {/* Company Twin Renault */}
                   <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
                     <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Topázio Renault</h4>
+                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Alpha Renault</h4>
                       <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
                     </div>
                     <p className="text-xs text-slate-500 font-medium">Operação Renault integrada à holding. Processo completo de faturamento direto e canais de peças corporativas homologadas.</p>
@@ -1939,7 +1941,7 @@ export default function App() {
                   {/* Company Twin Seminovos */}
                   <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
                     <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Topázio Seminovos</h4>
+                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Alpha Seminovos</h4>
                       <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
                     </div>
                     <p className="text-xs text-slate-500 font-medium">Bandeira própria multimarcas focada em alta rotação de estoque, avaliação integrada de carros usados e preparação rápida mecânica.</p>
@@ -1991,7 +1993,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === "area_consultor" && (
+          {["area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias"].includes(activeTab) && (
             <ConsultorAreaTab
               dataOrigem={dataOrigem}
             />
@@ -2004,7 +2006,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === "consultor_ia" && (
+          {["consultor_ia", "consultor_ia_decision"].includes(activeTab) && (
             <ConsultorIaTab
               metrics={metrics}
               filtros={filtros}
@@ -2021,11 +2023,11 @@ export default function App() {
             />
           )}
 
-          {activeTab === "resumo" && (
+          {["resumo", "resultados_consolidados", "comparativos_mensais"].includes(activeTab) && (
             <DashboardPage filteredData={filteredData} formatCurrency={formatCurrencyValue} />
           )}
 
-          {activeTab === "relatorios" && (
+          {["relatorios", "historico_executivo"].includes(activeTab) && (
             <ReportsPage setActivePage={setActiveTab} />
           )}
             </>
