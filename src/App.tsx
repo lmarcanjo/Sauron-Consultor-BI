@@ -90,6 +90,7 @@ import { PresentationBuilderPage } from "./components/PresentationBuilderPage";
 import { DashboardPage } from "./components/pages/DashboardPage";
 import { ReportsPage } from "./components/pages/ReportsPage";
 import { ExecutiveWorkspace } from "./components/ExecutiveWorkspace";
+import { CommandPalette } from "./components/CommandPalette";
 
 import { AppSidebar } from "./components/AppSidebar";
 import { availableTemplates } from "./utils/industryTemplates";
@@ -2070,6 +2071,8 @@ export default function App() {
         spreadsheetMetadata={spreadsheetMetadata}
         currentUser={currentUser}
       />
+
+      <CommandPalette onSelectTab={setActiveTab} />
 
       <LgpdConsent />
     </div>

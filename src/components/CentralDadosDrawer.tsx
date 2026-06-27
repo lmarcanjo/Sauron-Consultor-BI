@@ -230,7 +230,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
               <ShieldCheck size={16} className="text-blue-500 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-slate-700 dark:text-slate-350">Criptografia em Trânsito Habilitada</p>
-                <p className="mt-0.5">As tabelas de faturamento e os CPFs dos clientes reais do Grupo Topázio estão sob barreira de mascaramento e governança de auditoria (LGPD Compliant).</p>
+                <p className="mt-0.5">As tabelas de faturamento e os CPFs dos clientes reais estão sob barreira de mascaramento e governança de auditoria (LGPD Compliant).</p>
               </div>
             </div>
           </div>
