@@ -215,6 +215,19 @@ export default function App() {
     }
   }, [activeSimUser]);
 
+  useEffect(() => {
+    const handleOpenCentralDados = () => setIsCentralDadosOpen(true);
+    const handleOpenFilters = () => setIsFilterDrawerOpen(true);
+
+    window.addEventListener("sauron:open-central-dados", handleOpenCentralDados);
+    window.addEventListener("sauron:open-filters", handleOpenFilters);
+
+    return () => {
+      window.removeEventListener("sauron:open-central-dados", handleOpenCentralDados);
+      window.removeEventListener("sauron:open-filters", handleOpenFilters);
+    };
+  }, []);
+
   // COMPARATIVE RAPORTS SNAPSHOT CONTROL
   const [reportHistory, setReportHistory] = useState<any[]>([]);
   const [selectedComparisonSnapshotId, setSelectedComparisonSnapshotId] = useState<string>("");
@@ -1591,117 +1604,55 @@ export default function App() {
             </div>
           </div>
 
-          {/* Global DataSource Banner Indicator (Requirement #1 & #8) */}
-          {activeDataSource === "SPREADSHEET_DATA" ? (
-            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/60 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in text-xs font-sans">
-              <div className="flex items-start gap-2.5">
-                <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 rounded-lg">
-                  <CheckCircle2 size={16} />
-                </div>
-                <div>
-                  <p className="font-bold text-emerald-850 dark:text-emerald-300">Fonte ativa: Planilha importada ({spreadsheetMetadata?.fileName || "Arquivo Geral"})</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Modo seguro: utilizando exclusivamente registros reais da planilha carregada. {spreadsheetMetadata ? `Abas: ${spreadsheetMetadata.sheetNames.join(", ")} | Linhas: ${spreadsheetMetadata.rowCount} | Colunas: ${spreadsheetMetadata.colCount} | Importado em: ${spreadsheetMetadata.importedAt}` : ""}
-                  </p>
-                </div>
-              </div>
-              <span className="bg-emerald-200/50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400 px-2 py-0.5 rounded font-mono font-black text-[9px] uppercase tracking-wider shrink-0">
-                PROD SPREADSHEET ACTIVE
+          {/* DataStatusStrip compacto (Sprint Ω+1.2 — Interface Minimalista) */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs text-xs mb-1">
+            <div className="flex flex-wrap items-center gap-2">
+              {activeDataSource === "DEMO_DATA" ? (
+                <button 
+                  onClick={() => setIsCentralDadosOpen(true)}
+                  className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2.5 py-1 rounded-full font-bold uppercase tracking-wide cursor-pointer transition text-[10px]"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Demonstração controlada
+                </button>
+              ) : (
+                <button 
+                  onClick={() => setIsCentralDadosOpen(true)}
+                  className="flex items-center gap-1.5 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 rounded-full font-bold uppercase tracking-wide cursor-pointer transition text-[10px]"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Dados Reais Conectados
+                </button>
+              )}
+              
+              <span className="text-slate-350 dark:text-slate-700 select-none">•</span>
+              <span className="text-slate-500 font-semibold font-mono text-[10px]">
+                Filtros Ativos ({Object.keys(filtros).reduce((acc,k)=>filtros[k as keyof FiltrosDashboard]?acc+1:acc,0)}) • Fonte: {activeDataSource === "DEMO_DATA" ? "Demonstração" : activeDataSource === "DATABASE_DATA" ? `Banco de Dados (${nomeFonte})` : `Planilha (${spreadsheetMetadata?.fileName || "Carregada"})`}
               </span>
             </div>
-          ) : activeDataSource === "DATABASE_DATA" ? (
-            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in text-xs font-sans">
-              <div className="flex items-start gap-2.5">
-                <div className="p-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 rounded-lg">
-                  <Database size={16} />
-                </div>
-                <div>
-                  <p className="font-bold text-blue-850 dark:text-blue-300">Fonte ativa: Banco de dados relacional conectado ({nomeFonte})</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Sincronização em tempo real habilitada por pooling criptografado com absoluto isolamento e auditoria ativa.
-                  </p>
-                </div>
-              </div>
-              <span className="bg-blue-200/50 dark:bg-blue-950 text-blue-800 dark:text-blue-400 px-2 py-0.5 rounded font-mono font-black text-[9px] uppercase tracking-wider shrink-0">
-                LIVE DB ACTIVE
-              </span>
-            </div>
-          ) : (
-            <div className="bg-amber-50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/40 p-3 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in text-xs font-sans">
-              <div className="flex items-start gap-2.5">
-                <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg animate-pulse">
-                  <AlertTriangle size={16} />
-                </div>
-                <div>
-                  <p className="font-bold text-amber-850 dark:text-amber-300">Modo Demonstração — dados fictícios ativos</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Os dados exibidos neste modo são simulações industriais puras projetadas para testes conceituais e demonstrações de QA sem dados sensíveis.
-                  </p>
-                </div>
-              </div>
-              <span className="bg-amber-200/50 dark:bg-amber-950 text-amber-800 dark:text-amber-400 px-2 py-0.5 rounded font-mono font-black text-[9px] uppercase tracking-wider shrink-0">
-                DEMO MODE ACTIVE
-              </span>
-            </div>
-          )}
-          
+
+            <button 
+              onClick={() => setIsCentralDadosOpen(true)}
+              className="text-[10px] font-black uppercase tracking-wider text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition shrink-0 cursor-pointer flex items-center gap-1"
+            >
+              <Database size={12} />
+              <span>Central de Dados →</span>
+            </button>
+          </div>
+
           <div className="flex-1 flex flex-col gap-5">
             {/* ANALYTICS CONTAINER */}
             <section className="flex-1 space-y-4 overflow-x-hidden">
 
-          {/* DYNAMIC DB NOTIFICATIONS & SYNC BAR */}
-          {syncStatus && (
-            <div className="bg-sky-50 border border-sky-200 text-sky-850 px-4 py-2 text-xs rounded-xl flex items-center justify-between gap-2 shadow-sm animate-fade-in">
-              <div className="flex items-center gap-2">
-                <Database size={14} className="text-sky-600 animate-pulse shrink-0" />
-                <span className="font-semibold">{syncStatus}</span>
-              </div>
-              <button onClick={() => setSyncStatus("")} className="text-sky-400 hover:text-sky-600 text-xs font-bold font-mono px-1">✕</button>
-            </div>
-          )}
-
-          {/* AUTOMATED DB INTEGRITY VALIDATION INDICATOR */}
-          <div className="bg-emerald-50/90 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 text-emerald-900 dark:text-emerald-350 px-4 py-2.5 rounded-xl text-xs flex flex-col md:flex-row md:items-center justify-between gap-2 shadow-sm">
-            <div className="flex items-start md:items-center gap-2">
-              <Check size={15} className="text-emerald-600 dark:text-emerald-400 mt-0.5 md:mt-0 shrink-0 stroke-[3]" />
-              <div>
-                <p className="font-extrabold text-emerald-800 dark:text-emerald-400">Validação Corporativa do Banco de Dados</p>
-                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium">{dbValidationMsg}</p>
-              </div>
-            </div>
-            {isVpnSimulated ? (
-              <span className="text-[9px] bg-indigo-100 dark:bg-indigo-950/80 text-indigo-850 dark:text-indigo-400 px-2 py-0.5 rounded font-bold font-mono uppercase tracking-wide shrink-0">
-                Tunneling VPN Ativado
-              </span>
-            ) : (
-              <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded font-mono shrink-0">
-                Sem Túnel VPN Externo
-              </span>
-            )}
-          </div>
-
-          {/* ADMIN CONSOLE / CONNECTOR VIEW */}
-          {currentUser?.role === "consultor" ? (
-            <div className="bg-rose-50/20 dark:bg-rose-950/10 border border-rose-200/60 dark:border-rose-900/40 rounded-xl p-0.5 shadow-sm">
-              <div className="bg-rose-100/50 dark:bg-rose-950/30 text-[10px] px-3 py-1 font-bold text-rose-800 dark:text-rose-450 uppercase tracking-wide flex items-center gap-1 rounded-t-lg">
-                <Shield size={11} className="text-rose-700 dark:text-rose-400 shrink-0" />
-                <span>Console de Configuração Master (Restrito ao Consultor)</span>
-              </div>
-              <div className="p-3 bg-white dark:bg-slate-900 rounded-b-xl">
-                <DatabaseConnector onDataLoaded={handleDatabaseDataLoaded} currentSource={nomeFonte} />
-              </div>
-            </div>
-          ) : (
-            <div className="bg-sky-50/30 dark:bg-sky-950/15 border border-sky-100/60 dark:border-sky-900/30 p-3 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Clock size={15} className="text-sky-500" />
-                <div>
-                  <p className="text-xs font-bold text-slate-700 dark:text-slate-350">Aplicação em Modo do Usuário Operacional</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-450 font-medium">As conexões seguras do banco de dados relacional e as fontes de dados soterram sob governança e criptografia ativa.</p>
+              {syncStatus && (
+                <div className="bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900 text-sky-850 dark:text-sky-350 px-4 py-2 text-xs rounded-xl flex items-center justify-between gap-2 shadow-sm animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <Database size={14} className="text-sky-600 animate-pulse shrink-0" />
+                    <span className="font-semibold">{syncStatus}</span>
+                  </div>
+                  <button onClick={() => setSyncStatus("")} className="text-sky-400 hover:text-sky-600 text-xs font-bold font-mono px-1">✕</button>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
            {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
           {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 && !["vpn_gateway", "central_dados", "importacao", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin"].includes(activeTab) ? (
@@ -2072,6 +2023,8 @@ export default function App() {
         isVpnSimulated={isVpnSimulated}
         spreadsheetMetadata={spreadsheetMetadata}
         currentUser={currentUser}
+        dbValidationMsg={dbValidationMsg}
+        onDatabaseDataLoaded={handleDatabaseDataLoaded}
       />
 
       <CommandPalette onSelectTab={setActiveTab} />

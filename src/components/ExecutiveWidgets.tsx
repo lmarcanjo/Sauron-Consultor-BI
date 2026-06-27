@@ -6,7 +6,8 @@
 import React, { useState } from "react";
 import { 
   Award, TrendingUp, TrendingDown, CheckCircle2, AlertTriangle, Activity, 
-  Sparkles, Check, Clock, Play, FileText, ChevronRight, ListTodo, Database, AlertCircle 
+  Sparkles, Check, Clock, Play, FileText, ChevronRight, ListTodo, Database, AlertCircle,
+  Building
 } from "lucide-react";
 import { DesignSystem } from "../design-system";
 import { WidgetContext } from "../core/widgets/WidgetEngine";
@@ -16,12 +17,70 @@ import { auditEngine } from "../core/audit/AuditEngine";
 // 1. EXECUTIVE BRIEF WIDGET
 // ────────────────────────────────────────────────────────────────────────
 export const ExecutiveBriefWidget: React.FC<{ context: WidgetContext }> = ({ context }) => {
-  const { filteredData, formatCurrency, onSelectTab } = context;
+  const { filteredData, formatCurrency, onSelectTab, context: workspaceContext } = context as any;
+
+  const activeEntity = workspaceContext?.entidadeSelecionada;
 
   // Derive stats
-  const revenue = filteredData && filteredData.length > 0 
+  const baseRevenue = filteredData && filteredData.length > 0 
     ? filteredData.reduce((acc, d) => acc + Number(d.Valor || d.valor || d.Total || 0), 0)
     : 3850000;
+
+  if (activeEntity) {
+    if (activeEntity.type === "vendedor") {
+      return (
+        <div className="bg-gradient-to-r from-blue-900/20 via-indigo-950/10 to-transparent border border-blue-500/20 p-5 rounded-2xl relative overflow-hidden">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-1">
+              <h4 className="font-extrabold text-sm text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles size={14} className="text-blue-400" />
+                <span>Análise de Desempenho de Vendas</span>
+              </h4>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                Foco Individual: <span className="text-blue-500 font-extrabold">{activeEntity.name}</span>
+              </h3>
+              <p className={DesignSystem.Typography.body}>
+                Vendedor destaque da unidade <strong className="text-slate-700 dark:text-slate-200">{activeEntity.metadata?.store || "Alpha Nissan"}</strong>. Vendeu <strong className="text-slate-700 dark:text-slate-200">11 de 12 veículos</strong> estabelecidos como meta para <strong className="text-slate-700 dark:text-slate-200">{workspaceContext.currentPeriod?.name}</strong>.
+              </p>
+            </div>
+            <button
+              onClick={() => onSelectTab("comissoes")}
+              className={DesignSystem.Button.build("filled", "sm")}
+            >
+              Histórico Comissões <Play size={10} />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (activeEntity.type === "company") {
+      return (
+        <div className="bg-gradient-to-r from-emerald-900/10 via-indigo-950/5 to-transparent border border-emerald-500/10 p-5 rounded-2xl relative overflow-hidden">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-1">
+              <h4 className="font-extrabold text-sm text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Building size={14} className="text-emerald-400" />
+                <span>Desempenho da Concessionária</span>
+              </h4>
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                Foco Unidade: <span className="text-emerald-500 font-extrabold">{activeEntity.name}</span>
+              </h3>
+              <p className={DesignSystem.Typography.body}>
+                Faturamento líquido da unidade no período aponta para <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(activeEntity.name.includes("Renault") ? 1450000 : 2400000)}</strong>, representando uma performance saudável com atingimento de <strong className="text-slate-700 dark:text-slate-200">92% da meta corporativa</strong>.
+              </p>
+            </div>
+            <button
+              onClick={() => onSelectTab("financeiro")}
+              className={DesignSystem.Button.build("filled", "sm")}
+            >
+              DRE Detalhado <Play size={10} />
+            </button>
+          </div>
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="bg-gradient-to-r from-blue-900/10 via-indigo-950/5 to-transparent border border-blue-500/10 p-5 rounded-2xl relative overflow-hidden">
@@ -31,7 +90,7 @@ export const ExecutiveBriefWidget: React.FC<{ context: WidgetContext }> = ({ con
             Dossiê de Desempenho Ativo
           </h4>
           <p className={DesignSystem.Typography.body}>
-            Consolidação do faturamento geral aponta para <strong className="text-slate-700 dark:text-slate-200">{formatCurrency(revenue)}</strong>.
+            Consolidação do faturamento geral aponta para <strong className="text-slate-700 dark:text-slate-200">{formatCurrency(baseRevenue)}</strong>.
           </p>
         </div>
         <button
@@ -113,11 +172,51 @@ export const HealthCenterWidget: React.FC<{ context: WidgetContext }> = ({ conte
 // 3. CLIENT PULSE WIDGET
 // ────────────────────────────────────────────────────────────────────────
 export const ClientPulseWidget: React.FC<{ context: WidgetContext }> = ({ context }) => {
-  const { filteredData, formatCurrency } = context;
+  const { filteredData, formatCurrency, context: workspaceContext } = context as any;
+
+  const activeFocus = workspaceContext?.entidadeSelecionada;
 
   const revenue = filteredData && filteredData.length > 0 
     ? filteredData.reduce((acc, d) => acc + Number(d.Valor || d.valor || d.Total || 0), 0)
     : 3850000;
+
+  // Context-specific targets and attainment calculation
+  let kpi1Name = "Margem Comercial";
+  let kpi1ValueText = "Alvo: R$ 4.5M";
+  let kpi1Progress = 84;
+  let kpi1RealizedText = `Realizado: ${formatCurrency(revenue)}`;
+  let badgeText = "Consolidado";
+
+  let kpi2Name = "CMV Alvo de Peças";
+  let kpi2ValueText = "Alvo: 14.5%";
+  let kpi2Progress = 72;
+  let kpi2RealizedText = "Média: 13.8%";
+
+  if (activeFocus) {
+    badgeText = activeFocus.name;
+    if (activeFocus.type === "vendedor") {
+      kpi1Name = "Meta de Emplacamento";
+      kpi1ValueText = "Alvo: 12 Carros";
+      kpi1Progress = 91;
+      kpi1RealizedText = "Realizado: 11 Carros";
+
+      kpi2Name = "Fidelização e F&I";
+      kpi2ValueText = "Alvo: 35%";
+      kpi2Progress = 85;
+      kpi2RealizedText = "Atingido: 30%";
+    } else if (activeFocus.type === "company") {
+      const isRenault = activeFocus.name.includes("Renault");
+      kpi1Name = "Volume Bruto Mensal";
+      kpi1ValueText = isRenault ? "Alvo: R$ 1.6M" : "Alvo: R$ 2.6M";
+      kpi1Progress = isRenault ? 90 : 92;
+      kpi1RealizedText = `Realizado: ${formatCurrency(isRenault ? 1450000 : 2400000)}`;
+
+      kpi2Name = "Absorção Pós-Venda";
+      kpi2ValueText = "Alvo: 60%";
+      kpi2Progress = isRenault ? 78 : 83;
+      kpi2RealizedText = isRenault ? "Medido: 47%" : "Medido: 50%";
+    }
+  }
 
   return (
     <div className={DesignSystem.Card.container}>
@@ -125,40 +224,40 @@ export const ClientPulseWidget: React.FC<{ context: WidgetContext }> = ({ contex
         <span className={DesignSystem.Typography.titleSmall}>
           Client Pulse — Saúde de Resultados
         </span>
-        <span className={DesignSystem.Badge.build("primary")}>Consolidado</span>
+        <span className={DesignSystem.Badge.build("primary")}>{badgeText}</span>
       </div>
       <div className="p-4 space-y-4">
         {/* KPI Row 1 */}
         <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Margem Comercial</span>
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{kpi1Name}</span>
             <span className="text-[10px] text-emerald-500 font-black flex items-center gap-0.5 font-mono">
-              <TrendingUp size={10} /> +12%
+              <TrendingUp size={10} /> +{kpi1Progress}%
             </span>
           </div>
           <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: "84%" }} />
+            <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${kpi1Progress}%` }} />
           </div>
           <p className="text-[10px] text-slate-500 font-mono flex justify-between">
-            <span>Alvo: R$ 4.5M</span>
-            <span>Realizado: {formatCurrency(revenue)}</span>
+            <span>{kpi1ValueText}</span>
+            <span>{kpi1RealizedText}</span>
           </p>
         </div>
 
         {/* KPI Row 2 */}
         <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">CMV Alvo de Peças</span>
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{kpi2Name}</span>
             <span className="text-[10px] text-amber-500 font-black flex items-center gap-0.5 font-mono">
-              <TrendingDown size={10} /> -0.4pp
+              <TrendingDown size={10} /> Recorrente
             </span>
           </div>
           <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: "72%" }} />
+            <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${kpi2Progress}%` }} />
           </div>
           <p className="text-[10px] text-slate-500 font-mono flex justify-between">
-            <span>Alvo: 14.5%</span>
-            <span>Média: 13.8%</span>
+            <span>{kpi2ValueText}</span>
+            <span>{kpi2RealizedText}</span>
           </p>
         </div>
       </div>

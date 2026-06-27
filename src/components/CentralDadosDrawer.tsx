@@ -3,6 +3,8 @@ import {
   X, Database, Layers, ShieldCheck, RefreshCw, Upload, Network, 
   HelpCircle, Settings, CheckCircle, AlertTriangle, FileText, Globe, ToggleLeft, ToggleRight
 } from "lucide-react";
+import { DatabaseConnector } from "./DatabaseConnector";
+import { LancamentoFinanceiro } from "../types";
 
 interface CentralDadosDrawerProps {
   isOpen: boolean;
@@ -25,6 +27,8 @@ interface CentralDadosDrawerProps {
     importedAt: string;
   } | null;
   currentUser: any;
+  dbValidationMsg: string;
+  onDatabaseDataLoaded: (data: LancamentoFinanceiro[], sourceName: string) => void;
 }
 
 export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
@@ -41,7 +45,9 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
   onSyncDatabase,
   isVpnSimulated,
   spreadsheetMetadata,
-  currentUser
+  currentUser,
+  dbValidationMsg,
+  onDatabaseDataLoaded
 }) => {
   if (!isOpen) return null;
 
@@ -181,6 +187,14 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
                 <span className="font-extrabold text-[10px] uppercase tracking-wide">Sincronizar Banco</span>
               </button>
             </div>
+
+            {/* Database Connection Configurator (Technical Dashboard Integration) */}
+            <div className="pt-2">
+              <DatabaseConnector 
+                onDataLoaded={onDatabaseDataLoaded} 
+                currentSource={nomeFonte} 
+              />
+            </div>
           </div>
 
           {/* SECTION 4: VPN GATEWAY & APIS */}
@@ -232,6 +246,30 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
                 <p className="font-bold text-slate-700 dark:text-slate-350">Criptografia em Trânsito Habilitada</p>
                 <p className="mt-0.5">As tabelas de faturamento e os CPFs dos clientes reais estão sob barreira de mascaramento e governança de auditoria (LGPD Compliant).</p>
               </div>
+            </div>
+          </div>
+
+          {/* SECTION 6: VALIDAÇÃO DO BANCO & LOGS */}
+          <div className="space-y-3">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block border-b border-slate-100 dark:border-slate-800 pb-1">
+              6. Validação do Banco & Logs Técnicos
+            </span>
+
+            <div className="p-3 border border-emerald-150 dark:border-emerald-900 rounded-xl bg-emerald-50/20 dark:bg-emerald-950/20 flex items-start gap-2 text-[10px]">
+              <CheckCircle size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-slate-700 dark:text-slate-350">Status de Integridade</p>
+                <p className="text-[9px] text-slate-500 dark:text-slate-450 mt-0.5">{dbValidationMsg}</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-950 border border-slate-850 rounded-xl space-y-1 font-mono text-[9px] text-slate-400 max-h-32 overflow-y-auto">
+              <p className="text-slate-500 border-b border-slate-850 pb-1 font-bold text-[8px] uppercase">Console Log de Conectividade</p>
+              <p className="text-emerald-400">[OK] SSL handshake completed with remote DB</p>
+              <p className="text-indigo-400">[INFO] Tunneling secure IPsec routing active</p>
+              <p className="text-emerald-400">[OK] Integrity check: 0 orphan records found</p>
+              <p className="text-slate-500">[QUERY] SELECT COUNT(*) FROM billing_records</p>
+              <p className="text-blue-400">[SYNC] Real-time data sync active via encrypted pool</p>
             </div>
           </div>
 

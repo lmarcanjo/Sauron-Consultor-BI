@@ -54,36 +54,29 @@ describe("Sauron OS — Navigation Coherence & Product Integrity Tests", () => {
     });
   });
 
-  it("verifies that the 'Conectar Dados' group consolidates all technical actions", () => {
+  it("verifies that the 'Conectar Dados' group is compact and contains only Central de Dados", () => {
     [true, false].forEach(isAutomotive => {
       const structure = getConsultingFlowStructure(isAutomotive);
       const connectGroup = structure.find(g => g.groupKey === "conectar_dados");
       expect(connectGroup).toBeDefined();
       
       const subItemIds = connectGroup!.subItems.map(s => s.id);
-      
-      // Tech actions must live in "Conectar Dados"
-      expect(subItemIds).toContain("fonte_ativa");
-      expect(subItemIds).toContain("banco_connector");
-      expect(subItemIds).toContain("vpn_gateway");
-      expect(subItemIds).toContain("apis_feed");
-      expect(subItemIds).toContain("admin_lgpd");
-      expect(subItemIds).toContain("sincronizacao");
-      expect(subItemIds).toContain("validacao_dados");
+      expect(subItemIds).toEqual(["importacao"]);
     });
   });
 
   it("verifies and lists structural elements of the sidebar", () => {
-    const autoStructure = getConsultingFlowStructure(true);
-    const nonAutoStructure = getConsultingFlowStructure(false);
+    const structure = getConsultingFlowStructure(false);
+    const groupKeys = structure.map(g => g.groupKey);
     
-    // Auto structure should have POS VENDAS or ESTOQUE
-    const autoIds = autoStructure.flatMap(g => g.subItems.map(s => s.id));
-    const nonAutoIds = nonAutoStructure.flatMap(g => g.subItems.map(s => s.id));
-    
-    expect(autoIds).toContain("posvendas");
-    expect(autoIds).toContain("estoque");
-    expect(nonAutoIds).not.toContain("posvendas");
-    expect(nonAutoIds).not.toContain("estoque");
+    expect(groupKeys).toContain("centro_comando");
+    expect(groupKeys).toContain("conhecer_cliente");
+    expect(groupKeys).toContain("conectar_dados");
+    expect(groupKeys).toContain("diagnosticar_negocio");
+    expect(groupKeys).toContain("preparar_decisao");
+    expect(groupKeys).toContain("conduzir_sessao");
+    expect(groupKeys).toContain("executar_plano");
+    expect(groupKeys).toContain("evoluir_resultado");
+    expect(groupKeys).toContain("administracao");
   });
 });

@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Search, Terminal, FileText, ArrowRight, User, FolderOpen, Calendar, HelpCircle, X } from "lucide-react";
 import { searchEngine, SearchResultItem } from "../core/search/SearchEngine";
 import { DesignSystem } from "../design-system";
+import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/WorkspaceIntelligenceEngine";
 
 interface CommandPaletteProps {
   onSelectTab: (tabId: string) => void;
@@ -58,6 +59,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelectTab }) =
   };
 
   const handleSelectItem = (item: SearchResultItem) => {
+    if (item.contextEntity) {
+      workspaceIntelligenceEngine.switchEntity(item.contextEntity);
+    }
     if (item.targetTab) {
       onSelectTab(item.targetTab);
     }
@@ -100,29 +104,77 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelectTab }) =
             <div className="p-3 text-[10px] text-slate-400 font-extrabold uppercase tracking-wider space-y-2">
               <p className="flex items-center gap-1.5"><Terminal size={12} className="text-blue-500" /> Atalhos Rápidos:</p>
               <div className="grid grid-cols-2 gap-2 text-[9px] font-mono text-slate-500 font-semibold lowercase">
-                <button onClick={() => { onSelectTab("executive_workspace"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <Terminal size={10} className="text-blue-500" /> centro de comando
+                <button 
+                  onClick={() => { 
+                    window.dispatchEvent(new CustomEvent("sauron:open-central-dados")); 
+                    setIsOpen(false); 
+                  }} 
+                  className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1"
+                >
+                  <Terminal size={10} className="text-blue-500" /> abrir central de dados
                 </button>
-                <button onClick={() => { onSelectTab("importacao"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <FileText size={10} className="text-blue-500" /> central de dados
+                <button 
+                  onClick={() => { 
+                    window.dispatchEvent(new CustomEvent("sauron:open-filters")); 
+                    setIsOpen(false); 
+                  }} 
+                  className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1"
+                >
+                  <Terminal size={10} className="text-blue-500" /> abrir filtros
                 </button>
-                <button onClick={() => { onSelectTab("area_consultor"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <FolderOpen size={10} className="text-blue-500" /> criar caso / projetos
+                <button 
+                  onClick={() => { 
+                    onSelectTab("permissoes_twin"); 
+                    setIsOpen(false); 
+                  }} 
+                  className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1"
+                >
+                  <Terminal size={10} className="text-blue-500" /> abrir permissões
                 </button>
-                <button onClick={() => { onSelectTab("comissoes"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <User size={10} className="text-blue-500" /> people intelligence
+                <button 
+                  onClick={() => { 
+                    onSelectTab("digital_twin"); 
+                    setIsOpen(false); 
+                  }} 
+                  className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1"
+                >
+                  <Terminal size={10} className="text-blue-500" /> abrir digital twin
                 </button>
-                <button onClick={() => { onSelectTab("comissoes"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <User size={10} className="text-emerald-500" /> dossiê do colaborador
+                <button 
+                  onClick={() => { 
+                    onSelectTab("comissoes"); 
+                    setIsOpen(false); 
+                  }} 
+                  className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1"
+                >
+                  <Terminal size={10} className="text-blue-500" /> abrir people intelligence
                 </button>
-                <button onClick={() => { onSelectTab("apresentacoes"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <Calendar size={10} className="text-blue-500" /> narrativa executiva
+                <button 
+                  onClick={() => { 
+                    onSelectTab("area_consultor"); 
+                    setIsOpen(false); 
+                  }} 
+                  className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1"
+                >
+                  <Terminal size={10} className="text-blue-500" /> criar caso / projetos
                 </button>
-                <button onClick={() => { onSelectTab("modo_reuniao"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <HelpCircle size={10} className="text-blue-500" /> iniciar sessão executiva
+                <button 
+                  onClick={() => { 
+                    onSelectTab("modo_reuniao"); 
+                    setIsOpen(false); 
+                  }} 
+                  className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1"
+                >
+                  <Terminal size={10} className="text-blue-500" /> iniciar sessão executiva
                 </button>
-                <button onClick={() => { onSelectTab("area_consultor"); setIsOpen(false); }} className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1">
-                  <FolderOpen size={10} className="text-emerald-500" /> plano executivo
+                <button 
+                  onClick={() => { 
+                    onSelectTab("relatorios"); 
+                    setIsOpen(false); 
+                  }} 
+                  className="p-1.5 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-1"
+                >
+                  <Terminal size={10} className="text-blue-500" /> gerar dossiê
                 </button>
               </div>
             </div>

@@ -29,10 +29,10 @@ export const AppSidebar: React.FC<SidebarProps> = ({
 }) => {
   const isAutomotive = activeIndustryTemplateId === "automotive";
 
-  // Accordion states for the 9 premium flow groups
+  // Accordion states for the 9 premium flow groups - compact by default
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    centro_comando: true,
-    conhecer_cliente: true,
+    centro_comando: false,
+    conhecer_cliente: false,
     conectar_dados: false,
     diagnosticar_negocio: false,
     preparar_decisao: false,
@@ -164,118 +164,69 @@ export const AppSidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Navigation List */}
-        <div className="flex-1 overflow-y-auto py-4 custom-scrollbar overflow-x-hidden px-2.5 space-y-3">
-          {consultingFlowStructure.map((group) => {
-            if (!hasGroupAccess(group.groupKey)) return null;
+        <div className="flex-1 overflow-y-auto py-4 custom-scrollbar overflow-x-hidden px-2.5 space-y-1.5">
+          {[
+            { title: "Centro de Comando", id: "executive_workspace", icon: Briefcase },
+            { title: "Diagnóstico Executivo", id: "resumo", icon: BarChart3 },
+            { title: "Decks & Narrativa", id: "apresentacoes", icon: Presentation },
+            { title: "Sessão Executiva", id: "modo_reuniao", icon: MonitorPlay },
+            { title: "Plano Executivo", id: "plano_executivo", icon: CheckSquare },
+            { title: "Administração", id: "perfis", icon: Settings }
+          ].map((item) => {
+            const isMacroItemActive = (macroId: string, page: string): boolean => {
+              if (macroId === page) return true;
+              if (macroId === "executive_workspace") return page === "executive_workspace";
+              if (macroId === "resumo") {
+                return ["resumo", "comercial", "obstaculos", "consultor_ia", "relatorios", "comissoes", "fechamento_mensal", "comparativos_mensais"].includes(page);
+              }
+              if (macroId === "apresentacoes") {
+                return ["apresentacoes", "apresentacoes_templates", "narrativa_executiva"].includes(page);
+              }
+              if (macroId === "modo_reuniao") {
+                return ["modo_reuniao", "reuniao_ata", "reuniao_notes"].includes(page);
+              }
+              if (macroId === "plano_executivo") {
+                return ["plano_executivo", "plano_responsaveis", "area_consultor"].includes(page);
+              }
+              if (macroId === "perfis") {
+                return ["perfis", "usuarios_twin", "organizacao_twin", "permissoes_twin", "auditoria_logs", "admin_security", "digital_twin", "importacao"].includes(page);
+              }
+              return false;
+            };
 
-            const isExpanded = expandedGroups[group.groupKey];
-            const visibleSubItems = group.subItems.filter(item => hasSubItemAccess(group.groupKey, item.id));
-
-            if (visibleSubItems.length === 0) return null;
+            const isActive = isMacroItemActive(item.id, activePage);
 
             return (
-              <div key={group.groupKey} className="flex flex-col">
-                {/* Group Title Accordion Header */}
+              <div key={item.id} className="w-full">
                 {!isDesktopCollapsed ? (
                   <button
-                    onClick={() => toggleGroup(group.groupKey)}
-                    className="flex items-center justify-between w-full px-2 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 hover:text-slate-300 select-none cursor-pointer text-left"
+                    onClick={() => {
+                      setActivePage(item.id);
+                      if (window.innerWidth < 1024) setIsMobileOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
+                      isActive 
+                        ? "bg-blue-600/15 text-blue-400 font-extrabold border-l-2 border-blue-500 pl-2.5" 
+                        : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-200"
+                    }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <group.icon size={12} className="text-slate-500" />
-                      <span>{group.title}</span>
-                    </div>
-                    <div>
-                      {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-                    </div>
+                    <item.icon size={15} className="shrink-0" />
+                    <span className="truncate">{item.title}</span>
                   </button>
                 ) : (
-                  <div className="w-full flex justify-center py-2 border-b border-slate-800/40" title={group.title}>
-                    <group.icon size={16} className="text-slate-400" />
-                  </div>
-                )}
-
-                {/* Group Items */}
-                {(!isDesktopCollapsed && isExpanded) ? (
-                  <ul className="mt-1 pl-2 space-y-0.5 border-l border-slate-800/60 ml-2 animate-fade-in">
-                    {visibleSubItems.map((sub) => {
-                      const isItemActive = activePage === sub.id || 
-                        (sub.id === "apresentacoes_deck" && activePage === "apresentacoes") ||
-                        (sub.id === "narrativa_executiva" && activePage === "apresentacoes") ||
-                        (sub.id === "story_builder" && activePage === "apresentacoes") ||
-                        (sub.id === "apresentacoes_templates" && activePage === "apresentacoes") ||
-                        (sub.id === "consultor_ia_decision" && activePage === "consultor_ia") ||
-                        (sub.id === "banco_connector" && activePage === "importacao") ||
-                        (sub.id === "etl_pipeline" && activePage === "importacao") ||
-                        (sub.id === "sincronizacao" && activePage === "importacao") ||
-                        (sub.id === "fonte_ativa" && activePage === "importacao") ||
-                        (sub.id === "validacao_dados" && activePage === "importacao") ||
-                        (sub.id === "apis_feed" && activePage === "importacao") ||
-                        (sub.id === "reuniao_ata" && activePage === "modo_reuniao") ||
-                        (sub.id === "reuniao_decisoes" && activePage === "modo_reuniao") ||
-                        (sub.id === "reuniao_perguntas" && activePage === "modo_reuniao") ||
-                        (sub.id === "reuniao_notas" && activePage === "modo_reuniao") ||
-                        (sub.id === "plano_executivo" && activePage === "area_consultor") ||
-                        (sub.id === "plano_responsaveis" && activePage === "area_consultor") ||
-                        (sub.id === "plano_prazos" && activePage === "area_consultor") ||
-                        (sub.id === "plano_followup" && activePage === "area_consultor") ||
-                        (sub.id === "plano_pendencias" && activePage === "area_consultor") ||
-                        (sub.id === "historico_executivo" && activePage === "relatorios") ||
-                        (sub.id === "resultados_consolidados" && activePage === "resumo") ||
-                        (sub.id === "comparativos_mensais" && activePage === "resumo") ||
-                        (sub.id === "auditoria_logs" && activePage === "perfis") ||
-                        (sub.id === "admin_flags" && activePage === "perfis") ||
-                        (sub.id === "admin_security" && activePage === "perfis") ||
-                        (sub.id === "admin_lgpd" && activePage === "perfis") ||
-                        (sub.id === "usuarios_twin" && activePage === "perfis") ||
-                        (sub.id === "permissoes_twin" && activePage === "perfis") ||
-                        (sub.id === "admin_invites" && activePage === "perfis") ||
-                        (sub.id === "admin_shares" && activePage === "perfis") ||
-                        (sub.id === "organizacao_twin" && activePage === "perfis");
-
-                      return (
-                        <li key={sub.id}>
-                          <button
-                            onClick={() => {
-                              setActivePage(sub.id);
-                              if (window.innerWidth < 1024) setIsMobileOpen(false);
-                            }}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
-                              isItemActive 
-                                ? "bg-blue-600/15 text-blue-400 font-extrabold border-l-2 border-blue-500 pl-2" 
-                                : "hover:bg-slate-800 text-slate-400 hover:text-slate-200"
-                            }`}
-                          >
-                            <sub.icon size={13} className="shrink-0" />
-                            <span className="truncate">{sub.title}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : isDesktopCollapsed && (
-                  <ul className="mt-1 space-y-1 flex flex-col items-center">
-                    {visibleSubItems.map((sub) => {
-                      const isItemActive = activePage === sub.id;
-                      return (
-                        <li key={sub.id} className="w-full">
-                          <button
-                            onClick={() => {
-                              setActivePage(sub.id);
-                            }}
-                            title={sub.title}
-                            className={`w-full flex justify-center py-2 rounded-lg transition-colors cursor-pointer ${
-                              isItemActive 
-                                ? "bg-blue-600/20 text-blue-400" 
-                                : "hover:bg-slate-800 text-slate-500 hover:text-slate-300"
-                            }`}
-                          >
-                            <sub.icon size={16} />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <button
+                    onClick={() => {
+                      setActivePage(item.id);
+                    }}
+                    title={item.title}
+                    className={`w-full flex justify-center py-2.5 rounded-lg transition-colors cursor-pointer ${
+                      isActive 
+                        ? "bg-blue-600/20 text-blue-400" 
+                        : "hover:bg-slate-800 text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    <item.icon size={18} />
+                  </button>
                 )}
               </div>
             );
@@ -316,14 +267,7 @@ export const getConsultingFlowStructure = (isAutomotive: boolean) => [
     title: "Conectar Dados",
     icon: Database,
     subItems: [
-      { title: "Central de Dados", id: "importacao", icon: FileText },
-      { title: "Banco de Dados", id: "banco_connector", icon: Database },
-      { title: "VPN", id: "vpn_gateway", icon: ShieldAlert },
-      { title: "APIs", id: "apis_feed", icon: Activity },
-      { title: "LGPD", id: "admin_lgpd", icon: ShieldCheck },
-      { title: "Sincronização", id: "sincronizacao", icon: History },
-      { title: "Fonte Ativa", id: "fonte_ativa", icon: Users },
-      { title: "Validação", id: "validacao_dados", icon: CheckCircle2 }
+      { title: "Central de Dados", id: "importacao", icon: FileText }
     ]
   },
   {
@@ -332,18 +276,10 @@ export const getConsultingFlowStructure = (isAutomotive: boolean) => [
     icon: Target,
     subItems: [
       { title: "Diagnóstico Executivo", id: "resumo", icon: BarChart3 },
-      { title: "KPIs Comerciais", id: "comercial", icon: Target },
-      ...(isAutomotive ? [
-        { title: "KPIs Pós-Vendas", id: "posvendas", icon: Target },
-        { title: "Peças & Acessórios", id: "pecas", icon: Target },
-        { title: "Gestão de Estoque", id: "estoque", icon: Target }
-      ] : []),
-      { title: "KPIs Financeiros", id: "financeiro", icon: Calculator },
-      { title: "DRE Inteligente", id: "dre_inteligente", icon: Calculator },
-      { title: "Benchmarks Industriais", id: "modelo_consultivo", icon: Award },
-      { title: "Diagnóstico de Anomalias", id: "obstaculos", icon: ShieldAlert },
-      { title: "Recomendações de IA", id: "consultor_ia", icon: BrainCircuit },
-      { title: "Dossiês Executivos", id: "relatorios", icon: FileText }
+      { title: "KPIs & DRE", id: "comercial", icon: Target },
+      { title: "Anomalias", id: "obstaculos", icon: ShieldAlert },
+      { title: "Recomendações", id: "consultor_ia", icon: BrainCircuit },
+      { title: "Dossiês", id: "relatorios", icon: FileText }
     ]
   },
   {
@@ -352,10 +288,8 @@ export const getConsultingFlowStructure = (isAutomotive: boolean) => [
     icon: Presentation,
     subItems: [
       { title: "Narrativa Executiva", id: "narrativa_executiva", icon: FileText },
-      { title: "Deck de Apresentações", id: "apresentacoes", icon: Presentation },
-      { title: "Story Builder", id: "story_builder", icon: Layers },
-      { title: "Templates de Decks", id: "apresentacoes_templates", icon: Layers },
-      { title: "Insights Selecionados", id: "consultor_ia_decision", icon: BrainCircuit }
+      { title: "Decks", id: "apresentacoes", icon: Presentation },
+      { title: "Templates", id: "apresentacoes_templates", icon: Layers }
     ]
   },
   {
@@ -364,10 +298,8 @@ export const getConsultingFlowStructure = (isAutomotive: boolean) => [
     icon: MonitorPlay,
     subItems: [
       { title: "Sessão Executiva", id: "modo_reuniao", icon: MonitorPlay },
-      { title: "Ata da Reunião", id: "reuniao_ata", icon: ClipboardList },
-      { title: "Decisões Estratégicas", id: "reuniao_decisoes", icon: CheckCircle2 },
-      { title: "Perguntas de Negócio", id: "reuniao_perguntas", icon: HelpCircle },
-      { title: "Notas e Transcrições", id: "reuniao_notas", icon: FileText }
+      { title: "Ata & Decisões", id: "reuniao_ata", icon: ClipboardList },
+      { title: "Notas", id: "reuniao_notes", icon: FileText }
     ]
   },
   {
@@ -376,10 +308,8 @@ export const getConsultingFlowStructure = (isAutomotive: boolean) => [
     icon: CheckSquare,
     subItems: [
       { title: "Plano Executivo", id: "plano_executivo", icon: CheckSquare },
-      { title: "Responsáveis", id: "plano_responsaveis", icon: Users },
-      { title: "Prazos e Metas", id: "plano_prazos", icon: History },
-      { title: "Pendências de Caixa", id: "plano_pendencias", icon: ShieldAlert },
-      { title: "Follow-up Semanal", id: "plano_followup", icon: Activity }
+      { title: "Responsáveis & Prazos", id: "plano_responsaveis", icon: Users },
+      { title: "People Intelligence", id: "comissoes", icon: Users }
     ]
   },
   {
@@ -387,11 +317,9 @@ export const getConsultingFlowStructure = (isAutomotive: boolean) => [
     title: "Evoluir Resultado",
     icon: History,
     subItems: [
-      { title: "Histórico Executivo", id: "historico_executivo", icon: History },
-      { title: "Resultados Consolidados", id: "resultados_consolidados", icon: BarChart3 },
-      { title: "Comparativos Mensais", id: "comparativos_mensais", icon: Layers },
-      { title: "Evolução Mensal", id: "fechamento_mensal", icon: Calculator },
-      { title: "People Intelligence", id: "comissoes", icon: Users }
+      { title: "Histórico", id: "historico_executivo", icon: History },
+      { title: "Comparativos", id: "comparativos_mensais", icon: Layers },
+      { title: "Evolução", id: "fechamento_mensal", icon: Calculator }
     ]
   },
   {
@@ -402,8 +330,6 @@ export const getConsultingFlowStructure = (isAutomotive: boolean) => [
       { title: "Usuários", id: "usuarios_twin", icon: Users },
       { title: "Organizações", id: "organizacao_twin", icon: ShieldCheck },
       { title: "Permissões", id: "permissoes_twin", icon: Key },
-      { title: "Convites", id: "admin_invites", icon: FileText },
-      { title: "Compartilhamentos", id: "admin_shares", icon: Layers },
       { title: "Configurações", id: "perfis", icon: Settings },
       { title: "Auditoria", id: "auditoria_logs", icon: History },
       { title: "Segurança", id: "admin_security", icon: Lock }
