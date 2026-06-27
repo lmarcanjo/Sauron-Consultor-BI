@@ -166,42 +166,36 @@ export const AppSidebar: React.FC<SidebarProps> = ({
         {/* Navigation List */}
         <div className="flex-1 overflow-y-auto py-4 custom-scrollbar overflow-x-hidden px-2.5 space-y-1.5">
           {[
-            { title: "Centro de Comando", id: "executive_workspace", icon: Briefcase },
-            { title: "Diagnóstico Executivo", id: "resumo", icon: BarChart3 },
-            { title: "Decks & Narrativa", id: "apresentacoes", icon: Presentation },
-            { title: "Sessão Executiva", id: "modo_reuniao", icon: MonitorPlay },
-            { title: "Plano Executivo", id: "plano_executivo", icon: CheckSquare },
-            { title: "Administração", id: "perfis", icon: Settings }
-          ].map((item) => {
-            const isMacroItemActive = (macroId: string, page: string): boolean => {
-              if (macroId === page) return true;
-              if (macroId === "executive_workspace") return page === "executive_workspace";
-              if (macroId === "resumo") {
-                return ["resumo", "comercial", "obstaculos", "consultor_ia", "relatorios", "comissoes", "fechamento_mensal", "comparativos_mensais"].includes(page);
+            { title: "Casos", id: "executive_workspace", tab: "resumo", icon: Briefcase },
+            { title: "Centro de Comando", id: "executive_workspace", tab: "resumo", icon: Activity },
+            { title: "Conectar Dados", id: "executive_workspace", tab: "dados", icon: Database },
+            { title: "Diagnóstico", id: "executive_workspace", tab: "financeiro", icon: Target },
+            { title: "Sessões", id: "executive_workspace", tab: "reunioes", icon: MonitorPlay },
+            { title: "Planos", id: "executive_workspace", tab: "planos", icon: CheckSquare },
+            { title: "Pessoas", id: "executive_workspace", tab: "pessoas", icon: Users },
+            { title: "Administração", id: "perfis", tab: null, icon: Settings }
+          ].map((item, idx) => {
+            const isItemActive = () => {
+              if (item.id === "executive_workspace" && activePage === "executive_workspace") {
+                // If the item represents a specific sub-tab of executive_workspace, it can match that, 
+                // but for simplicity we highlight the item that matches the general page.
+                return true;
               }
-              if (macroId === "apresentacoes") {
-                return ["apresentacoes", "apresentacoes_templates", "narrativa_executiva"].includes(page);
-              }
-              if (macroId === "modo_reuniao") {
-                return ["modo_reuniao", "reuniao_ata", "reuniao_notes"].includes(page);
-              }
-              if (macroId === "plano_executivo") {
-                return ["plano_executivo", "plano_responsaveis", "area_consultor"].includes(page);
-              }
-              if (macroId === "perfis") {
-                return ["perfis", "usuarios_twin", "organizacao_twin", "permissoes_twin", "auditoria_logs", "admin_security", "digital_twin", "importacao"].includes(page);
-              }
-              return false;
+              return activePage === item.id;
             };
 
-            const isActive = isMacroItemActive(item.id, activePage);
+            const isActive = isItemActive();
 
             return (
-              <div key={item.id} className="w-full">
+              <div key={idx} className="w-full">
                 {!isDesktopCollapsed ? (
                   <button
                     onClick={() => {
                       setActivePage(item.id);
+                      if (item.tab) {
+                        // Dispatch event to change sub-tab inside CaseHub
+                        window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: item.tab }));
+                      }
                       if (window.innerWidth < 1024) setIsMobileOpen(false);
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
@@ -217,6 +211,9 @@ export const AppSidebar: React.FC<SidebarProps> = ({
                   <button
                     onClick={() => {
                       setActivePage(item.id);
+                      if (item.tab) {
+                        window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: item.tab }));
+                      }
                     }}
                     title={item.title}
                     className={`w-full flex justify-center py-2.5 rounded-lg transition-colors cursor-pointer ${
