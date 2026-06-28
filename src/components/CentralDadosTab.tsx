@@ -129,7 +129,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     if (!confirmReplace) return;
 
     const data = [
-      { Grupo: "Grupo Alfa S/A", CNPJ: "12.345.678/0001-90", Marca: "Alfa Fiat", Empresa: "Alfa Filial 1", Mês: "2026-06", Razão: "Faturamento Vendas", Categoria: "Receita Operacional", Receita: Math.floor(Math.random() * 60000) + 20000, Custo: 11000, Despesa: 4000, Lucro: 15000, Margem: 42, Vendedor: "Carlos" }
+      { Grupo: "Grupo Alfa S/A", CNPJ: "12.345.678/0001-90", Marca: "Alfa Fiat", Empresa: "Alfa Filial 1", Mês: "2026-06", Razão: "Faturamento Vendas", Categoria: "Receita Operacional", Receita: Math.floor((Date.now() % 60000)) + 20000, Custo: 11000, Despesa: 4000, Lucro: 15000, Margem: 42, Vendedor: "Carlos" }
     ];
 
     const newFileId = `sim_file_${Date.now()}`;
@@ -791,8 +791,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                       if (name) {
                         const fileId = `sim_file_${Date.now()}`;
                         const mockRows = [
-                          { Grupo: "Grupo Alfa S/A", CNPJ: "12.345.678/0001-90", Marca: "Alfa Fiat", Empresa: "Alfa Filial 1", Mês: "2026-06", Razão: "Faturamento Vendas", Categoria: "Receita", Receita: Math.floor(Math.random() * 50000) + 15000, Custo: 10000, Despesa: 3000, Lucro: 12000, Margem: 40, Vendedor: "Carlos" },
-                          { Grupo: "Grupo Alfa S/A", CNPJ: "12.345.678/0001-90", Marca: "Alfa Fiat", Empresa: "Alfa Filial 1", Mês: "2026-06", Razão: "Faturamento Vendas", Categoria: "Receita", Receita: Math.floor(Math.random() * 40000) + 10000, Custo: 8000, Despesa: 2000, Lucro: 10000, Margem: 38, Vendedor: "Julia" }
+                          { Grupo: "Grupo Alfa S/A", CNPJ: "12.345.678/0001-90", Marca: "Alfa Fiat", Empresa: "Alfa Filial 1", Mês: "2026-06", Razão: "Faturamento Vendas", Categoria: "Receita", Receita: Math.floor((Date.now() % 50000)) + 15000, Custo: 10000, Despesa: 3000, Lucro: 12000, Margem: 40, Vendedor: "Carlos" },
+                          { Grupo: "Grupo Alfa S/A", CNPJ: "12.345.678/0001-90", Marca: "Alfa Fiat", Empresa: "Alfa Filial 1", Mês: "2026-06", Razão: "Faturamento Vendas", Categoria: "Receita", Receita: Math.floor((Date.now() % 40000)) + 10000, Custo: 8000, Despesa: 2000, Lucro: 10000, Margem: 38, Vendedor: "Julia" }
                         ];
                         const mockFile = {
                           id: fileId,

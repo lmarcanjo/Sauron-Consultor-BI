@@ -148,7 +148,7 @@ export class CaseHistoryEngine {
     category: CaseHistoryEvent["category"]
   ): CaseHistoryEvent {
     const newEvent: CaseHistoryEvent = {
-      id: `h_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      id: `h_${Date.now()}_${crypto.randomUUID().substring(0, 6)}`,
       caseId,
       title,
       description,

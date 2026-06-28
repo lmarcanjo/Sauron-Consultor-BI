@@ -23,7 +23,7 @@ const InputComponent: React.FC<SauronInputProps> = ({
   id,
   ...props
 }) => {
-  const inputId = id || `sauron-input-${Math.random().toString(36).substr(2, 9)}`;
+  const inputId = id || `sauron-input-${crypto.randomUUID().substring(0, 8)}`;
 
   return (
     <div className="space-y-1 w-full">

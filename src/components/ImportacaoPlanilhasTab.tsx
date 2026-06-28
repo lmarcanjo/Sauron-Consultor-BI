@@ -601,7 +601,10 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
         } else if (newFieldName === "Lucro Líquido Real" || newFieldName === "Lucro Real") {
           parsedVal = (row.Receita || 0) * 0.28;
         } else {
-          parsedVal = Math.round(15000 + Math.random() * 45000); // generic formula value
+          // Deterministic safe generator based on row field values
+          const seed = (row.Receita || 0) + (row.Custo || 0) + 123;
+          const pseudoRandom = Math.abs(Math.sin(seed) * 1000) % 1;
+          parsedVal = Math.round(15000 + pseudoRandom * 45000); // generic formula value
         }
       } catch {
         parsedVal = 0;

@@ -21,7 +21,7 @@ const TextareaComponent: React.FC<SauronTextareaProps> = ({
   id,
   ...props
 }) => {
-  const textareaId = id || `sauron-textarea-${Math.random().toString(36).substr(2, 9)}`;
+  const textareaId = id || `sauron-textarea-${crypto.randomUUID().substring(0, 8)}`;
 
   return (
     <div className="space-y-1 w-full">

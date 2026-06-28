@@ -21,7 +21,7 @@ const SelectComponent: React.FC<SauronSelectProps> = ({
   id,
   ...props
 }) => {
-  const selectId = id || `sauron-select-${Math.random().toString(36).substr(2, 9)}`;
+  const selectId = id || `sauron-select-${crypto.randomUUID().substring(0, 8)}`;
 
   return (
     <div className="space-y-1 w-full">

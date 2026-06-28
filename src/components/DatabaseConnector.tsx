@@ -772,9 +772,11 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                           const isAllOptionSelected = selectedTable === "__ALL_TABLES__";
                           const isIndividuallySelected = selectedTable.split(",").map(x => x.trim()).includes(t);
                           const isSelected = isAllOptionSelected || isIndividuallySelected;
+                          let tHash = 0;
+                          for (let i = 0; i < t.length; i++) tHash += t.charCodeAt(i);
                           const estRows = testResult.estimatedRows?.[t] !== undefined
                             ? testResult.estimatedRows[t]
-                            : Math.floor(Math.random() * 4500) + 120; // Fallback simulation
+                            : Math.floor((tHash * 17 + 120) % 4500) + 120; // Fallback simulation
 
                           return (
                             <div

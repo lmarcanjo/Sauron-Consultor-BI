@@ -190,7 +190,7 @@ export const PresentationBuilderPage: React.FC<PresentationBuilderPageProps> = (
 
   const addSlideFromLibrary = (type: 'cover' | 'dre' | 'ranking' | 'category' | 'checklist', title: string) => {
     const newSlide: SlideConfig = {
-      id: "slide_" + Math.random().toString(36).substring(2, 9),
+      id: "slide_" + crypto.randomUUID().substring(0, 8),
       title,
       subtitle: 'Visão corporativa sob demanda',
       type,
@@ -595,7 +595,7 @@ Sauron OS - Inteligência BI de Alta Performance
                       onClick={() => {
                         const cloned: SlideConfig = {
                           ...selectedSlide,
-                          id: "slide_" + Math.random().toString(36).substring(2, 9),
+                          id: "slide_" + crypto.randomUUID().substring(0, 8),
                           title: selectedSlide.title + " (Cópia)"
                         };
                         setSlides([...slides, cloned]);
