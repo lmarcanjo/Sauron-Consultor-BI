@@ -11,7 +11,7 @@ export class StoryBuilder {
   constructor(title: string, subtitle: string, templateId: string = "custom") {
     const now = new Date().toISOString();
     this.story = {
-      id: `story_${Math.random().toString(36).substring(2, 11)}`,
+      id: `story_${crypto.randomUUID().substring(0, 8)}`,
       title,
       subtitle,
       templateId,
@@ -31,7 +31,7 @@ export class StoryBuilder {
 
   public addChapter(title: string, options: Partial<Omit<StoryChapter, "id" | "title" | "blocks" | "actions" | "decisions" | "indicators">> = {}): this {
     const chapter: StoryChapter = {
-      id: `chapter_${Math.random().toString(36).substring(2, 11)}`,
+      id: `chapter_${crypto.randomUUID().substring(0, 8)}`,
       title,
       objective: options.objective || "Apresentar o status operacional do trimestre.",
       evidence: options.evidence || "Compilado direto do DRE consolidado.",
@@ -72,7 +72,7 @@ export class StoryBuilder {
     const chapter = this.story.chapters[chapterIndex];
     if (chapter) {
       const action: StoryAction = {
-        id: `action_${Math.random().toString(36).substring(2, 11)}`,
+        id: `action_${crypto.randomUUID().substring(0, 8)}`,
         description,
         responsible,
         deadline,
@@ -88,7 +88,7 @@ export class StoryBuilder {
     const chapter = this.story.chapters[chapterIndex];
     if (chapter) {
       const block: StoryBlock = {
-        id: `block_${Math.random().toString(36).substring(2, 11)}`,
+        id: `block_${crypto.randomUUID().substring(0, 8)}`,
         type,
         title,
         content,

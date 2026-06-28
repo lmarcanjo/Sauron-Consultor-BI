@@ -74,7 +74,7 @@ export class StoryEngine {
     }
 
     const cloned = storyVersionEngine.deepClone(original);
-    cloned.id = `story_${Math.random().toString(36).substring(2, 11)}`;
+    cloned.id = `story_${crypto.randomUUID().substring(0, 8)}`;
     cloned.title = newTitle;
     cloned.version = 1;
     cloned.isApproved = false;

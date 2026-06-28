@@ -39,7 +39,7 @@ export class StoryVersionEngine {
     }
 
     // Capture current as snapshot first before restoring so we don't lose active edits
-    const currentHash = `hash_restore_backup_${Math.random().toString(36).substring(2, 7)}`;
+    const currentHash = `hash_restore_backup_${crypto.randomUUID().substring(0, 5)}`;
     const backupSnapshot = this.createSnapshot(story, author, currentHash);
     story.history.push(backupSnapshot);
 
