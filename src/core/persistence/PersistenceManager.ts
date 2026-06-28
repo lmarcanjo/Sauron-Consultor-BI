@@ -3,46 +3,41 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export interface IPersistenceProvider {
-  getItem(key: string): Promise<string | null>;
-  setItem(key: string, value: string): Promise<void>;
-  removeItem(key: string): Promise<void>;
-  clear(): Promise<void>;
-}
+// 1. Re-export low-level provider components
+export * from "./IPersistenceProvider";
+
+// 2. Re-export repository abstractions
+export * from "./IRepository";
+
+// 3. Re-export transactional Unit of Work
+export * from "./UnitOfWork";
+
+// 4. Re-export transactional manager
+export * from "./TransactionManager";
+
+// 5. Re-export cache strategies
+export * from "./CacheLayer";
+
+// 6. Re-export offline sync models
+export * from "./OfflineEngine";
+
+// 7. Re-export snapshot engine
+export * from "./SnapshotEngine";
+
+// 8. Re-export observability telemetry
+export * from "./PersistenceObservability";
+
+import { IPersistenceProvider, LocalProvider } from "./IPersistenceProvider";
 
 /**
- * LocalStorage Provider (Default Implementation)
- */
-class LocalStorageProvider implements IPersistenceProvider {
-  public async getItem(key: string): Promise<string | null> {
-    if (typeof window === "undefined" || !window.localStorage) return null;
-    return window.localStorage.getItem(key);
-  }
-
-  public async setItem(key: string, value: string): Promise<void> {
-    if (typeof window === "undefined" || !window.localStorage) return;
-    window.localStorage.setItem(key, value);
-  }
-
-  public async removeItem(key: string): Promise<void> {
-    if (typeof window === "undefined" || !window.localStorage) return;
-    window.localStorage.removeItem(key);
-  }
-
-  public async clear(): Promise<void> {
-    if (typeof window === "undefined" || !window.localStorage) return;
-    window.localStorage.clear();
-  }
-}
-
-/**
- * Enterprise Persistence Manager
+ * Enterprise Persistence Manager (Legacy Compatibility Wrapper)
+ * Backed by modern IPersistenceProvider interfaces.
  */
 class PersistenceManager {
   private provider: IPersistenceProvider;
 
   constructor() {
-    this.provider = new LocalStorageProvider();
+    this.provider = new LocalProvider();
   }
 
   /**
