@@ -63,13 +63,14 @@ A proposta de valor do Sauron centra-se em capacitar o consultor a:
   - `DatabaseConnectionManager` robusto e conexões simuladas de banco de dados.
   - Workspace inicial do consultor focado em projetos e visualizações piloto.
 
-#### v0.6 — Consultant Platform (Status: Em Andamento / Sprint Atual)
+#### v0.6 — Consultant Platform (Status: Concluído)
 - **Objetivo**: Transformar o Sauron em um ambiente de trabalho operacional completo.
 - **Principais Módulos**:
   - `ConsultantWorkspaceManager` expandido, controlando projetos persistentes.
   - Armazenamento com versionamento de schema no local storage.
   - Isolamento de filtros contextuais complexos por projeto ativo (empresa, CNPJ, marcas, período).
   - Lógica e fluxo para registrar reuniões (`Meeting`) e persistência de planos de ação (`ActionPlan`).
+  - **Executive People Intelligence (E2)**: Hub de pessoas com filtros e agrupamentos executivos, dossiê individual completo, motor determinístico parametrizável de comissões, trace matemático de comissionamento com Data Lineage e gerador de documentos de impressão premium.
 
 #### v0.7 — Presentation Studio (Objetivo: Próxima Release)
 - **Objetivo**: Permitir que os achados e análises se transformem em apresentações executivas.
