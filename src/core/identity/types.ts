@@ -172,7 +172,9 @@ export type AuditAccessType =
   | "SHARE_LINK_CREATED"
   | "SHARE_LINK_REVOKED"
   | "PERMISSION_DENIED"
-  | "DIGITAL_TWIN_UPDATED";
+  | "DIGITAL_TWIN_UPDATED"
+  | "IMPERSONATION_STARTED"
+  | "IMPERSONATION_ENDED";
 
 export interface AuditAccessEvent {
   id: string;
@@ -185,3 +187,117 @@ export interface AuditAccessEvent {
   details: string;
   ipAddress?: string;
 }
+
+export interface Platform {
+  id: string;
+  name: string;
+  version: string;
+  globalSettings: {
+    mfaRequired: boolean;
+    passwordComplexityPolicy: boolean;
+    ssoEnabled: boolean;
+    sessionTimeoutMinutes: number;
+  };
+  tenants: string[]; // tenantIds
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  domain: string;
+  status: "active" | "suspended" | "pending";
+  subscriptionPlan: "trial" | "professional" | "enterprise";
+  createdAt: string;
+}
+
+export interface BusinessGroup {
+  id: string;
+  tenantId: string;
+  name: string;
+  companies: string[]; // companyIds
+  createdAt: string;
+}
+
+export interface Company {
+  id: string;
+  groupId: string;
+  name: string;
+  cnpj: string;
+  branches: string[]; // branchIds
+  createdAt: string;
+}
+
+export interface Branch {
+  id: string;
+  companyId: string;
+  name: string;
+  storeCode?: string;
+  departments: string[]; // departmentIds
+  createdAt: string;
+}
+
+export interface Department {
+  id: string;
+  branchId: string;
+  name: string;
+  costCenterId?: string;
+  parentDepartmentId?: string; // hierarchical tree nesting
+  teams: string[]; // teamIds
+  createdAt: string;
+}
+
+export interface Employee {
+  id: string;
+  userId: string;
+  tenantId: string;
+  departmentId: string;
+  managerUserId?: string;
+  title: string;
+  compensationBase: number;
+  status: "active" | "on_leave" | "terminated";
+  joinedAt: string;
+}
+
+export interface Delegation {
+  id: string;
+  tenantId: string;
+  fromUserId: string;
+  toUserId: string;
+  permissions: Permission[];
+  purpose: string;
+  durationMinutes: number;
+  expiresAt: string;
+  approvedBy: string; // supervisorId
+  status: "active" | "expired" | "revoked";
+  createdAt: string;
+}
+
+export interface Session {
+  id: string;
+  userId: string;
+  tenantId: string;
+  mfaVerified: boolean;
+  ipAddress: string;
+  userAgent: string;
+  createdAt: string;
+  expiresAt: string;
+  lastActiveAt: string;
+  isImpersonated: boolean;
+  impersonatedBy?: string; // original userId
+}
+
+export interface SecurityScore {
+  score: number; // 0 - 100
+  criteria: {
+    mfaAdoptionRate: number; // percentage of active users with MFA
+    passwordPolicyEnabled: boolean;
+    idleUsersCount: number; // users inactive > 90 days
+    expiredInvitationsCount: number;
+    adminsCount: number; // total users with Super Admin/Consultant Admin role
+    auditActivityRate: number; // ratio of actions captured by AuditEngine
+    ssoEnabled: boolean;
+    sessionStrictTimeout: boolean;
+  };
+  lastEvaluatedAt: string;
+}
+

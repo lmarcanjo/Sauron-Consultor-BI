@@ -29,6 +29,7 @@ import { invitationManager } from "./identity/InvitationManager";
 import { shareLinkManager } from "./identity/ShareLinkManager";
 import { digitalTwinEngine } from "./identity/digitalTwin/DigitalTwinEngine";
 import { PlatformUser, Workspace } from "./identity/types";
+import { securityScoreEngine } from "./identity/SecurityScoreEngine";
 
 describe("Sauron Release v0.6.5 — Identity & Collaboration Foundation Tests Suite", () => {
   
@@ -226,5 +227,61 @@ describe("Sauron Release v0.6.5 — Identity & Collaboration Foundation Tests Su
     // Shared presentation
     const sharedResource = { id: "pres_test_deck", isShared: true };
     expect(accessControlEngine.can(guest, "presentation.view", sharedResource)).toBe(true);
+  });
+
+  // 19. Policy Engine SDK Helpers
+  it("verifies Policy Engine SDK Helpers correctly", () => {
+    const superAdmin = userManager.getUser("user_super_admin")!;
+    const guest = userManager.getUser("user_guest")!;
+
+    // cannot()
+    expect(accessControlEngine.cannot(guest, "data.import")).toBe(true);
+    expect(accessControlEngine.cannot(superAdmin, "data.import")).toBe(false);
+
+    // hasRole()
+    expect(accessControlEngine.hasRole(superAdmin, "Super Admin")).toBe(true);
+    expect(accessControlEngine.hasRole(guest, "Super Admin")).toBe(false);
+
+    // hasPermission()
+    expect(accessControlEngine.hasPermission(superAdmin, "workspace.manage")).toBe(true);
+
+    // withinScope()
+    expect(accessControlEngine.withinScope(superAdmin, "global")).toBe(true);
+  });
+
+  // 20. Consultant Impersonation
+  it("correctly starts and stops consultant impersonation sessions with auditing", () => {
+    const consultantAdmin = userManager.getUser("user_consultant_admin")!;
+    const targetUser = userManager.getUser("user_client_manager")!;
+
+    // Start impersonation
+    const impersonated = identityEngine.impersonateUser(
+      consultantAdmin.id,
+      targetUser.id,
+      "Auditar relatórios de vendas na loja Nissan",
+      30
+    );
+
+    expect(impersonated.id).toBe(targetUser.id);
+    expect(identityEngine.getCurrentUser().id).toBe(targetUser.id);
+    expect(identityEngine.isSessionImpersonated()).toBe(true);
+    expect(identityEngine.getImpersonatingActorId()).toBe(consultantAdmin.id);
+
+    // Stop impersonation
+    const restored = identityEngine.stopImpersonating();
+    expect(restored.id).toBe(consultantAdmin.id);
+    expect(identityEngine.getCurrentUser().id).toBe(consultantAdmin.id);
+    expect(identityEngine.isSessionImpersonated()).toBe(false);
+  });
+
+  // 21. Security Maturity Score
+  it("evaluates dynamic Security Maturity Score based on security indicators", () => {
+    const scoreReport = securityScoreEngine.calculateMaturityScore();
+
+    expect(scoreReport.score).toBeGreaterThanOrEqual(0);
+    expect(scoreReport.score).toBeLessThanOrEqual(100);
+    expect(scoreReport.criteria.mfaAdoptionRate).toBeDefined();
+    expect(scoreReport.criteria.passwordPolicyEnabled).toBe(true);
+    expect(scoreReport.criteria.adminsCount).toBeGreaterThan(0);
   });
 });

@@ -194,6 +194,132 @@ export class IdentityEngine {
     }
     return orgs.filter(o => o.members.includes(user.id));
   }
+
+  // --- CONSULTANT IMPERSONATION ENGINE (TEMPORARY AUDITED ACCESS) ---
+
+  private IMPERSONATOR_USER_KEY = "sauron_identity_impersonator_user_id";
+
+  /**
+   * Performs consultant impersonation of a target user, recording the audit logs.
+   */
+  public impersonateUser(actorUserId: string, targetUserId: string, reason: string, durationMinutes: number): PlatformUser {
+    const actor = userManager.getUser(actorUserId);
+    if (!actor) {
+      throw new Error(`Actor user with ID ${actorUserId} does not exist.`);
+    }
+
+    // Verify actor is authorized to impersonate (must be Super Admin or Consultant Admin)
+    if (actor.role !== "Super Admin" && actor.role !== "Consultant Admin") {
+      throw new Error("Unauthorized: Only Admins or Consultants can impersonate.");
+    }
+
+    const target = userManager.getUser(targetUserId);
+    if (!target) {
+      throw new Error(`Target user with ID ${targetUserId} does not exist.`);
+    }
+
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(this.IMPERSONATOR_USER_KEY, actor.id);
+      localStorage.setItem(this.CURRENT_USER_KEY, target.id);
+      localStorage.setItem(this.CURRENT_ORG_KEY, target.organizationId);
+
+      // Auto-assign first visible workspace for target
+      const visibleWS = organizationManager.getWorkspaces().filter(ws =>
+        accessControlEngine.can(target, "workspace.view", ws)
+      );
+      if (visibleWS.length > 0) {
+        localStorage.setItem(this.CURRENT_WS_KEY, visibleWS[0].id);
+      } else {
+        localStorage.removeItem(this.CURRENT_WS_KEY);
+      }
+    }
+
+    // Log the IMPERSONATION_STARTED audit event
+    auditEngine.logEvent(
+      "IMPERSONATION_STARTED" as any,
+      `Consultor ${actor.profile.fullName} iniciou impersonação do usuário ${target.profile.fullName}. Motivo: ${reason}. Duração: ${durationMinutes} min.`,
+      "WARNING",
+      {
+        actorUserId: actor.id,
+        targetUserId: target.id,
+        reason,
+        durationMinutes,
+        organizationId: target.organizationId
+      }
+    );
+
+    return target;
+  }
+
+  /**
+   * Stops active impersonation and restores the original actor's session.
+   */
+  public stopImpersonating(): PlatformUser {
+    if (typeof localStorage === "undefined") {
+      throw new Error("No active session environment.");
+    }
+
+    const actorId = localStorage.getItem(this.IMPERSONATOR_USER_KEY);
+    if (!actorId) {
+      throw new Error("No active impersonation session found.");
+    }
+
+    const actor = userManager.getUser(actorId);
+    if (!actor) {
+      throw new Error(`Original actor user ${actorId} no longer exists.`);
+    }
+
+    const currentUserId = localStorage.getItem(this.CURRENT_USER_KEY) || "";
+    const targetUser = userManager.getUser(currentUserId);
+
+    localStorage.removeItem(this.IMPERSONATOR_USER_KEY);
+    localStorage.setItem(this.CURRENT_USER_KEY, actor.id);
+    localStorage.setItem(this.CURRENT_ORG_KEY, actor.organizationId);
+
+    // Auto-assign first visible workspace for actor
+    const visibleWS = organizationManager.getWorkspaces().filter(ws =>
+      accessControlEngine.can(actor, "workspace.view", ws)
+    );
+    if (visibleWS.length > 0) {
+      localStorage.setItem(this.CURRENT_WS_KEY, visibleWS[0].id);
+    } else {
+      localStorage.removeItem(this.CURRENT_WS_KEY);
+    }
+
+    // Log the IMPERSONATION_ENDED audit event
+    auditEngine.logEvent(
+      "IMPERSONATION_ENDED" as any,
+      `Impersonação encerrada. Restaurado acesso do consultor ${actor.profile.fullName} (estava acessando como ${targetUser?.profile.fullName || currentUserId}).`,
+      "INFO",
+      {
+        actorUserId: actor.id,
+        targetUserId: currentUserId,
+        organizationId: actor.organizationId
+      }
+    );
+
+    return actor;
+  }
+
+  /**
+   * Check if the current session is an impersonated session
+   */
+  public isSessionImpersonated(): boolean {
+    if (typeof localStorage !== "undefined") {
+      return !!localStorage.getItem(this.IMPERSONATOR_USER_KEY);
+    }
+    return false;
+  }
+
+  /**
+   * Retrieves the original actor user id if impersonation is active
+   */
+  public getImpersonatingActorId(): string | null {
+    if (typeof localStorage !== "undefined") {
+      return localStorage.getItem(this.IMPERSONATOR_USER_KEY);
+    }
+    return null;
+  }
 }
 
 export const identityEngine = IdentityEngine.getInstance();

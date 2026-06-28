@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { PlatformUser, Permission, Role, Workspace, AccessPolicy } from "./types";
+import { PlatformUser, Permission, Role, Workspace, AccessPolicy, PermissionScope } from "./types";
 import { permissionManager } from "./PermissionManager";
 import { organizationManager } from "./OrganizationManager";
 import { auditEngine } from "../audit/AuditEngine";
@@ -231,6 +231,78 @@ export class AccessControlEngine {
 
   public getVisiblePresentationsForUser(user: PlatformUser | null | undefined, presentations: { id: string; title: string; isShared?: boolean }[]): any[] {
     return this.filterResourcesByAccess(user, "presentation.view", presentations);
+  }
+
+  // --- DEFENSIVE SDK HELPERS FOR ABAC/RBAC POLICY EVALUATION ---
+
+  /**
+   * Helper to evaluate cannot() - the reverse of can()
+   */
+  public cannot(
+    user: PlatformUser | null | undefined,
+    permission: Permission,
+    resource?: any
+  ): boolean {
+    return !this.can(user, permission, resource);
+  }
+
+  /**
+   * Evaluates if a user's permission scope covers a specific resource ID
+   */
+  public withinScope(
+    user: PlatformUser | null | undefined,
+    scope: PermissionScope,
+    resourceId?: string
+  ): boolean {
+    if (!user) return false;
+    if (user.role === "Super Admin") return true;
+
+    const workspace = this.resolveWorkspace(null);
+    if (!workspace) return false;
+
+    const policies = workspace.accessPolicies.filter(
+      p => p.role === user.role && p.scope === scope
+    );
+
+    if (policies.length === 0) {
+      return permissionManager.roleHasDefaultPermission(user.role, "workspace.view");
+    }
+
+    if (!resourceId) return true;
+
+    return policies.some(policy => !policy.resourceId || policy.resourceId === resourceId);
+  }
+
+  /**
+   * Checks if the user profile carries specific permission on a resource
+   */
+  public hasPermission(
+    user: PlatformUser | null | undefined,
+    permission: Permission,
+    resource?: any
+  ): boolean {
+    return this.can(user, permission, resource);
+  }
+
+  /**
+   * Checks if user has a specific structural Role
+   */
+  public hasRole(
+    user: PlatformUser | null | undefined,
+    role: Role
+  ): boolean {
+    if (!user) return false;
+    return user.role === role;
+  }
+
+  /**
+   * Exposes raw policy scope evaluation
+   */
+  public evaluatePolicy(
+    policy: AccessPolicy,
+    resource: any
+  ): boolean {
+    return this.evaluatePolicyScope(policy, resource);
   }
 }
 
