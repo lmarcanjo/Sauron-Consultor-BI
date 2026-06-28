@@ -61,7 +61,7 @@ export const CaseOverview: React.FC<CaseOverviewProps> = ({
                 <span className="text-[10px] font-bold text-slate-400 uppercase">{kpi.name}</span>
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-black text-slate-800 dark:text-white">{kpi.target}</span>
-                  <SauronBadge variant="success">Ativo</SauronBadge>
+                  <SauronBadge type="success">Ativo</SauronBadge>
                 </div>
               </div>
             ))}

@@ -161,4 +161,60 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
       });
     });
   });
+
+  // Test 7: Architectural validation of CaseHub.tsx size limit
+  it("enforces CaseHub.tsx does not exceed 350 lines", () => {
+    const caseHubPath = path.resolve(__dirname, "./CaseHub.tsx");
+    const content = fs.readFileSync(caseHubPath, "utf-8");
+    const lines = content.split("\n");
+    expect(lines.length).toBeLessThanOrEqual(350);
+  });
+
+  // Test 8: Architectural validation of MeetingModePage.tsx size limit
+  it("enforces MeetingModePage.tsx does not exceed 450 lines", () => {
+    const meetingModePath = path.resolve(__dirname, "./MeetingModePage.tsx");
+    const content = fs.readFileSync(meetingModePath, "utf-8");
+    const lines = content.split("\n");
+    expect(lines.length).toBeLessThanOrEqual(450);
+  });
+
+  // Test 9: Prevention of non-deterministic math random functions outside of demoData.ts
+  it("ensures Math.random() is never called outside of the official demo data layer (src/data/demoData.ts)", () => {
+    const srcDir = path.resolve(__dirname, "../");
+    const violations: string[] = [];
+
+    const scanDirectory = (dir: string) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          // Skip node_modules and output dirs
+          if (entry.name !== "node_modules" && entry.name !== "dist" && entry.name !== ".vite" && entry.name !== "build") {
+            scanDirectory(fullPath);
+          }
+        } else if (entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))) {
+          // Skip the test files and the allowed demoData file
+          if (
+            entry.name.endsWith(".test.ts") ||
+            entry.name.endsWith(".test.tsx") ||
+            fullPath.endsWith("src/data/demoData.ts") ||
+            entry.name === "componentsCleanup.test.ts"
+          ) {
+            continue;
+          }
+
+          const content = fs.readFileSync(fullPath, "utf-8");
+          if (content.includes("Math.random()")) {
+            violations.push(path.relative(srcDir, fullPath));
+          }
+        }
+      }
+    };
+
+    scanDirectory(srcDir);
+    if (violations.length > 0) {
+      console.error("Architecture Violation: Math.random() detected outside demoData.ts in files:", violations);
+    }
+    expect(violations.length).toBe(0);
+  });
 });

@@ -62,7 +62,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
 
   const mockTableData = [
     { id: "1", client: "Alpha Nissan", city: "Feira de Santana", status: "Crítico" },
-    { id: "2", client: "Topázio Calçados", city: "Campina Grande", status: "Sincronizado" },
+    { id: "2", client: "Safira Calçados", city: "Campina Grande", status: "Sincronizado" },
     { id: "3", client: "Grupo Arcanjo", city: "Salvador", status: "Pendente" },
   ];
 
@@ -265,9 +265,9 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
             <h2 className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 font-mono tracking-widest border-b border-slate-100 dark:border-slate-850 pb-2">
               1. Case Header & Breadcrumbs
             </h2>
-            <SauronCaseBreadcrumb paths={["Casos", "Auditoria", "Grupo Topázio"]} />
+            <SauronCaseBreadcrumb paths={["Casos", "Auditoria", "Grupo Alpha"]} />
             <SauronCaseHeader
-              title="Grupo Topázio Concessionárias"
+              title="Grupo Alpha Concessionárias"
               category="Caso Estratégico"
               status="active"
               onActionClick={() => {}}
@@ -368,7 +368,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
           <SauronDrawer
             isOpen={isDrawerOpen}
             onClose={() => setIsDrawerOpen(false)}
-            title="Dossiê Grupo Topázio"
+            title="Dossiê Grupo Alpha"
             subtitle="Detalhamento operacional da holding"
             footer={
               <div className="flex gap-2">
