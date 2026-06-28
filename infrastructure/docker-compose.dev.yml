@@ -1,0 +1,94 @@
+# @license
+# SPDX-License-Identifier: Apache-2.0
+
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: sauron-postgres-dev
+    restart: always
+    environment:
+      POSTGRES_USER: sauron_user
+      POSTGRES_PASSWORD: sauron_secure_pass
+      POSTGRES_DB: sauron_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - sauron_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sauron_user -d sauron_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sauron-redis-dev
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - sauron_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: ./apps/api/Dockerfile.dev
+    container_name: sauron-api-dev
+    restart: always
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://sauron_user:sauron_secure_pass@postgres:5432/sauron_db?schema=public
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET=sauron_super_secret_jwt_key_signature
+      - JWT_REFRESH_SECRET=sauron_super_secret_refresh_jwt_key_signature
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: ./apps/worker/Dockerfile.dev
+    container_name: sauron-worker-dev
+    restart: always
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://sauron_user:sauron_secure_pass@postgres:5432/sauron_db?schema=public
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: ./Dockerfile.dev
+    container_name: sauron-web-dev
+    restart: always
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  sauron_postgres_data:
+    driver: local
+  sauron_redis_data:
+    driver: local
