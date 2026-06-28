@@ -19,22 +19,27 @@ Sauron's cluster is defined in `infrastructure/docker-compose.dev.yml`:
 
 ### Spin Up Postgres and Redis (Recommended Core)
 ```bash
-docker-compose -f infrastructure/docker-compose.dev.yml up -d postgres redis
+sudo docker compose -f infrastructure/docker-compose.dev.yml up postgres redis
 ```
 
-### Spin Up the Whole Cluster
+### Spin Up API and Worker Only
 ```bash
-docker-compose -f infrastructure/docker-compose.dev.yml up --build -d
+sudo docker compose -f infrastructure/docker-compose.dev.yml up api worker
+```
+
+### Spin Up the Whole Cluster (including web profile if specified)
+```bash
+sudo docker compose -f infrastructure/docker-compose.dev.yml up
 ```
 
 ### View Real-time Container Logs
 ```bash
-docker-compose -f infrastructure/docker-compose.dev.yml logs -f
+sudo docker compose -f infrastructure/docker-compose.dev.yml logs -f
 ```
 
 ### Shutdown Containers and Purge Volumes
 ```bash
-docker-compose -f infrastructure/docker-compose.dev.yml down -v
+sudo docker compose -f infrastructure/docker-compose.dev.yml down -v
 ```
 
 ---

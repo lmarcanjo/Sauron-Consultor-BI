@@ -268,4 +268,29 @@ describe("Sauron Backend Bootstrap (Foundation F5) Test Suite", () => {
       expect(report.envsMinimasOk).toBe(true);
     });
   });
+
+  // ============================================================================
+  // F5-H: DOCKER BOOTSTRAP VERIFICATION (DOCKERFILES & COMPOSE ATTS)
+  // ============================================================================
+  describe("F5-H — Docker Bootstrap Verification", () => {
+    it("ensures that docker-compose.dev.yml exists and does not contain obsolete version tag", () => {
+      const composePath = path.join(process.cwd(), "infrastructure/docker-compose.dev.yml");
+      expect(fs.existsSync(composePath)).toBe(true);
+
+      const content = fs.readFileSync(composePath, "utf-8");
+      expect(content).not.toContain("version: \"3.8\"");
+      expect(content).not.toContain("version: '3.8'");
+      expect(content).not.toContain("version: 3.8");
+    });
+
+    it("ensures all referenced Dockerfiles exist in the workspace", () => {
+      const apiDockerfile = path.join(process.cwd(), "apps/api/Dockerfile.dev");
+      const workerDockerfile = path.join(process.cwd(), "apps/worker/Dockerfile.dev");
+      const webDockerfile = path.join(process.cwd(), "Dockerfile.dev");
+
+      expect(fs.existsSync(apiDockerfile)).toBe(true);
+      expect(fs.existsSync(workerDockerfile)).toBe(true);
+      expect(fs.existsSync(webDockerfile)).toBe(true);
+    });
+  });
 });

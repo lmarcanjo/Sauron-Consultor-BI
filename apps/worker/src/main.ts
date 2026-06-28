@@ -21,3 +21,12 @@ export async function bootstrapWorker() {
 
   return { monitor, processor };
 }
+
+// Support executing directly via CLI (tsx apps/worker/src/main.ts)
+if (import.meta.url === `file://${process.argv[1]}` || process.argv[1]?.endsWith("main.ts")) {
+  bootstrapWorker().catch((err) => {
+    console.error("[Sauron Worker] Critical worker failure:", err);
+    process.exit(1);
+  });
+}
+

@@ -1,0 +1,21 @@
+# @license
+# SPDX-License-Identifier: Apache-2.0
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy root configurations and package manifests
+COPY package*.json tsconfig.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy all source files
+COPY . .
+
+# Expose port 3001
+EXPOSE 3001
+
+# Command to run the API using tsx compiler on the main entry point
+CMD ["npx", "tsx", "apps/api/src/main.ts"]
