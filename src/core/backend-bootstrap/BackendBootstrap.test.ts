@@ -283,14 +283,40 @@ describe("Sauron Backend Bootstrap (Foundation F5) Test Suite", () => {
       expect(content).not.toContain("version: 3.8");
     });
 
-    it("ensures all referenced Dockerfiles exist in the workspace", () => {
+    it("ensures all mandatory files exist in the workspace", () => {
+      const apiPackageJson = path.join(process.cwd(), "apps/api/package.json");
+      const apiMainTs = path.join(process.cwd(), "apps/api/src/main.ts");
       const apiDockerfile = path.join(process.cwd(), "apps/api/Dockerfile.dev");
+      const workerPackageJson = path.join(process.cwd(), "apps/worker/package.json");
       const workerDockerfile = path.join(process.cwd(), "apps/worker/Dockerfile.dev");
-      const webDockerfile = path.join(process.cwd(), "Dockerfile.dev");
 
+      expect(fs.existsSync(apiPackageJson)).toBe(true);
+      expect(fs.existsSync(apiMainTs)).toBe(true);
       expect(fs.existsSync(apiDockerfile)).toBe(true);
+      expect(fs.existsSync(workerPackageJson)).toBe(true);
       expect(fs.existsSync(workerDockerfile)).toBe(true);
-      expect(fs.existsSync(webDockerfile)).toBe(true);
+    });
+
+    it("ensures docker-compose.dev.yml does not reference non-existent Dockerfiles", () => {
+      const composePath = path.join(process.cwd(), "infrastructure/docker-compose.dev.yml");
+      expect(fs.existsSync(composePath)).toBe(true);
+
+      const content = fs.readFileSync(composePath, "utf-8");
+      
+      // Match all dockerfile: lines in the compose
+      const dockerfileMatches = content.match(/dockerfile:\s*([^\r\n]+)/g);
+      expect(dockerfileMatches).not.toBeNull();
+
+      if (dockerfileMatches) {
+        for (const match of dockerfileMatches) {
+          // Clean the path, e.g. "./apps/api/Dockerfile.dev" or "./Dockerfile.dev"
+          const relativePath = match.replace("dockerfile:", "").trim();
+          
+          // Compute absolute path. Since context is "..", the path in the compose is relative to the root (which is the parent of infrastructure)
+          const absolutePath = path.resolve(process.cwd(), relativePath);
+          expect(fs.existsSync(absolutePath)).toBe(true);
+        }
+      }
     });
   });
 });

@@ -4,7 +4,8 @@
  */
 
 import { Module } from "@nestjs/common";
-import { HealthController } from "./modules/health/health.controller";
+import { HealthModule } from "./health/health.module";
+import { VersionModule } from "./version/version.module";
 import { IdentityModule } from "./modules/identity/identity.module";
 import { TenantsModule } from "./modules/tenants/tenants.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
@@ -20,6 +21,8 @@ import { JobsModule } from "./modules/jobs/jobs.module";
  */
 @Module({
   imports: [
+    HealthModule,
+    VersionModule,
     IdentityModule,
     TenantsModule,
     OrganizationsModule,
@@ -27,7 +30,7 @@ import { JobsModule } from "./modules/jobs/jobs.module";
     AuditModule,
     JobsModule,
   ],
-  controllers: [HealthController],
+  controllers: [],
   providers: [],
 })
 export class AppModule {}

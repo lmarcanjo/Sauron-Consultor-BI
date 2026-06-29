@@ -28,7 +28,7 @@ Review the values, especially:
 
 Run the standard Docker Compose configuration to boot local Postgres and Redis:
 ```bash
-docker-compose -f infrastructure/docker-compose.dev.yml up -d postgres redis
+sudo docker compose -f infrastructure/docker-compose.dev.yml up postgres redis -d
 ```
 
 Once running, push the Prisma relational schema:
@@ -51,14 +51,51 @@ It will confirm whether Node versions, lock files, variables, and schema connect
 
 ## 5. STARTING THE SERVICES
 
-### To Run the API:
+### Option A: Local Execution (For active development)
+
+#### Installing and running the API:
 ```bash
 cd apps/api
+npm install
 npm run start:dev
 ```
 
-### To Run the Worker:
+This starts the NestJS API server on http://localhost:3001.
+
+#### Installing and running the Worker:
 ```bash
 cd apps/worker
+npm install
 npm run start:dev
+```
+
+This starts the worker processing BullMQ jobs in real time.
+
+### Option B: Docker Compose Full Cluster Execution
+
+To spin up Postgres, Redis, NestJS API, and Worker altogether in the background:
+```bash
+sudo docker compose -f infrastructure/docker-compose.dev.yml up api worker -d
+```
+
+To include the Optional Frontend Web service:
+```bash
+sudo docker compose --profile web -f infrastructure/docker-compose.dev.yml up
+```
+
+---
+
+## 6. TESTING ENDPOINTS
+
+Verify that the NestJS API has successfully booted and is answering health probes:
+
+```bash
+# Health Check (General status and uptime)
+curl -i http://localhost:3001/api/v1/health
+
+# Readiness Probe (Database and Redis connectivity status)
+curl -i http://localhost:3001/api/v1/readiness
+
+# System Version Details
+curl -i http://localhost:3001/api/v1/version
 ```

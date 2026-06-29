@@ -35,11 +35,25 @@ The `apps/api/` stack utilizes **NestJS** and **TypeScript** to power our REST i
 3. **Multi-Tenant Context Guard**: Inspects and validates `x-tenant-id` context headers before executing database commands.
 4. **DevOps Health Probes**: Exposes standard endpoints (`/api/v1/health`, `/api/v1/readiness`, `/api/v1/version`) for Kubernetes or Cloud Run orchestration.
 
+### Executable Files Created:
+- **`apps/api/package.json`**: Standard build/start scripts for NestJS.
+- **`apps/api/src/main.ts`**: Express-platform bootstrap listener.
+- **`apps/api/src/app.module.ts`**: Root module with nested domains.
+- **`apps/api/src/health/health.controller.ts` & `health.module.ts`**: Handles system status checking.
+- **`apps/api/src/version/version.controller.ts` & `version.module.ts`**: Serves metadata version checking.
+- **`apps/api/tsconfig.json` & `tsconfig.build.json`**: Decorator-aware compilations.
+- **`apps/api/Dockerfile.dev`**: Multi-stage/lightweight Alpine development image.
+
 ---
 
 ## 3. ASYNC BACKGROUND WORKER
 
 The `apps/worker/` microservice runs off-thread to execute long-running strategic operations without degrading API performance.
+
+### Executable Files Created:
+- **`apps/worker/package.json`**: Worker script definitions and manifests.
+- **`apps/worker/src/main.ts`**: Worker loop main entry point.
+- **`apps/worker/Dockerfile.dev`**: Fast multi-platform container build target.
 
 ### Job Routing Directory:
 - **`spreadsheet.import`**: Extracts, audits, and ingests multi-branch sheets.
@@ -64,3 +78,12 @@ Our PostgreSQL schema, mapped via **Prisma**, models our core operational and te
 - **`Workspace`**: Project directory workspaces.
 - **`ConsultingCase`**: Individual active cases.
 - **`AuditLog`**: Tamper-proof, transaction-correlated compliance logs.
+
+---
+
+## 5. DOCKER BOOTSTRAP VERIFICATION SUITE
+
+Sauron's CI pipeline enforces that the Docker dev orchestration config remains valid. The suite includes:
+- Verification of obsolete properties (e.g. `version` must be omitted).
+- Verification of existing files referenced in docker-compose contexts.
+- Automated validation that package files are structurally compliant.
