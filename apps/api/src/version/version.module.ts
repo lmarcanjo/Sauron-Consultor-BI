@@ -8,6 +8,5 @@ import { VersionController } from "./version.controller";
 
 @Module({
   controllers: [VersionController],
-  exports: [VersionController],
 })
 export class VersionModule {}
