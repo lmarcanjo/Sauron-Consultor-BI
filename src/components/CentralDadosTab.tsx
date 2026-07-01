@@ -46,12 +46,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     { title: "VPN", desc: "Túneis de Conexão" },
     { title: "Banco", desc: "Config do Cliente" },
     { title: "Planilhas", desc: "Upload & Abas" },
-    { title: "Mapeamento", desc: "Schema Mapping" },
     { title: "Filtros do Cliente", desc: "Config de Variáveis" },
-    { title: "Permissões", desc: "Níveis de Acesso" },
-    { title: "Validação", desc: "Integridade de Dados" },
-    { title: "Sincronização", desc: "Carga de Dados" },
-    { title: "Auditoria", desc: "Log de Rastreabilidade" }
+    { title: "Permissões", desc: "Níveis de Acesso" }
   ];
 
   // 1. Cliente State
@@ -83,7 +79,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   const [dragActive, setDragActive] = useState<boolean>(false);
 
   // Spreadsheet Beta custom states
-  const [showRealImporter, setShowRealImporter] = useState<boolean>(false);
+  const [showRealImporter, setShowRealImporter] = useState<boolean>(true);
   const [showConsolidator, setShowConsolidator] = useState<boolean>(false);
   const [selectedFilesForConsolidation, setSelectedFilesForConsolidation] = useState<string[]>([]);
   const [consolidatedFileName, setConsolidatedFileName] = useState<string>("Consolidado Geral Q2");
@@ -763,12 +759,14 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                     </h3>
                     <p className="text-[11px] text-slate-400">Insira e mapeie novos arquivos Excel ou CSV de faturamento.</p>
                   </div>
-                  <button
-                    onClick={() => setShowRealImporter(false)}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
-                  >
-                    Voltar ao Workspace
-                  </button>
+                  {visibleFilesList.length > 0 && (
+                    <button
+                      onClick={() => setShowRealImporter(false)}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    >
+                      Voltar ao Workspace
+                    </button>
+                  )}
                 </div>
                 <ImportacaoPlanilhasTab
                   dataOrigem={dataOrigem}
@@ -776,6 +774,34 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                   currentSource={currentSource}
                   onClose={() => setShowRealImporter(false)}
                 />
+              </div>
+            ) : visibleFilesList.length === 0 ? (
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center max-w-xl mx-auto my-6 space-y-6 shadow-sm flex flex-col items-center">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-500 border border-blue-100 dark:border-blue-900">
+                  <Database size={26} className="text-blue-500" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 uppercase tracking-tight">Você ainda não conectou dados reais.</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                    Importe uma planilha real ou configure uma conexão com o banco de dados do cliente.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row justify-center gap-3 w-full pt-2">
+                  <button
+                    onClick={() => setShowRealImporter(true)}
+                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] uppercase font-black tracking-wider rounded-xl shadow-sm transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Importar planilha</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab(2)}
+                    className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-750 dark:text-slate-200 text-[11px] uppercase font-black tracking-wider rounded-xl border border-slate-200 dark:border-slate-750 transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Server size={14} />
+                    <span>Conectar banco</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6" id="spreadsheet-workspace-dashboard">
@@ -1327,15 +1353,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
             )
           )}
 
-          {/* TAB 5: SCHEMA MAPPING */}
+          {/* TAB 5: FILTROS DO CLIENTE */}
           {activeTab === 4 && (
-            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-              <SpreadsheetFieldSelectionPanel />
-            </div>
-          )}
-
-          {/* TAB 6: FILTROS DO CLIENTE */}
-          {activeTab === 5 && (
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
               <div>
                 <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 flex items-center gap-2">
@@ -1541,8 +1560,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
             </div>
           )}
 
-          {/* TAB 7: PERMISSÕES */}
-          {activeTab === 6 && (
+          {/* TAB 6: PERMISSÕES */}
+          {activeTab === 5 && (
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
               <div>
                 <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 flex items-center gap-2">
@@ -1593,312 +1612,6 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 8: VALIDAÇÃO */}
-          {activeTab === 7 && (
-            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6 animate-fade-in">
-              <div>
-                <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 flex items-center gap-2">
-                  <ClipboardCheck size={20} className="text-blue-500" />
-                  Validação Cruzada de Consistência Teórica
-                </h3>
-                <p className="text-slate-400 text-xs mt-1">Nossa engine varre e audita em tempo real o dataset mapeado, sinalizando divergências matemáticas antes que cheguem aos relatórios compartilhados.</p>
-              </div>
-
-              {/* Dynamic Health Stats Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl">
-                  <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Dataset Health</span>
-                  <p className="text-xl font-mono font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                    {lucroInconsistente.length + margemInconsistente.length === 0 ? "100%" : `${Math.max(0, 100 - Math.round(((lucroInconsistente.length + margemInconsistente.length) / dataOrigem.length) * 100))}%`}
-                  </p>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl">
-                  <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Campos Omitidos</span>
-                  <p className="text-xl font-mono font-black text-blue-600 dark:text-blue-400 mt-1">
-                    {camposAusentes.length} <span className="text-xs text-slate-400">omitidos</span>
-                  </p>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl">
-                  <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Lucro Inconsistente</span>
-                  <p className={`text-xl font-mono font-black mt-1 ${lucroInconsistente.length > 0 ? "text-amber-500" : "text-emerald-600"}`}>
-                    {lucroInconsistente.length} rows
-                  </p>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl">
-                  <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Margem Divergente</span>
-                  <p className={`text-xl font-mono font-black mt-1 ${margemInconsistente.length > 0 ? "text-amber-500" : "text-emerald-600"}`}>
-                    {margemInconsistente.length} rows
-                  </p>
-                </div>
-              </div>
-
-              {/* Anomalous Inconsistent dataset records details */}
-              <div className="space-y-4">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Detalhes de Inconsistências Mapeadas</span>
-                
-                {lucroInconsistente.length === 0 && margemInconsistente.length === 0 ? (
-                  <div className="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 p-5 rounded-2xl text-center flex flex-col items-center justify-center gap-2">
-                    <CheckCircle className="text-emerald-600" size={32} />
-                    <p className="text-xs font-black text-emerald-800 dark:text-emerald-400">Dataset sem nenhuma fresta ou contradição na DRE!</p>
-                    <p className="text-[10px] text-slate-500">As relações estruturais de faturamento (Lucros = Receitas - Custos - Despesas) batem à risca em todas as competências mapeadas.</p>
-                  </div>
-                ) : (
-                  <div className="border border-slate-150 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-850 overflow-hidden max-h-[250px] overflow-y-auto">
-                    {/* Profit anomalies */}
-                    {lucroInconsistente.slice(0, 15).map((ln, idx) => (
-                      <div key={idx} className="p-3 text-xs bg-amber-500/[0.04] flex items-center justify-between border-l-4 border-amber-500">
-                        <div>
-                          <p className="font-extrabold text-slate-800 dark:text-slate-100">{ln.Empresa} (Mês: {ln.Mês})</p>
-                          <p className="text-[9px] text-slate-400 mt-0.5">Operação: {ln.Razão} | Conta: {ln.Categoria || "N/A"}</p>
-                        </div>
-                        <div className="text-right font-mono text-[10px]">
-                          <p className="text-slate-400">Declarado: R$ {ln.Lucro.toLocaleString()}</p>
-                          <p className="text-amber-600 font-bold">DRE Real: R$ {(ln.Receita - ln.Custo - ln.Despesa).toLocaleString()}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 9: SINCRONIZAÇÃO */}
-          {activeTab === 8 && (
-            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
-              
-              {/* Dynamic trigger & sync panel */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Real-time synchronization card controls */}
-                <div className="border border-slate-250 dark:border-slate-805 rounded-2xl p-4 bg-slate-55/40 dark:bg-slate-900/40 divide-y divide-slate-200 dark:divide-slate-800 space-y-4">
-                  <div className="pb-3 text-xs space-y-1">
-                    <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Sincronizador Ativo do Workspace</span>
-                    <h4 className="font-black text-sm text-slate-850 dark:text-slate-105">Estratégia de Carga</h4>
-                    <p className="text-slate-450 leading-relaxed text-[11px]">Sincronize as bases a qualquer momento. Escolha de qual fonte e SNAPSHOT carregar os dados financeiros consolidados.</p>
-                  </div>
-
-                  <div className="pt-4 flex flex-col gap-3">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-550 block">Conectar Banco Remoto</span>
-                      <button
-                        onClick={triggerSyncDatabase}
-                        disabled={isSyncing}
-                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-[10px] uppercase rounded-lg flex items-center gap-1.5 hover:shadow-xs transition-colors cursor-pointer"
-                      >
-                        <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-                        {isSyncing ? "Buscando..." : "Sync Banco Cliente"}
-                      </button>
-                    </div>
-
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-550 block">Snapshot Fictício (Segurança)</span>
-                      <button
-                        onClick={() => {
-                          setActiveSource("DEMO_DATA");
-                          rejectSource();
-                          alert("Dataset do workspace resetado com sucesso para dados DEMO do sistema (Fictícios).");
-                        }}
-                        className="px-3 py-2 bg-slate-200 hover:bg-slate-350 dark:bg-slate-800 dark:hover:bg-slate-705 text-slate-700 dark:text-slate-300 font-extrabold text-[10px] uppercase rounded-lg transition-colors cursor-pointer"
-                      >
-                        Ativar Modo Demo
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Approve combination switch */}
-                  <div className="pt-4 text-xs space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-550 block">Permitir COMBINED SOURCE (Mixed)?</span>
-                      <button
-                        onClick={() => {
-                          const nextState = !approveMixedData;
-                          if (nextState) {
-                            approveSource();
-                            setActiveSource("MIXED_APPROVED_DATA");
-                            alert("MIXED_APPROVED_DATA ativado. Agora o consultor pode mesclar relatórios de planilhas e DB.");
-                          } else {
-                            rejectSource();
-                            setActiveSource("DEMO_DATA");
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded text-[10px] font-black uppercase transition-colors cursor-pointer ${
-                          approveMixedData ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-600 dark:bg-slate-800"
-                        }`}
-                      >
-                        {approveMixedData ? "Aprovado" : "Bloqueado"}
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
-                      *MIXED_APPROVED_DATA só pode existir e ser consumido por relatórios e apresentações corporativos se o consultor explicitamente aprovar combinar fontes acima.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Audit Trial Logging Container (VPN, DB attempts, succeeded, failed, imported rows, timestamp, user) */}
-                <div className="border border-slate-250 dark:border-slate-805 rounded-2xl p-4 bg-slate-55/40 dark:bg-slate-900/40 text-xs flex flex-col gap-3">
-                  <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2.5">
-                    <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5"><Key size={12} /> Log de Auditoria & Rastreabilidade</span>
-                    <button onClick={fetchAuditLogs} className="p-1 hover:bg-slate-100 rounded text-slate-500 transition-colors" title="Forçar Leitura Logs">
-                      <RefreshCw size={12} />
-                    </button>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto h-48 space-y-2.5 pr-1 custom-scrollbar">
-                    {auditLogs.length === 0 ? (
-                      <p className="text-slate-400 italic text-center py-10">[Nenhum log de auditoria coletável registrado ainda]</p>
-                    ) : (
-                      auditLogs.map((log) => {
-                        const isSuccess = log.status === "Sucesso" || log.status === "Info";
-                        const isFail = log.status === "Falha";
-                        return (
-                          <div key={log.id} className="bg-white dark:bg-slate-950 p-2.5 border border-slate-100 dark:border-slate-850 rounded-xl space-y-1.5 text-[10px] leading-relaxed">
-                            <div className="flex justify-between items-center">
-                              <span className="font-extrabold text-slate-700 dark:text-slate-200 uppercase">{log.eventType}</span>
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
-                                isSuccess ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400" :
-                                isFail ? "bg-rose-100 text-rose-800 dark:bg-rose-955/20 dark:text-rose-450" :
-                                "bg-amber-100 text-amber-800"
-                              }`}>{log.status}</span>
-                            </div>
-                            <p className="text-slate-600 dark:text-slate-400 break-words">{log.description}</p>
-                            <div className="flex justify-between text-[8px] text-slate-400 border-t border-slate-50 dark:border-slate-850 pt-1">
-                              <span>User: <strong className="font-mono text-slate-500">{log.user}</strong></span>
-                              <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          )}
-
-          {/* TAB 10: AUDITORIA */}
-          {activeTab === 9 && (
-            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 flex items-center gap-2">
-                    <Shield size={20} className="text-blue-600" />
-                    Trilha de Auditoria & Segurança Regulatória
-                  </h3>
-                  <p className="text-slate-400 text-xs mt-1">
-                    Histórico detalhado de todas as tentativas de conexão VPN, conexões a banco de dados read-only, cargas incrementais de planilhas e ações administrativas.
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    const csvRows = [
-                      ["ID", "Data/Hora", "Evento", "Descricao", "Status", "Usuario"],
-                      ...auditLogs.map((log) => [
-                        log.id,
-                        new Date(log.timestamp).toLocaleString("pt-BR"),
-                        log.eventType,
-                        log.description,
-                        log.status,
-                        log.user
-                      ])
-                    ];
-                    const csvContent = "data:text/csv;charset=utf-8," 
-                      + csvRows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", `auditoria_sauron_${Date.now()}.csv`);
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }}
-                  className="px-4 py-2 bg-slate-900 hover:bg-black text-white text-xs font-bold uppercase rounded-lg flex items-center gap-2 shadow transition-colors cursor-pointer"
-                >
-                  <FileText size={14} />
-                  Exportar Logs (.CSV)
-                </button>
-              </div>
-
-              {/* Advanced Filter Status bar */}
-              <div className="bg-slate-50 dark:bg-slate-900 border border-slate-150 dark:border-slate-800 p-4 rounded-xl flex flex-wrap gap-4 items-center justify-between">
-                <div className="flex gap-4">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    <span>Sucessos / Info: <strong>{auditLogs.filter(l => l.status !== "Falha").length}</strong></span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                    <span>Falhas / Alertas: <strong>{auditLogs.filter(l => l.status === "Falha").length}</strong></span>
-                  </div>
-                </div>
-                <span className="text-[10px] text-slate-400 font-mono font-bold uppercase">Estado do Sistema: Em Conformidade</span>
-              </div>
-
-              {/* Log Timeline Table List */}
-              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-950">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 dark:bg-slate-900 text-[10px] font-black uppercase text-slate-400 border-b border-slate-200 dark:border-slate-800">
-                        <th className="py-3 px-4">Timestamp</th>
-                        <th className="py-3 px-4">Categoria / Evento</th>
-                        <th className="py-3 px-4">Usuário</th>
-                        <th className="py-3 px-4">Descrição da Atividade</th>
-                        <th className="py-3 px-4 text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-150 dark:divide-slate-800 font-semibold">
-                      {auditLogs.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="py-8 text-center text-slate-400 italic">[Sem registros de auditoria na sessão atual]</td>
-                        </tr>
-                      ) : (
-                        auditLogs.map((log) => {
-                          const isSuccess = log.status === "Sucesso" || log.status === "Info";
-                          const isFail = log.status === "Falha";
-                          return (
-                            <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                              <td className="py-3 px-4 text-slate-400 font-mono text-[10px]">
-                                {new Date(log.timestamp).toLocaleString("pt-BR")}
-                              </td>
-                              <td className="py-3 px-4 text-slate-850 dark:text-slate-200">
-                                <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded font-mono text-[9px] uppercase tracking-wide">
-                                  {log.eventType}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">{log.user}</td>
-                              <td className="py-3 px-4 text-slate-600 dark:text-slate-300 max-w-sm truncate" title={log.description}>
-                                {log.description}
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                                  isSuccess ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-450" :
-                                  isFail ? "bg-rose-100 text-rose-800 dark:bg-rose-955/20 dark:text-rose-450" :
-                                  "bg-amber-100 text-amber-800"
-                                }`}>
-                                  {log.status}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Policy alert warning box */}
-              <div className="p-4 bg-blue-50/40 dark:bg-slate-900/50 border border-blue-100 dark:border-slate-800 rounded-xl flex gap-3 text-xs text-slate-600 dark:text-slate-350 leading-relaxed font-medium">
-                <Lock className="text-blue-500 shrink-0 mt-0.5" size={16} />
-                <span>
-                  <strong>Política de Retenção e Não Alteração:</strong> Por motivos de governança de dados em reuniões executivas e faturamento real de concessionárias, os registros acima são marcados em modo estritamente read-only na base corporativa. Nenhuma ação de exclusão física ou bypass de logs é permitida.
-                </span>
               </div>
             </div>
           )}

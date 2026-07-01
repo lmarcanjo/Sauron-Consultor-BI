@@ -96,6 +96,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
   // Navigation tabs
   type Step = "upload" | "abas" | "mapeamento" | "previa" | "filtros" | "calculos" | "relatorios" | "apresentacao" | "perfis" | "auditoria";
   const [activeStep, setActiveStep] = useState<Step>("upload");
+  const [importProgress, setImportProgress] = useState<{ message: string; percent: number } | null>(null);
 
   // Excel-like Spreadsheet Viewer interactive states
   const [activePreviewSheet, setActivePreviewSheet] = useState<string>("");
@@ -148,8 +149,26 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
   const [rawFiles, setRawFiles] = useState<RawFile[]>([]);
   const [rawSheets, setRawSheets] = useState<RawSheet[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]); // Layer 3: Unmodified Data Rows
-  const [importProfileList, setImportProfileList] = useState<ImportProfile[]>([]);
+  const [importProfileList, setImportProfileList] = useState<ImportProfile[]>(() => {
+    if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem("sauron_ds_import_profile");
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch (e) {
+          console.error("Error loading import profiles:", e);
+        }
+      }
+    }
+    return [];
+  });
   const [activeProfileId, setActiveProfileId] = useState<string>("default");
+
+  useEffect(() => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("sauron_ds_import_profile", JSON.stringify(importProfileList));
+    }
+  }, [importProfileList]);
 
   // Custom Fields & Filters State
   const [customFilters, setCustomFilters] = useState<CustomFilter[]>([]);
@@ -162,6 +181,70 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
 
   // Mappings config
   const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({});
+
+  // Helper to map and normalize a single row to corporate schema (NormalizedDataset)
+  const normalizeAndMapRow = (row: any, activeColumns: string[], aliases: Record<string, string>) => {
+    // 1. Copy raw row
+    const mappedRow = { ...row };
+
+    // 2. Apply column aliases mapping
+    activeColumns.forEach(col => {
+      const alias = aliases[col];
+      if (alias && alias !== col) {
+        mappedRow[alias] = row[col];
+      }
+    });
+
+    // 3. Safe getNum helper
+    const getNum = (v: any) => {
+      if (v === undefined || v === null || v === "") return 0;
+      if (typeof v === "number") return v;
+      const sanit = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
+      const parsed = parseFloat(sanit);
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    // 4. Locate standard fields using possible aliases/keys
+    const getValueByKeys = (rowObj: any, keys: string[]) => {
+      for (const key of keys) {
+        if (rowObj[key] !== undefined && rowObj[key] !== null) return rowObj[key];
+      }
+      return undefined;
+    };
+
+    // 5. Normalization for corporate schema (NormalizedDataset)
+    const grupoVal = getValueByKeys(mappedRow, ["Grupo", "Grupo Economico", "Grupo Econômico"]) || "Geral";
+    const cnpjVal = getValueByKeys(mappedRow, ["CNPJ", "Cnpj"]) || "00.000.000/0001-00";
+    const marcaVal = getValueByKeys(mappedRow, ["Marca", "Bandeira"]) || "N/D";
+    const empresaVal = getValueByKeys(mappedRow, ["Empresa", "Razão Social", "Razao Social"]) || "Empresa Geral";
+    const mesVal = getValueByKeys(mappedRow, ["Mês", "Mes", "Competência", "Competencia"]) || "N/D";
+    const razaoVal = getValueByKeys(mappedRow, ["Razão", "Razao"]) || "Outros";
+    const categoriaVal = getValueByKeys(mappedRow, ["Categoria", "Classificação", "Classificacao"]) || "Sem Categoria";
+    const vendedorVal = getValueByKeys(mappedRow, ["Vendedor", "Consultor"]) || "Padrão";
+
+    const receitaVal = mappedRow["Receita"] !== undefined ? getNum(mappedRow["Receita"]) : getNum(mappedRow["Valor"] || 0);
+    const custoVal = mappedRow["Custo"] !== undefined ? getNum(mappedRow["Custo"]) : 0;
+    const despesaVal = mappedRow["Despesa"] !== undefined ? getNum(mappedRow["Despesa"]) : 0;
+    const lucroVal = mappedRow["Lucro"] !== undefined ? getNum(mappedRow["Lucro"]) : (receitaVal - custoVal - despesaVal);
+    const margemVal = mappedRow["Margem"] !== undefined ? getNum(mappedRow["Margem"]) : (receitaVal > 0 ? (lucroVal / receitaVal) * 100 : 0);
+
+    // 6. Set standard normalized properties on mappedRow
+    mappedRow.Grupo = String(grupoVal);
+    mappedRow.CNPJ = String(cnpjVal);
+    mappedRow.Marca = String(marcaVal);
+    mappedRow.Empresa = String(empresaVal);
+    mappedRow.Mês = String(mesVal);
+    mappedRow.Razão = String(razaoVal);
+    mappedRow.Categoria = String(categoriaVal);
+    mappedRow.Vendedor = String(vendedorVal);
+    mappedRow.Receita = receitaVal;
+    mappedRow.Custo = custoVal;
+    mappedRow.Despesa = despesaVal;
+    mappedRow.Lucro = lucroVal;
+    mappedRow.Margem = margemVal;
+
+    return mappedRow;
+  };
 
   // Presentation slides state
   const [slideDeck, setSlideDeck] = useState<SlideDeckItem[]>([
@@ -484,6 +567,19 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
 
   // Load sample profiles
   useEffect(() => {
+    const stored = localStorage.getItem("sauron_ds_import_profile");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.length > 0) {
+          setImportProfileList(parsed);
+          return;
+        }
+      } catch (e) {
+        console.error("Error loading import profiles from localStorage:", e);
+      }
+    }
+
     const defaultProfiles: ImportProfile[] = [
       {
         id: "prof_automotivo_padrao",
@@ -673,97 +769,190 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const file = files[0];
+    const fileId = `local_f_${Date.now()}`;
+    
+    setImportProgress({ message: "Iniciando worker de processamento...", percent: 5 });
+
     try {
-      // Dynamically load the spreadsheet reading library
+      const arrayBuffer = await file.arrayBuffer();
+      
+      // Create a Worker using standard URL resolution
+      const worker = new Worker(
+        new URL("../workers/spreadsheetParser.worker.ts", import.meta.url),
+        { type: "module" }
+      );
+
+      worker.onmessage = (event) => {
+        const { status, message, percent, metadata, fullRows, error } = event.data;
+
+        if (status === "progress") {
+          setImportProgress({ message, percent });
+        } else if (status === "success") {
+          setImportProgress({ message: "Concluído", percent: 100 });
+          setTimeout(() => setImportProgress(null), 800);
+
+          // Handle the metadata received
+          const newFilesList: RawFile[] = [{
+            id: fileId,
+            name: file.name,
+            size: file.size,
+            type: file.type || "application/octet-stream"
+          }];
+
+          const newSheetsList: RawSheet[] = metadata.sheets.map((sheet: any, sIdx: number) => ({
+            id: `local_s_${Date.now()}_0_${sIdx}`,
+            fileName: file.name,
+            sheetName: sheet.sheetName,
+            selected: true,
+            classification: "Receitas",
+            rowCount: sheet.rowCount,
+            customName: sheet.sheetName
+          }));
+
+          setRawFiles(newFilesList);
+          setRawSheets(newSheetsList);
+          setRawRows(fullRows);
+
+          if (newSheetsList.length > 0) {
+            setActivePreviewSheet(newSheetsList[0].sheetName);
+          }
+
+          // Add file to import history
+          const histId = `hist_${Date.now()}`;
+          setImportHistory(prev => [
+            {
+              id: histId,
+              fileName: file.name,
+              date: new Date().toISOString().replace("T", " ").substring(0, 16),
+              rows: fullRows.length,
+              cols: metadata.sheets[0]?.columns?.length || 0,
+              active: true
+            },
+            ...prev
+          ]);
+
+          // Quality and data integrity auditor
+          const emptyFields = fullRows.filter((r: any) => !r.Empresa || r.Empresa === "Empresa Geral").length;
+          const negativeValues = fullRows.filter((r: any) => r.Receita < 0 || r.Custo < 0 || r.Despesa < 0).length;
+
+          setValidationLogs({
+            totalRows: fullRows.length,
+            emptyFieldsCount: emptyFields,
+            negativeValuesCount: negativeValues,
+            duplicatesCount: 0,
+            issues: [
+              `Planilha importada com sucesso: ${fullRows.length} registros estruturados de ${newSheetsList.length} abas encontradas.`,
+              emptyFields > 0 ? `Existe(m) ${emptyFields} linha(s) com Empresa/Razão Social nula ou padrão.` : "Nenhum problema de células nulas identificado.",
+              negativeValues > 0 ? `Existe(m) ${negativeValues} célula(s) com valores monetários negativos.` : "Consistência financeira ideal: sem valores negativos."
+            ]
+          });
+
+          // Safe setup of custom filters
+          setCustomFilters([
+            { id: "f_vendedor", columnName: "Vendedor", label: "Consultores Ativos", type: "list", appearDashboard: true, appearReports: true, appearSlides: true }
+          ]);
+
+          // Set file rows directly in DataSourceManager so they are globally loaded/cached
+          dataSourceManager.setFileRows(fileId, fullRows);
+
+          onDataLoaded(fullRows as LancamentoFinanceiro[], `Planilhas Combinadas (${newSheetsList.filter(s => s.selected).length} abas de dados reais)`);
+          setActiveStep("abas");
+          
+          worker.terminate();
+        } else if (status === "error") {
+          console.error("Worker error message:", error);
+          setImportProgress(null);
+          worker.terminate();
+          // Fallback to local main thread processing
+          handleLocalFileLoadFallback(file);
+        }
+      };
+
+      worker.onerror = (err) => {
+        console.error("Worker general error:", err);
+        setImportProgress(null);
+        worker.terminate();
+        // Fallback to local main thread processing
+        handleLocalFileLoadFallback(file);
+      };
+
+      worker.postMessage({
+        arrayBuffer,
+        fileName: file.name,
+        fileId
+      }, [arrayBuffer]);
+
+    } catch (err: any) {
+      console.error("Failed to start worker, executing fallback...", err);
+      setImportProgress(null);
+      handleLocalFileLoadFallback(file);
+    }
+  };
+
+  // Robust main thread fallback in case web worker is restricted
+  const handleLocalFileLoadFallback = async (file: File) => {
+    try {
       const XLSX = await import("xlsx");
       
       const newFilesList: RawFile[] = [];
       const newSheetsList: RawSheet[] = [];
       const newRowsList: any[] = [];
       let totalColCount = 0;
-      const fileNames: string[] = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        fileNames.push(file.name);
-        newFilesList.push({
-          id: `local_f_${Date.now()}_${i}`,
-          name: file.name,
-          size: file.size,
-          type: file.type || "application/octet-stream"
-        });
+      newFilesList.push({
+        id: `local_f_${Date.now()}_0`,
+        name: file.name,
+        size: file.size,
+        type: file.type || "application/octet-stream"
+      });
 
-        let arrayBuffer = await file.arrayBuffer();
-        if (file.name.toLowerCase().endsWith(".csv")) {
-          const text = new TextDecoder("utf-8").decode(arrayBuffer);
-          if (text.includes(";") && !text.includes(",")) {
-            const replaced = text.replace(/;/g, ",");
-            arrayBuffer = new TextEncoder().encode(replaced).buffer;
-          }
+      let arrayBuffer = await file.arrayBuffer();
+      if (file.name.toLowerCase().endsWith(".csv")) {
+        const text = new TextDecoder("utf-8").decode(arrayBuffer);
+        if (text.includes(";") && !text.includes(",")) {
+          const replaced = text.replace(/;/g, ",");
+          arrayBuffer = new TextEncoder().encode(replaced).buffer;
         }
-        const workbook = XLSX.read(arrayBuffer, { type: "array" });
-
-        workbook.SheetNames.forEach((sheetName, sIdx) => {
-          const worksheet = workbook.Sheets[sheetName];
-          const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-          if (rawJson.length > 0) {
-            const keys = new Set<string>();
-            rawJson.forEach(row => {
-              Object.keys(row).forEach(k => keys.add(k));
-            });
-            totalColCount = Math.max(totalColCount, keys.size);
-
-            newSheetsList.push({
-              id: `local_s_${Date.now()}_${i}_${sIdx}`,
-              fileName: file.name,
-              sheetName: sheetName,
-              selected: true,
-              classification: "Receitas",
-              rowCount: rawJson.length,
-              customName: sheetName
-            });
-
-            rawJson.forEach((row: any, rIdx: number) => {
-              const getNum = (v: any) => {
-                if (v === undefined || v === null || v === "") return 0;
-                if (typeof v === "number") return v;
-                const sanit = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
-                const parsed = parseFloat(sanit);
-                return isNaN(parsed) ? 0 : parsed;
-              };
-
-               const cleanRow: any = {
-                id: `up_row_${Date.now()}_${i}_${sIdx}_${rIdx}`,
-                Grupo: row["Grupo"] || row["Grupo Economico"] || row["Grupo Econômico"] || "Geral",
-                CNPJ: row["CNPJ"] || row["Cnpj"] || "00.000.000/0001-00",
-                Marca: row["Marca"] || row["Bandeira"] || "N/D",
-                Empresa: row["Empresa"] || row["Razão Social"] || row["Razao Social"] || "Empresa Geral",
-                Mês: row["Mês"] || row["Mes"] || row["Competência"] || row["Competencia"] || "N/D",
-                Razão: row["Razão"] || row["Razao"] || "Outros",
-                Categoria: row["Categoria"] || row["Classificação"] || row["Classificacao"] || "Sem Categoria",
-                Receita: row["Receita"] !== undefined ? getNum(row["Receita"]) : getNum(row["Valor"] || 0),
-                Custo: row["Custo"] !== undefined ? getNum(row["Custo"]) : 0,
-                Despesa: row["Despesa"] !== undefined ? getNum(row["Despesa"]) : 0,
-                Lucro: row["Lucro"] !== undefined ? getNum(row["Lucro"]) : 0,
-                Margem: row["Margem"] !== undefined ? getNum(row["Margem"]) : 0,
-                Vendedor: row["Vendedor"] || row["Consultor"] || "Padrão",
-                
-                // Spreadsheet Workspace traceability fields
-                arquivo: file.name,
-                aba: sheetName,
-                linha: rIdx + 2,
-                coluna: Object.keys(row).length,
-                dataImportacao: new Date().toISOString(),
-                usuario: "Lennon Marcanjo",
-                
-                ...row
-              };
-              newRowsList.push(cleanRow);
-            });
-          }
-        });
       }
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+
+      workbook.SheetNames.forEach((sheetName, sIdx) => {
+        const worksheet = workbook.Sheets[sheetName];
+        const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+        if (rawJson.length > 0) {
+          const keys = new Set<string>();
+          rawJson.forEach(row => {
+            Object.keys(row).forEach(k => keys.add(k));
+          });
+          totalColCount = Math.max(totalColCount, keys.size);
+
+          newSheetsList.push({
+            id: `local_s_${Date.now()}_0_${sIdx}`,
+            fileName: file.name,
+            sheetName: sheetName,
+            selected: true,
+            classification: "Receitas",
+            rowCount: rawJson.length,
+            customName: sheetName
+          });
+
+          rawJson.forEach((row: any, rIdx: number) => {
+            const cleanRow: any = {
+              id: `up_row_${Date.now()}_0_${sIdx}_${rIdx}`,
+              arquivo: file.name,
+              aba: sheetName,
+              linha: rIdx + 2,
+              coluna: Object.keys(row).length,
+              dataImportacao: new Date().toISOString(),
+              usuario: "Lennon Marcanjo",
+              ...row
+            };
+            newRowsList.push(cleanRow);
+          });
+        }
+      });
 
       if (newRowsList.length > 0) {
         setRawFiles(newFilesList);
@@ -774,12 +963,11 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
           setActivePreviewSheet(newSheetsList[0].sheetName);
         }
 
-        // Add file to import history
         const histId = `hist_${Date.now()}`;
         setImportHistory(prev => [
           {
             id: histId,
-            fileName: fileNames.join(", ") || "Planilha Carregada",
+            fileName: file.name,
             date: new Date().toISOString().replace("T", " ").substring(0, 16),
             rows: newRowsList.length,
             cols: totalColCount,
@@ -788,7 +976,6 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
           ...prev
         ]);
 
-        // Quality and data integrity auditor
         const emptyFields = newRowsList.filter(r => !r.Empresa || r.Empresa === "Empresa Geral").length;
         const negativeValues = newRowsList.filter(r => r.Receita < 0 || r.Custo < 0 || r.Despesa < 0).length;
 
@@ -798,20 +985,21 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
           negativeValuesCount: negativeValues,
           duplicatesCount: 0,
           issues: [
-            `Planilha importada com sucesso: ${newRowsList.length} registros estruturados de ${newSheetsList.length} abas encontradas.`,
+            `Planilha importada com sucesso (Fallback): ${newRowsList.length} registros estruturados de ${newSheetsList.length} abas encontradas.`,
             emptyFields > 0 ? `Existe(m) ${emptyFields} linha(s) com Empresa/Razão Social nula ou padrão.` : "Nenhum problema de células nulas identificado.",
             negativeValues > 0 ? `Existe(m) ${negativeValues} célula(s) com valores monetários negativos.` : "Consistência financeira ideal: sem valores negativos."
           ]
         });
 
-        // Safe setup of custom filters
         setCustomFilters([
           { id: "f_vendedor", columnName: "Vendedor", label: "Consultores Ativos", type: "list", appearDashboard: true, appearReports: true, appearSlides: true }
         ]);
 
+        dataSourceManager.setFileRows(newFilesList[0].id, newRowsList);
+
         onDataLoaded(newRowsList as LancamentoFinanceiro[], `Planilhas Combinadas (${newSheetsList.filter(s => s.selected).length} abas de dados reais)`);
         setActiveStep("abas");
-        alert(`Planilha carregada com sucesso: ${newRowsList.length} registros identificados.`);
+        alert(`Planilha carregada com sucesso (Fallback): ${newRowsList.length} registros identificados.`);
       } else {
         alert("Nenhum dado legível ou tabela estruturada foi encontrada nas abas deste arquivo.");
       }
@@ -971,17 +1159,8 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
       selectedSheetNames.includes(row.aba) && selectedFileNames.includes(row.arquivo)
     );
 
-    // Apply any column aliases mapping to finalRows
-    finalRows = finalRows.map(row => {
-      const mappedRow = { ...row };
-      activeSheetColumns.forEach(col => {
-        const alias = columnAliases[col];
-        if (alias && alias !== col) {
-          mappedRow[alias] = row[col];
-        }
-      });
-      return mappedRow;
-    });
+    // Apply mapping and normalization to finalRows to build NormalizedDataset
+    finalRows = finalRows.map(row => normalizeAndMapRow(row, activeSheetColumns, columnAliases));
 
     const fileId = `import_f_${Date.now()}`;
     const newSpreadsheetFile = {
@@ -1101,17 +1280,8 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
       selectedSheetNames.includes(row.aba) && selectedFileNames.includes(row.arquivo)
     );
 
-    // Apply any column aliases mapping to finalRows
-    finalRows = finalRows.map(row => {
-      const mappedRow = { ...row };
-      activeSheetColumns.forEach(col => {
-        const alias = columnAliases[col];
-        if (alias && alias !== col) {
-          mappedRow[alias] = row[col];
-        }
-      });
-      return mappedRow;
-    });
+    // Apply mapping and normalization to finalRows to build NormalizedDataset
+    finalRows = finalRows.map(row => normalizeAndMapRow(row, activeSheetColumns, columnAliases));
 
     const fileId = `import_f_${Date.now()}`;
     const newSpreadsheetFile = {
@@ -1198,9 +1368,10 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     const selectedSheetNames = selectedSheets.map(s => s.sheetName);
     const selectedFileNames = selectedSheets.map(s => s.fileName);
 
-    const finalRows = rawRows.filter(row => 
+    const rawFilteredRows = rawRows.filter(row => 
       selectedSheetNames.includes(row.aba) && selectedFileNames.includes(row.arquivo)
     );
+    const finalRows = rawFilteredRows.map(row => normalizeAndMapRow(row, activeSheetColumns, columnAliases));
 
     const fileId = `import_f_${Date.now()}`;
     const newSpreadsheetFile = {
@@ -1562,6 +1733,25 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
                 ))}
               </div>
             </div>
+
+            {/* Upload Progress Bar */}
+            {importProgress && (
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-150 dark:border-blue-900 rounded-xl space-y-2 animate-fade-in shadow-3xs">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+                    <RefreshCw size={14} className="animate-spin text-blue-500" />
+                    {importProgress.message}
+                  </span>
+                  <span className="font-mono text-blue-700 dark:text-blue-400 font-bold">{importProgress.percent}%</span>
+                </div>
+                <div className="w-full bg-slate-200 dark:bg-slate-850 rounded-full h-2 overflow-hidden border border-slate-300/30">
+                  <div 
+                    className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${importProgress.percent}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Upload Area */}
             <div 

@@ -1,7 +1,13 @@
-import React, { useState } from "react";
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useMemo } from "react";
 import { 
   AlertTriangle, CheckCircle, Info, ShieldAlert, FileText, Download, 
-  ArrowRight, Database, AlertCircle, Sparkles, Printer, FileDown
+  ArrowRight, Database, AlertCircle, Sparkles, Printer, FileDown,
+  Gauge, RefreshCw
 } from "lucide-react";
 import { LancamentoFinanceiro } from "../../types";
 
@@ -14,14 +20,6 @@ export interface DiagnosticAlert {
   example: string;
   possibleCause: string;
   recommendation: string;
-}
-
-interface SpreadsheetStructureDiagnosticsProps {
-  rows: any[];
-  columns: string[];
-  dbActiveRecords?: LancamentoFinanceiro[];
-  onBackToMapeamento?: () => void;
-  onActivateSource?: () => void;
 }
 
 // Diagnostic Engine Function
@@ -192,7 +190,7 @@ export function runDiagnostics(rows: any[], columns: string[]): DiagnosticAlert[
   rows.forEach((row, idx) => {
     // Generate a unique key for the row omitting id/linha
     const key = Object.keys(row)
-      .filter(k => k !== "id" && k !== "linha" && k !== "numero_linha" && k !== "c_id")
+      .filter(k => k !== "id" && k !== "linha" && k !== "numero_linha" && k !== "c_id" && k !== "aba" && k !== "arquivo")
       .map(k => String(row[k]))
       .join("|");
     
@@ -219,6 +217,14 @@ export function runDiagnostics(rows: any[], columns: string[]): DiagnosticAlert[
   return alerts;
 }
 
+interface SpreadsheetStructureDiagnosticsProps {
+  rows: any[];
+  columns: string[];
+  dbActiveRecords?: LancamentoFinanceiro[];
+  onBackToMapeamento?: () => void;
+  onActivateSource?: () => void;
+}
+
 export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagnosticsProps> = ({
   rows,
   columns,
@@ -226,18 +232,44 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
   onBackToMapeamento,
   onActivateSource,
 }) => {
-  const alerts = runDiagnostics(rows, columns);
   const [showReport, setShowReport] = useState(false);
+  const [forceFullAnalysis, setForceFullAnalysis] = useState(false);
+
+  // Determine if we should use sampling
+  const isLargeDataset = rows.length > 1000;
+  const isSampledMode = isLargeDataset && !forceFullAnalysis;
+
+  // Build sampled array: initial 200, middle 200, final 200
+  const analyzedRows = useMemo(() => {
+    if (!isSampledMode) return rows;
+    
+    const sampleSize = 200;
+    if (rows.length <= sampleSize * 3) return rows;
+
+    const initialSample = rows.slice(0, sampleSize);
+    
+    const midStart = Math.floor(rows.length / 2) - Math.floor(sampleSize / 2);
+    const midSample = rows.slice(midStart, midStart + sampleSize);
+    
+    const finalSample = rows.slice(rows.length - sampleSize);
+
+    return [...initialSample, ...midSample, ...finalSample];
+  }, [rows, isSampledMode]);
+
+  const alerts = useMemo(() => {
+    return runDiagnostics(analyzedRows, columns);
+  }, [analyzedRows, columns]);
 
   // Dynamic DB comparison (Requirement 8)
-  const dbComparison = React.useMemo(() => {
+  const dbComparison = useMemo(() => {
     if (!dbActiveRecords || dbActiveRecords.length === 0) return null;
 
     const spreadsheetCount = rows.length;
     const dbCount = dbActiveRecords.length;
     const countDiff = spreadsheetCount - dbCount;
 
-    // Compare aggregated Receita/Lucro if available
+    // Compare aggregated Receita/Lucro if available (use analyzedRows as a representation, or rows for quick reduce)
+    // To avoid freezing on millions of rows, rows.reduce is fast enough for 25k, but we can do it safely
     const ssTotalReceita = rows.reduce((sum, r) => sum + (Number(r.Receita) || 0), 0);
     const dbTotalReceita = dbActiveRecords.reduce((sum, r) => sum + (Number(r.Receita) || 0), 0);
     
@@ -246,11 +278,11 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
 
     // Check if there is consecutive pattern break in spreadsheet that exists in DB too
     let bothHaveEmptyFields = false;
-    columns.forEach(col => {
-      const hasSSEmpty = rows.some(r => r[col] === undefined || r[col] === null || r[col] === "");
+    columns.slice(0, 15).forEach(col => { // limit column compare to keep it instant
+      const hasSSEmpty = analyzedRows.some(r => r[col] === undefined || r[col] === null || r[col] === "");
       const dbColName = Object.keys(dbActiveRecords[0] || {}).find(k => k.toLowerCase() === col.toLowerCase());
       if (dbColName) {
-        const hasDBEmpty = dbActiveRecords.some(r => (r as any)[dbColName] === undefined || (r as any)[dbColName] === null || (r as any)[dbColName] === "");
+        const hasDBEmpty = dbActiveRecords.slice(0, 500).some(r => (r as any)[dbColName] === undefined || (r as any)[dbColName] === null || (r as any)[dbColName] === "");
         if (hasSSEmpty && hasDBEmpty) {
           bothHaveEmptyFields = true;
           comparisons.push(
@@ -275,7 +307,7 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
       databaseDiscrepancy,
       comparisons
     };
-  }, [rows, dbActiveRecords, columns]);
+  }, [rows, analyzedRows, dbActiveRecords, columns]);
 
   const handlePrint = () => {
     window.print();
@@ -283,6 +315,32 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
 
   return (
     <div className="space-y-6" id="SpreadsheetStructureDiagnostics">
+      {/* Sampling Warning Banner */}
+      {isSampledMode && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+          <div className="flex gap-3 items-start">
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-xl">
+              <Gauge size={20} className="animate-pulse" />
+            </div>
+            <div>
+              <h5 className="text-xs font-black text-amber-800 dark:text-amber-400 uppercase tracking-tight">
+                Diagnóstico Baseado em Amostragem Inteligente
+              </h5>
+              <p className="text-[11px] text-amber-600 dark:text-amber-500 mt-0.5 leading-relaxed">
+                Analisamos as primeiras 200, intermediárias 200 e últimas 200 linhas ({analyzedRows.length} de {rows.length} registros). 
+                <strong> Nenhum dado original foi alterado.</strong> Isso evita travamentos no seu navegador.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setForceFullAnalysis(true)}
+            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-black uppercase tracking-wider rounded-xl transition-all shadow-sm shrink-0 flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw size={12} /> Executar Análise Completa
+          </button>
+        </div>
+      )}
+
       {/* Overview Card */}
       <div className="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -316,7 +374,9 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
 
       {/* Alert Listings */}
       <div className="space-y-3">
-        <h4 className="text-xs font-black text-slate-550 dark:text-slate-400 uppercase tracking-wider">Pontos de Atenção Identificados ({alerts.length})</h4>
+        <h4 className="text-xs font-black text-slate-550 dark:text-slate-400 uppercase tracking-wider">
+          Pontos de Atenção Identificados ({alerts.length})
+        </h4>
         
         {alerts.length === 0 ? (
           <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-150 dark:border-emerald-900 rounded-xl p-6 text-center">
@@ -439,12 +499,11 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
         </div>
       )}
 
-      {/* Relatório de Atenção Modal (Requirement 9) */}
+      {/* Relatório de Atenção Modal */}
       {showReport && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-3xl w-full p-8 shadow-2xl relative space-y-6 animate-fade-in print:border-none print:shadow-none print:p-0">
             
-            {/* Header print area */}
             <div className="flex items-start justify-between border-b border-slate-150 dark:border-slate-800 pb-4 print:border-b-2">
               <div>
                 <span className="text-[10px] font-black uppercase text-blue-500 tracking-wider">Sauron OPERATING PLATFORM</span>
@@ -464,12 +523,10 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
               </button>
             </div>
 
-            {/* Print warnings / info */}
             <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-150 dark:border-amber-900 rounded-xl p-4 text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed font-semibold">
               Este relatório apresenta um compilado técnico das divergências de preenchimento, formatação e estrutura identificadas na planilha carregada para o Sauron. Ele serve como documentação técnica para o setor de TI ou administração do sistema ERP de origem para orientar eventuais revisões de integridade.
             </div>
 
-            {/* List alerts in PDF layout */}
             <div className="space-y-4">
               <span className="text-[10px] uppercase font-black text-slate-400 block">Sinalizações Técnicas para Revisão:</span>
               <div className="border border-slate-150 dark:border-slate-850 rounded-xl divide-y divide-slate-150 dark:divide-slate-850 overflow-hidden text-xs">
@@ -493,7 +550,6 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
               </div>
             </div>
 
-            {/* Connected DB report block if applicable */}
             {dbComparison && (
               <div className="space-y-3 pt-3 border-t border-slate-150 dark:border-slate-800">
                 <span className="text-[10px] uppercase font-black text-slate-400 block">Comparativo Cruzado de Sistema:</span>
@@ -514,7 +570,6 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
               </div>
             )}
 
-            {/* Actions panel */}
             <div className="flex justify-between items-center pt-5 border-t border-slate-150 dark:border-slate-800 print:hidden">
               <button
                 type="button"
@@ -532,7 +587,6 @@ export const SpreadsheetStructureDiagnostics: React.FC<SpreadsheetStructureDiagn
               </button>
             </div>
 
-            {/* Footer print note */}
             <div className="hidden print:block text-center text-[10px] text-slate-400 pt-6 border-t border-slate-200 mt-12">
               Sauron OS — Plataforma Corporativa de Consultoria. Todos os dados originais foram mantidos intactos e sem alterações automatizadas.
             </div>

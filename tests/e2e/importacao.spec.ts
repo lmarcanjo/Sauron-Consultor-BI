@@ -56,6 +56,14 @@ test('Spreadsheet Import, Excel Viewer, and Flexible Mapping Flow', async ({ pag
     const grid = page.locator('[data-testid="spreadsheet-grid"]');
     await expect(grid).toBeVisible();
 
+    // Ensure no pre-populated corporate defaults are in the raw grid for unmapped columns
+    const gridHtml = await grid.innerHTML();
+    expect(gridHtml).not.toContain("00.000.000/0001-00");
+    expect(gridHtml).not.toContain("N/D");
+    expect(gridHtml).not.toContain("Outros");
+    expect(gridHtml).not.toContain("Sem Categoria");
+    expect(gridHtml).not.toContain("Padrão");
+
     // Verify __EMPTY_1 column is visible in the grid headers as an unnamed column
     const unnamedColHeader = page.locator('[data-testid^="header-col-__EMPTY_1"]');
     await expect(unnamedColHeader).toBeVisible();

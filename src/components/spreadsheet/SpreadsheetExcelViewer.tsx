@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from "react";
-import { Search, FileSpreadsheet, Settings, Filter, Check, ShieldAlert } from "lucide-react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { Search, FileSpreadsheet, Settings, Filter, Check, ShieldAlert, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { SpreadsheetColumn, SpreadsheetSheet } from "../../types/dataSource";
 
@@ -32,6 +32,8 @@ export const SpreadsheetExcelViewer: React.FC<SpreadsheetExcelViewerProps> = ({
   onSaveProfile,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [pageSize, setPageSize] = useState(100);
+  const [currentPage, setCurrentPage] = useState(0);
 
   const currentSheet = useMemo(() => {
     return sheets.find((s) => s.sheetName === activeSheet) || sheets[0];
@@ -57,6 +59,47 @@ export const SpreadsheetExcelViewer: React.FC<SpreadsheetExcelViewerProps> = ({
       );
     });
   }, [rows, searchTerm]);
+
+  // Reset page when search or sheet changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchTerm, activeSheet, pageSize]);
+
+  // Pagination bounds
+  const totalRecords = filteredRows.length;
+  const pageCount = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const currentPageSafe = Math.min(currentPage, pageCount - 1);
+
+  // Paginated Rows
+  const paginatedRows = useMemo(() => {
+    const start = currentPageSafe * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, currentPageSafe, pageSize]);
+
+  // Virtualization Setup
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(400);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  const rowHeight = 36; // px
+  const buffer = 8;
+
+  useEffect(() => {
+    if (containerRef.current) {
+      setContainerHeight(containerRef.current.clientHeight || 400);
+    }
+  }, [containerRef.current?.clientHeight]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  };
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+  const endIndex = Math.min(paginatedRows.length, Math.ceil((scrollTop + containerHeight) / rowHeight) + buffer);
+
+  const visibleRows = paginatedRows.slice(startIndex, endIndex);
+  const paddingTop = startIndex * rowHeight;
+  const paddingBottom = (paginatedRows.length - endIndex) * rowHeight;
 
   if (!currentSheet) {
     return (
@@ -88,7 +131,7 @@ export const SpreadsheetExcelViewer: React.FC<SpreadsheetExcelViewerProps> = ({
     <div
       id="spreadsheet-viewer-container"
       data-testid="spreadsheet-viewer"
-      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden flex flex-col h-[600px] shadow-sm"
+      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden flex flex-col h-[650px] shadow-sm"
     >
       {/* Search and Metadata Bar */}
       <div className="p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-col md:flex-row gap-3 justify-between items-center">
@@ -155,14 +198,20 @@ export const SpreadsheetExcelViewer: React.FC<SpreadsheetExcelViewerProps> = ({
         </div>
       )}
 
-      {/* Main Grid View */}
-      <div className="flex-1 overflow-auto relative" data-testid="spreadsheet-grid">
+      {/* Main Grid View - Virtualized and Scrollable */}
+      <div 
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-auto relative" 
+        data-testid="spreadsheet-grid"
+        style={{ height: "450px" }}
+      >
         <table className="w-full border-collapse text-left text-xs font-sans table-fixed min-w-max">
           {/* Header */}
           <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 shadow-sm">
             <tr>
               {/* Row index header */}
-              <th className="w-12 bg-slate-200 dark:bg-slate-700 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-600 select-none py-2 sticky left-0 z-20">
+              <th className="w-16 bg-slate-200 dark:bg-slate-700 text-center text-[10px] font-bold text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-600 select-none py-2 sticky left-0 z-20">
                 #
               </th>
               {columns.map((col) => {
@@ -210,7 +259,7 @@ export const SpreadsheetExcelViewer: React.FC<SpreadsheetExcelViewerProps> = ({
 
           {/* Body */}
           <tbody className="divide-y divide-slate-200 dark:divide-slate-850">
-            {filteredRows.length === 0 ? (
+            {paginatedRows.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length + 1}
@@ -220,57 +269,113 @@ export const SpreadsheetExcelViewer: React.FC<SpreadsheetExcelViewerProps> = ({
                 </td>
               </tr>
             ) : (
-              filteredRows.map((row, idx) => {
-                const rowNum = idx + 1;
-                return (
-                  <tr
-                    key={idx}
-                    data-testid="spreadsheet-row"
-                    className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
-                  >
-                    {/* Index Column */}
-                    <td className="sticky left-0 bg-slate-100 dark:bg-slate-800 text-center font-mono font-bold text-[10px] text-slate-500 border border-slate-200 dark:border-slate-700 py-1.5 select-none z-10 shadow-sm">
-                      {rowNum}
-                    </td>
-
-                    {/* Data Cells */}
-                    {columns.map((col) => {
-                      const val = row[col.name];
-                      const profile = columnProfiles[col.name] || col;
-                      const isIgnored = profile?.ignored;
-
-                      return (
-                        <td
-                          key={col.name}
-                          data-testid="spreadsheet-cell"
-                          className={`border border-slate-200 dark:border-slate-800 px-3 py-1.5 font-mono text-[11px] truncate ${
-                            isIgnored
-                              ? "text-slate-350 dark:text-slate-700 bg-slate-50/30 dark:bg-slate-900/10 italic"
-                              : "text-slate-650 dark:text-slate-350 bg-white dark:bg-slate-950"
-                          }`}
-                          title={String(val !== undefined && val !== null ? val : "")}
-                        >
-                          {val !== undefined && val !== null ? String(val) : ""}
-                        </td>
-                      );
-                    })}
+              <>
+                {/* Virtual Top Spacer */}
+                {paddingTop > 0 && (
+                  <tr style={{ height: `${paddingTop}px` }}>
+                    <td colSpan={columns.length + 1} style={{ padding: 0, height: `${paddingTop}px` }} />
                   </tr>
-                );
-              })
+                )}
+
+                {/* Visible Rows */}
+                {visibleRows.map((row, idx) => {
+                  const absoluteIndex = startIndex + idx;
+                  const rowNum = currentPageSafe * pageSize + absoluteIndex + 1;
+                  return (
+                    <tr
+                      key={absoluteIndex}
+                      data-testid="spreadsheet-row"
+                      className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
+                      style={{ height: `${rowHeight}px` }}
+                    >
+                      {/* Index Column */}
+                      <td className="sticky left-0 bg-slate-100 dark:bg-slate-800 text-center font-mono font-bold text-[10px] text-slate-500 border border-slate-200 dark:border-slate-700 py-1.5 select-none z-10 shadow-sm">
+                        {rowNum}
+                      </td>
+
+                      {/* Data Cells */}
+                      {columns.map((col) => {
+                        const val = row[col.name];
+                        const profile = columnProfiles[col.name] || col;
+                        const isIgnored = profile?.ignored;
+
+                        return (
+                          <td
+                            key={col.name}
+                            data-testid="spreadsheet-cell"
+                            className={`border border-slate-200 dark:border-slate-800 px-3 py-1.5 font-mono text-[11px] truncate ${
+                              isIgnored
+                                ? "text-slate-350 dark:text-slate-700 bg-slate-50/30 dark:bg-slate-900/10 italic"
+                                : "text-slate-650 dark:text-slate-350 bg-white dark:bg-slate-950"
+                            }`}
+                            title={String(val !== undefined && val !== null ? val : "")}
+                          >
+                            {val !== undefined && val !== null ? String(val) : ""}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+
+                {/* Virtual Bottom Spacer */}
+                {paddingBottom > 0 && (
+                  <tr style={{ height: `${paddingBottom}px` }}>
+                    <td colSpan={columns.length + 1} style={{ padding: 0, height: `${paddingBottom}px` }} />
+                  </tr>
+                )}
+              </>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Footer statistics */}
-      <div className="px-4 py-2.5 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-[10px] text-slate-400 select-none">
-        <div>
-          Mostrando <span className="font-bold text-slate-600 dark:text-slate-300">{filteredRows.length}</span> de{" "}
-          <span className="font-bold text-slate-600 dark:text-slate-300">{rows.length}</span> linhas
+      {/* Pagination & Footer Controls */}
+      <div className="px-4 py-3 bg-slate-100 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-3 justify-between items-center text-xs text-slate-500 select-none">
+        {/* Left: Records and sizing */}
+        <div className="flex items-center gap-4">
+          <div>
+            Mostrando <span className="font-bold text-slate-700 dark:text-slate-300">{Math.min(totalRecords, (currentPageSafe * pageSize) + 1)}-{Math.min(totalRecords, (currentPageSafe + 1) * pageSize)}</span> de{" "}
+            <span className="font-bold text-slate-700 dark:text-slate-300">{totalRecords}</span> registros
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span>Mostrar:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 rounded px-1.5 py-0.5 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
+            >
+              <option value={100}>100 linhas</option>
+              <option value={500}>500 linhas</option>
+              <option value={1000}>1000 linhas</option>
+            </select>
+          </div>
         </div>
-        <div className="font-mono">
-          Pressione nos títulos das colunas para configurar seus perfis individuais de análise.
-        </div>
+
+        {/* Right: Pagination buttons */}
+        {pageCount > 1 && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              disabled={currentPageSafe === 0}
+              className="p-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-750 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+              title="Página Anterior"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="font-mono text-xs">
+              Pág <span className="font-bold text-slate-700 dark:text-slate-300">{currentPageSafe + 1}</span> de <span className="font-bold">{pageCount}</span>
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(pageCount - 1, p + 1))}
+              disabled={currentPageSafe === pageCount - 1}
+              className="p-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-750 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all"
+              title="Próxima Página"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

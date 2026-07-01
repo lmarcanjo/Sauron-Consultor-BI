@@ -675,7 +675,7 @@ export default function App() {
       const allowedCompanies = accessControlEngine.getVisibleCompaniesForUser(activeSimUser, identityEngine.getCurrentWorkspace());
       if (allowedCompanies && allowedCompanies.length > 0) {
         const matchCompanyScope = allowedCompanies.some(
-          c => item.Empresa && (item.Empresa === c || item.Empresa.includes(c) || c.includes(item.Empresa))
+          c => item.Empresa && (item.Empresa === c || String(item.Empresa).includes(c) || c.includes(String(item.Empresa)))
         );
         if (!matchCompanyScope) {
           return false;

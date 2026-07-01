@@ -149,11 +149,33 @@ export class DataSourceManager {
           });
         }
       }
+      
+      // Load database records from IndexedDB
+      const dbRows = await IndexedSpreadsheetStorage.getRows("__database_records__");
+      if (dbRows && dbRows.length > 0) {
+        this.databaseRecords = dbRows;
+      }
+
       this.cachedActiveRecords = null;
       this.triggerUpdateEvent();
     } catch (err) {
       console.error("[DataSourceManager] Failed to load rows from IndexedDB:", err);
     }
+  }
+
+  public setFileRows(fileId: string, rows: any[]) {
+    this.fileRowsMap[fileId] = rows;
+    const file = this.workspace.files.find(f => f.id === fileId);
+    if (file) {
+      file.sheets.forEach(sheet => {
+        const sheetRows = rows.filter(r => r.aba === sheet.sheetName);
+        if (sheetRows.length > 0) {
+          sheet.rows = sheetRows;
+        }
+      });
+    }
+    this.cachedActiveRecords = null;
+    this.triggerUpdateEvent();
   }
 
   public saveToStorage() {
@@ -581,7 +603,16 @@ export class DataSourceManager {
   public syncDatabaseRecords(records: LancamentoFinanceiro[], sourceName: string) {
     this.databaseRecords = this.assertNoMockDataWhenRealSource("DATABASE_DATA", records);
     try {
-      localStorage.setItem("sauron_ds_db_data", JSON.stringify(this.databaseRecords));
+      // Save full records in IndexedDB
+      if (typeof window !== "undefined") {
+        IndexedSpreadsheetStorage.saveRows("__database_records__", records).catch(err => {
+          console.error("Failed to save database records to IndexedDB", err);
+        });
+      }
+      
+      // Save truncated version to localStorage (max 100 rows)
+      const truncatedDb = this.databaseRecords.slice(0, 100);
+      localStorage.setItem("sauron_ds_db_data", JSON.stringify(truncatedDb));
     } catch (e) {
       console.warn("[Sauron Storage] Erro ao salvar sauron_ds_db_data no localStorage (limite excedido):", e);
     }
@@ -608,7 +639,7 @@ export class DataSourceManager {
       recordsCount: data.length,
       status: "PREVIEW",
       source: sourceType,
-      data: data
+      data: data.slice(0, 100) // Truncate to 100 rows to prevent localStorage quota issues
     };
     
     this.dataVersions.push(newVersion);
