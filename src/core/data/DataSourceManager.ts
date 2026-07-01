@@ -16,6 +16,7 @@ import {
 } from "../../types/dataSource";
 import { gerarDadosSimulados, generateDemoSpreadsheetRows } from "../../data/demoData";
 import { AuditEngine } from "../audit/AuditEngine";
+import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
 
 // --- GLOBAL QUERY SECURITY / PROTECTIONS ---
 export function assertNoMockDataWhenRealSource(
@@ -88,6 +89,7 @@ export class DataSourceManager {
   private dataVersions: DataVersion[] = [];
   private currentImportProfile: ImportProfile | null = null;
   private cachedActiveRecords: LancamentoFinanceiro[] | null = null;
+  private fileRowsMap: Record<string, any[]> = {};
 
   constructor() {
     const hasLocalStorage = typeof localStorage !== "undefined";
@@ -126,6 +128,24 @@ export class DataSourceManager {
     
     const savedDbData = hasLocalStorage ? localStorage.getItem("sauron_ds_db_data") : null;
     this.databaseRecords = savedDbData ? JSON.parse(savedDbData) : [];
+
+    this.loadFullRowsFromIndexedDB();
+  }
+
+  private async loadFullRowsFromIndexedDB() {
+    if (typeof window === "undefined") return;
+    try {
+      for (const file of this.workspace.files) {
+        const rows = await IndexedSpreadsheetStorage.getRows(file.id);
+        if (rows && rows.length > 0) {
+          this.fileRowsMap[file.id] = rows;
+        }
+      }
+      this.cachedActiveRecords = null;
+      this.triggerUpdateEvent();
+    } catch (err) {
+      console.error("[DataSourceManager] Failed to load rows from IndexedDB:", err);
+    }
   }
 
   public saveToStorage() {
@@ -207,60 +227,49 @@ export class DataSourceManager {
           }
         }
         
-        // Safe progressive saving for workspace
+        // Safe progressive saving for workspace - Always save a truncated version (max 100 rows) to prevent quota errors
         try {
-          localStorage.setItem("sauron_ds_workspace", JSON.stringify(this.workspace));
-        } catch (workspaceError) {
-          console.warn("[Sauron Storage] Falha ao salvar workspace completo. Tentando workspace leve (500 linhas para arquivos ativos)...", workspaceError);
-          const lightWorkspace = {
+          const defaultTruncatedWorkspace = {
             ...this.workspace,
             files: this.workspace.files.map(file => ({
               ...file,
-              sheets: file.sheets.map(sheet => {
-                const isActive = this.workspace.activeFileIds.includes(file.id);
-                return {
-                  ...sheet,
-                  rows: isActive ? sheet.rows.slice(0, 500) : []
-                };
-              })
+              sheets: file.sheets.map(sheet => ({
+                ...sheet,
+                rows: sheet.rows.slice(0, 100)
+              }))
+            }))
+          };
+          localStorage.setItem("sauron_ds_workspace", JSON.stringify(defaultTruncatedWorkspace));
+        } catch (workspaceError) {
+          console.warn("[Sauron Storage] Falha ao salvar workspace com 100 linhas. Tentando com 20 linhas...", workspaceError);
+          const superLightWorkspace = {
+            ...this.workspace,
+            files: this.workspace.files.map(file => ({
+              ...file,
+              sheets: file.sheets.map(sheet => ({
+                ...sheet,
+                rows: sheet.rows.slice(0, 20)
+              }))
             }))
           };
           try {
-            localStorage.setItem("sauron_ds_workspace", JSON.stringify(lightWorkspace));
-          } catch (e2) {
-            console.warn("[Sauron Storage] Falha no workspace leve. Tentando workspace super leve (50 linhas)...", e2);
-            const superLightWorkspace = {
+            localStorage.setItem("sauron_ds_workspace", JSON.stringify(superLightWorkspace));
+          } catch (e3) {
+            console.warn("[Sauron Storage] Falha no workspace super leve. Gravando apenas metadados do workspace (sem dados)...", e3);
+            const ultraLightWorkspace = {
               ...this.workspace,
               files: this.workspace.files.map(file => ({
                 ...file,
-                sheets: file.sheets.map(sheet => {
-                  const isActive = this.workspace.activeFileIds.includes(file.id);
-                  return {
-                    ...sheet,
-                    rows: isActive ? sheet.rows.slice(0, 50) : []
-                  };
-                })
+                sheets: file.sheets.map(sheet => ({
+                  ...sheet,
+                  rows: []
+                }))
               }))
             };
             try {
-              localStorage.setItem("sauron_ds_workspace", JSON.stringify(superLightWorkspace));
-            } catch (e3) {
-              console.warn("[Sauron Storage] Falha no workspace super leve. Gravando apenas metadados do workspace (sem dados)...", e3);
-              const ultraLightWorkspace = {
-                ...this.workspace,
-                files: this.workspace.files.map(file => ({
-                  ...file,
-                  sheets: file.sheets.map(sheet => ({
-                    ...sheet,
-                    rows: []
-                  }))
-                }))
-              };
-              try {
-                localStorage.setItem("sauron_ds_workspace", JSON.stringify(ultraLightWorkspace));
-              } catch (e4) {
-                console.error("[Sauron Storage] Falha crítica ao salvar metadados do workspace:", e4);
-              }
+              localStorage.setItem("sauron_ds_workspace", JSON.stringify(ultraLightWorkspace));
+            } catch (e4) {
+              console.error("[Sauron Storage] Falha crítica ao salvar metadados do workspace:", e4);
             }
           }
         }
@@ -354,9 +363,14 @@ export class DataSourceManager {
           f.approvedByConsultant === true
         );
         activeFiles.forEach((file) => {
-          file.sheets.forEach((sheet) => {
-            rawRecords.push(...(sheet.rows as LancamentoFinanceiro[]));
-          });
+          const fullRows = this.fileRowsMap[file.id];
+          if (fullRows && fullRows.length > 0) {
+            rawRecords.push(...fullRows);
+          } else {
+            file.sheets.forEach((sheet) => {
+              rawRecords.push(...(sheet.rows as LancamentoFinanceiro[]));
+            });
+          }
         });
         break;
 
@@ -383,16 +397,21 @@ export class DataSourceManager {
   private getActiveRecordsForSource(source: "SPREADSHEET_DATA" | "DATABASE_DATA"): LancamentoFinanceiro[] {
     const raw: LancamentoFinanceiro[] = [];
     if (source === "SPREADSHEET_DATA") {
-      const activeFiles = this.workspace.files.filter((f) => 
-        this.workspace.activeFileIds.includes(f.id) && 
-        f.status === "ACTIVE" && 
-        f.approvedByConsultant === true
-      );
-      activeFiles.forEach((file) => {
-        file.sheets.forEach((sheet) => {
-          raw.push(...(sheet.rows as LancamentoFinanceiro[]));
-        });
-      });
+       const activeFiles = this.workspace.files.filter((f) => 
+         this.workspace.activeFileIds.includes(f.id) && 
+         f.status === "ACTIVE" && 
+         f.approvedByConsultant === true
+       );
+       activeFiles.forEach((file) => {
+         const fullRows = this.fileRowsMap[file.id];
+         if (fullRows && fullRows.length > 0) {
+           raw.push(...fullRows);
+         } else {
+           file.sheets.forEach((sheet) => {
+             raw.push(...(sheet.rows as LancamentoFinanceiro[]));
+           });
+         }
+       });
     } else {
       raw.push(...this.databaseRecords);
     }
@@ -470,6 +489,13 @@ export class DataSourceManager {
     this.state.activeDataSource = "SPREADSHEET_DATA";
     this.state.approvedByConsultant = false;
 
+    this.fileRowsMap[enhancedFile.id] = allRows;
+    if (typeof window !== "undefined") {
+      IndexedSpreadsheetStorage.saveRows(enhancedFile.id, allRows).catch(err => {
+        console.error("Failed to save rows to IndexedDB", err);
+      });
+    }
+
     this.createNewVersion("SPREADSHEET", enhancedFile.fileName, allRows);
     this.saveToStorage();
     this.triggerUpdateEvent();
@@ -479,6 +505,12 @@ export class DataSourceManager {
     this.workspace.files = this.workspace.files.filter((f) => f.id !== fileId);
     this.workspace.activeFileIds = this.workspace.activeFileIds.filter((id) => id !== fileId);
     this.workspace.updatedAt = new Date().toISOString();
+    delete this.fileRowsMap[fileId];
+    if (typeof window !== "undefined") {
+      IndexedSpreadsheetStorage.deleteRows(fileId).catch(err => {
+        console.error("Failed to delete rows in IndexedDB:", err);
+      });
+    }
     
     if (this.workspace.activeFileIds.length === 0) {
       this.state.activeDataSource = "DEMO_DATA";

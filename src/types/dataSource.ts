@@ -57,6 +57,16 @@ export interface SpreadsheetColumn {
   name: string;
   type: string;
   hasEmptyValues: boolean;
+  alias?: string;
+  ignored?: boolean;
+  dataType?: string;
+  isFilter?: boolean;
+  isKPI?: boolean;
+  isDRE?: boolean;
+  isPessoas?: boolean;
+  isComissao?: boolean;
+  isApresentacao?: boolean;
+  description?: string;
 }
 
 export interface SpreadsheetSheet {

@@ -10,6 +10,7 @@ import { DatabaseConnector } from "./DatabaseConnector";
 import { useDataSourceManager } from "../hooks/useDataSourceManager";
 import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
 import { ImportacaoPlanilhasTab } from "./ImportacaoPlanilhasTab";
+import { SpreadsheetFieldSelectionPanel } from "./spreadsheet/SpreadsheetFieldSelectionPanel";
 
 interface CentralDadosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -1320,88 +1321,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
           {/* TAB 5: SCHEMA MAPPING */}
           {activeTab === 4 && (
-            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 flex items-center gap-2">
-                    <Shuffle size={20} className="text-blue-500" />
-                    Mapeamento de Dados (Schema Mapping Panel)
-                  </h3>
-                  <p className="text-slate-400 text-xs mt-1">Conecte colunas livres da planilha ou banco às chaves corporativas padronizadas requeridas pelo hub do Sauron.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    // Smart auto mapper
-                    const autoMapped = {
-                      Grupo: "Grupo_Corporativo",
-                      CNPJ: "Chave_CNPJ",
-                      Marca: "Bandeira",
-                      Empresa: "Filial_Empresa",
-                      Mês: "Data_Referencia",
-                      Razão: "Operacao_Razao",
-                      Categoria: "Plano_de_Contas",
-                      Receita: "Receitas",
-                      Custo: "Custo_CMV",
-                      Despesa: "Despesas_Admin"
-                    };
-                    setCustomMappings(autoMapped);
-                    localStorage.setItem("sauron_schema_mapping", JSON.stringify(autoMapped));
-                    alert("A engine analítica Sauron realizou o Mapeamento Automático inteligente das suas colunas base!");
-                  }}
-                  className="px-4 py-2 bg-blue-600/15 hover:bg-blue-600/25 text-blue-600 dark:text-blue-400 text-xs font-black uppercase rounded hover:shadow cursor-pointer transition-colors"
-                >
-                  Mapeamento Automático
-                </button>
-              </div>
-
-              {/* Direct Schema Matching layout */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[
-                  { field: "Grupo", desc: "Nome do grupo corporativo principal do cliente", required: true },
-                  { field: "CNPJ", desc: "CNPJ do parceiro para consolidação", required: true },
-                  { field: "Marca", desc: "Bandeira ou marca envolvida comercialmente", required: true },
-                  { field: "Empresa", desc: "Nome amigável da filial ou estabelecimento", required: true },
-                  { field: "Mês", desc: "Mês ou data correspondente ao faturamento", required: true },
-                  { field: "Razão", desc: "Motivação do faturamento / tipo de negócio (ex: Novos)", required: true },
-                  { field: "Categoria", desc: "Plano de contas contábil estendido", required: false },
-                  { field: "Receita", desc: "Faturamento bruto gerado", required: true },
-                  { field: "Custo", desc: "CMV ou custos operacionais diretos", required: true },
-                  { field: "Despesa", desc: "Despesas gerais contábeis associadas", required: true },
-                ].map((item) => (
-                  <div key={item.field} className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-xs shadow-inner">
-                    <div className="min-w-0 pr-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-tight">{item.field}</span>
-                        {item.required && <span className="text-red-500 font-bold">*</span>}
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px]">{item.desc}</p>
-                    </div>
-                    
-                    <select
-                      value={customMappings[item.field] || ""}
-                      onChange={(e) => {
-                        const newMp = { ...customMappings, [item.field]: e.target.value };
-                        setCustomMappings(newMp);
-                        localStorage.setItem("sauron_schema_mapping", JSON.stringify(newMp));
-                      }}
-                      className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 font-mono focus:outline-none"
-                    >
-                      <option value="">-- Ignorar Campo --</option>
-                      <option value="Grupo_Corporativo">Grupo_Corporativo</option>
-                      <option value="Chave_CNPJ">Chave_CNPJ</option>
-                      <option value="Bandeira">Bandeira</option>
-                      <option value="Filial_Empresa">Filial_Empresa</option>
-                      <option value="Data_Referencia">Data_Referencia</option>
-                      <option value="Operacao_Razao">Operacao_Razao</option>
-                      <option value="Plano_de_Contas">Plano_de_Contas</option>
-                      <option value="Receitas">Receitas</option>
-                      <option value="Custo_CMV">Custo_CMV</option>
-                      <option value="Despesas_Admin">Despesas_Admin</option>
-                      <option value="Observações_Gerais">Observações_Gerais</option>
-                    </select>
-                  </div>
-                ))}
-              </div>
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+              <SpreadsheetFieldSelectionPanel />
             </div>
           )}
 

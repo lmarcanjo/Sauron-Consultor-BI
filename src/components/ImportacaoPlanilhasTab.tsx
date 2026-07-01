@@ -157,18 +157,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
   const [newFilterType, setNewFilterType] = useState<"text" | "list" | "number">("list");
 
   // Mappings config
-  const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({
-    Grupo: "Grupo",
-    CNPJ: "CNPJ",
-    Marca: "Marca",
-    Empresa: "Empresa",
-    Receita: "Receita",
-    Custo: "Custo",
-    Despesa: "Despesa",
-    Mês: "Mês",
-    Razão: "Razão",
-    Categoria: "Categoria"
-  });
+  const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({});
 
   // Presentation slides state
   const [slideDeck, setSlideDeck] = useState<SlideDeckItem[]>([

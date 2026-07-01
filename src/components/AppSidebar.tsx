@@ -175,7 +175,9 @@ export const AppSidebar: React.FC<SidebarProps> = ({
             { title: "Pessoas", id: "executive_workspace", tab: "pessoas", icon: Users },
             { title: "Administração", id: "perfis", tab: null, icon: Settings },
             ...(userRole === "Super Admin" ? [
-              { title: "Product QA Console", id: "qa_console", tab: null, icon: ShieldAlert },
+              ...(typeof window !== "undefined" && window.location.search.includes("qa=true") ? [
+                { title: "Product QA Console", id: "qa_console", tab: null, icon: ShieldAlert }
+              ] : []),
               { title: "SDL Studio", id: "sdl_studio", tab: null, icon: Layers }
             ] : [])
           ].map((item, idx) => {
