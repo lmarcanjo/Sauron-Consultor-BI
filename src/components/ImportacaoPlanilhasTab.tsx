@@ -9,6 +9,10 @@ import { LancamentoFinanceiro } from "../types";
 import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
 import { dataSourceManager } from "../services/dataSourceManager";
 import { pluginEngine } from "../core/plugins/PluginEngine";
+import { SpreadsheetExcelViewer } from "./spreadsheet/SpreadsheetExcelViewer";
+import { ColumnConfigDrawer } from "./spreadsheet/ColumnConfigDrawer";
+import { SpreadsheetColumn, SpreadsheetSheet } from "../types/dataSource";
+import { SpreadsheetStructureDiagnostics } from "./spreadsheet/SpreadsheetStructureDiagnostics";
 
 interface ImportacaoPlanilhasProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -817,6 +821,221 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     }
   };
 
+  // Integration states for ColumnConfigDrawer and SpreadsheetExcelViewer
+  const [isColumnConfigDrawerOpen, setIsColumnConfigDrawerOpen] = useState(false);
+  const [configDrawerColumn, setConfigDrawerColumn] = useState<SpreadsheetColumn | null>(null);
+
+  const getSpreadsheetColumn = (colName: string): SpreadsheetColumn => {
+    return {
+      name: colName,
+      type: colDataType[colName] || "text",
+      alias: columnAliases[colName] || colName,
+      ignored: ignoredColumns[colName] === true,
+      dataType: colDataType[colName] || "text",
+      isFilter: colIsFilter[colName] === true,
+      isKPI: colIsKpi[colName] === true,
+      isDRE: colDre[colName] === true,
+      isPessoas: colPeopleIntel[colName] === true,
+      isComissao: colCommission[colName] === true,
+      isApresentacao: colPresentation[colName] === true,
+      description: colDescription[colName] || "",
+      hasEmptyValues: false
+    };
+  };
+
+  const handleSaveColumnConfig = (colName: string, updatedFields: Partial<SpreadsheetColumn>) => {
+    if (updatedFields.alias !== undefined) {
+      setColumnAliases(prev => ({ ...prev, [colName]: updatedFields.alias || "" }));
+    }
+    if (updatedFields.ignored !== undefined) {
+      setIgnoredColumns(prev => ({ ...prev, [colName]: updatedFields.ignored || false }));
+    }
+    if (updatedFields.dataType !== undefined) {
+      setColDataType(prev => ({ ...prev, [colName]: updatedFields.dataType || "text" }));
+    }
+    if (updatedFields.isFilter !== undefined) {
+      setColIsFilter(prev => ({ ...prev, [colName]: updatedFields.isFilter || false }));
+    }
+    if (updatedFields.isKPI !== undefined) {
+      setColIsKpi(prev => ({ ...prev, [colName]: updatedFields.isKPI || false }));
+    }
+    if (updatedFields.isDRE !== undefined) {
+      setColDre(prev => ({ ...prev, [colName]: updatedFields.isDRE || false }));
+    }
+    if (updatedFields.isPessoas !== undefined) {
+      setColPeopleIntel(prev => ({ ...prev, [colName]: updatedFields.isPessoas || false }));
+    }
+    if (updatedFields.isComissao !== undefined) {
+      setColCommission(prev => ({ ...prev, [colName]: updatedFields.isComissao || false }));
+    }
+    if (updatedFields.isApresentacao !== undefined) {
+      setColPresentation(prev => ({ ...prev, [colName]: updatedFields.isApresentacao || false }));
+    }
+    if (updatedFields.description !== undefined) {
+      setColDescription(prev => ({ ...prev, [colName]: updatedFields.description || "" }));
+    }
+    
+    // Also update current active configDrawerColumn if open so drawer doesn't feel stale
+    setConfigDrawerColumn(prev => {
+      if (prev && prev.name === colName) {
+        return { ...prev, ...updatedFields };
+      }
+      return prev;
+    });
+  };
+
+  const handleSelectColumnForConfig = (columnName: string) => {
+    setSelectedPreviewColumn(columnName);
+    const colObj = getSpreadsheetColumn(columnName);
+    setConfigDrawerColumn(colObj);
+    setIsColumnConfigDrawerOpen(true);
+  };
+
+  const handleRenameColumnInViewer = (columnName: string, newAlias: string) => {
+    setColumnAliases(prev => ({ ...prev, [columnName]: newAlias }));
+  };
+
+  const handleToggleColumnUsageInViewer = (columnName: string, ignored: boolean) => {
+    setIgnoredColumns(prev => ({ ...prev, [columnName]: ignored }));
+  };
+
+  const handleToggleFilterInViewer = (columnName: string, isFilter: boolean) => {
+    setColIsFilter(prev => ({ ...prev, [columnName]: isFilter }));
+  };
+
+  const viewerSheets = useMemo<SpreadsheetSheet[]>(() => {
+    return rawSheets.map(s => {
+      const sheetRows = rawRows.filter(r => r.aba === s.sheetName);
+      
+      const colsSet = new Set<string>();
+      sheetRows.slice(0, 20).forEach(r => {
+        Object.keys(r).forEach(k => {
+          const systemTracking = ["id", "aba", "arquivo", "linha", "coluna", "dataImportacao", "usuario", "nome_arquivo", "nome_aba", "numero_linha", "usuário", "data_importacao"];
+          if (!systemTracking.includes(k)) {
+            colsSet.add(k);
+          }
+        });
+      });
+      const colNames = Array.from(colsSet);
+
+      const columns: SpreadsheetColumn[] = colNames.map(name => ({
+        name,
+        type: colDataType[name] || "text",
+        alias: columnAliases[name] || name,
+        ignored: ignoredColumns[name] === true,
+        dataType: colDataType[name] || "text",
+        isFilter: colIsFilter[name] === true,
+        isKPI: colIsKpi[name] === true,
+        isDRE: colDre[name] === true,
+        isPessoas: colPeopleIntel[name] === true,
+        isComissao: colCommission[name] === true,
+        isApresentacao: colPresentation[name] === true,
+        description: colDescription[name] || "",
+        hasEmptyValues: false
+      }));
+
+      return {
+        id: s.id,
+        fileId: s.fileName,
+        sheetName: s.sheetName,
+        rows: sheetRows,
+        columns
+      };
+    });
+  }, [rawSheets, rawRows, columnAliases, ignoredColumns, colDataType, colIsFilter, colIsKpi, colDre, colPeopleIntel, colCommission, colPresentation, colDescription]);
+
+  const viewerColumnProfiles = useMemo<Record<string, SpreadsheetColumn>>(() => {
+    const profiles: Record<string, SpreadsheetColumn> = {};
+    activeSheetColumns.forEach(col => {
+      profiles[col] = getSpreadsheetColumn(col);
+    });
+    return profiles;
+  }, [activeSheetColumns, columnAliases, ignoredColumns, colDataType, colIsFilter, colIsKpi, colDre, colPeopleIntel, colCommission, colPresentation, colDescription]);
+
+  const handleFinalizarEAtivarPlanilha = () => {
+    if (rawFiles.length === 0 || rawRows.length === 0) {
+      alert("Nenhuma planilha carregada para confirmação. Por favor, carregue um arquivo no Passo 1.");
+      return;
+    }
+
+    const selectedSheets = rawSheets.filter(s => s.selected);
+    if (selectedSheets.length === 0) {
+      alert("Por favor, selecione pelo menos uma aba para importação no Passo 2.");
+      return;
+    }
+
+    const selectedSheetNames = selectedSheets.map(s => s.sheetName);
+    const selectedFileNames = selectedSheets.map(s => s.fileName);
+
+    let finalRows = rawRows.filter(row => 
+      selectedSheetNames.includes(row.aba) && selectedFileNames.includes(row.arquivo)
+    );
+
+    // Apply any column aliases mapping to finalRows
+    finalRows = finalRows.map(row => {
+      const mappedRow = { ...row };
+      activeSheetColumns.forEach(col => {
+        const alias = columnAliases[col];
+        if (alias && alias !== col) {
+          mappedRow[alias] = row[col];
+        }
+      });
+      return mappedRow;
+    });
+
+    const fileId = `import_f_${Date.now()}`;
+    const newSpreadsheetFile = {
+      id: fileId,
+      fileName: rawFiles[0]?.name || "Planilha Real",
+      nome: rawFiles[0]?.name || "Planilha Real",
+      importedAt: new Date().toISOString(),
+      dataImportacao: new Date().toISOString(),
+      importedBy: "Lennon Marcanjo",
+      usuario: "Lennon Marcanjo",
+      status: "ACTIVE" as const,
+      approvedByConsultant: true,
+      totalRows: finalRows.length,
+      totalColumns: activeSheetColumns.length,
+      totalAbas: selectedSheets.length,
+      version: "v1",
+      versao: "v1",
+      sheets: selectedSheets.map(s => ({
+        id: s.id,
+        fileId: fileId,
+        sheetName: s.customName || s.sheetName,
+        rows: finalRows.filter(r => r.aba === s.sheetName),
+        columns: activeSheetColumns.map(col => ({
+          name: col,
+          type: colDataType[col] || "text",
+          hasEmptyValues: false,
+          alias: columnAliases[col] || col,
+          ignored: ignoredColumns[col] === true,
+          dataType: colDataType[col] || "text"
+        }))
+      }))
+    };
+
+    // Register spreadsheet in the workspace manager and approve & activate it
+    SpreadsheetWorkspaceManager.importarPlanilha(newSpreadsheetFile, "REPLACE");
+    SpreadsheetWorkspaceManager.aprovarPlanilha(fileId);
+    SpreadsheetWorkspaceManager.ativarPlanilha(fileId);
+
+    // Set Active Source globally
+    dataSourceManager.setActiveSource("SPREADSHEET_DATA");
+    dataSourceManager.saveToStorage();
+
+    // Rerender/notify parent
+    onDataLoaded(finalRows as LancamentoFinanceiro[], `Planilhas Combinadas (${selectedSheets.length} abas de dados reais)`);
+    
+    alert(`Planilha finalizada e ativada com sucesso! ${finalRows.length} registros reais ativos.`);
+    
+    if (onClose) {
+      onClose();
+    } else {
+      setActiveStep("relatorios");
+    }
+  };
+
   const handleSuggestMapping = () => {
     const suggestedAliases: Record<string, string> = { ...columnAliases };
     const suggestionsMade: string[] = [];
@@ -1396,9 +1615,9 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
                       onChange={(e) => setAggregationStrategy(e.target.value as any)}
                       className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold"
                     >
-                      <option value="APPEND">Somar & Consolidar (Append Rows)</option>
-                      <option value="REPLACE">Substituir Base Existente (Overwrite)</option>
-                      <option value="MERGE">Mesclar por Chave Primária (Join Keys)</option>
+                      <option value="APPEND">Adicionar ao final (APPEND)</option>
+                      <option value="REPLACE">Sobrescrever tudo (REPLACE)</option>
+                      <option value="MERGE">Carregar como nova versão independente (SEPARATE)</option>
                     </select>
                   </div>
 
@@ -1569,7 +1788,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
                   id="btn-suggest-mapping"
                   data-testid="btn-suggest-mapping"
                   onClick={handleSuggestMapping}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-black uppercase transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-black uppercase transition-colors cursor-pointer"
                 >
                   <Sparkles size={13} /> Sugerir Mapeamento
                 </button>
@@ -1578,353 +1797,44 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
                   id="btn-save-import-profile"
                   data-testid="btn-save-import-profile"
                   onClick={handleSaveProfile}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black uppercase transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black uppercase transition-colors cursor-pointer"
                 >
                   <Save size={13} /> Salvar Perfil
                 </button>
 
-                <input 
-                  type="text" 
-                  placeholder="Pesquisar na planilha..."
-                  value={spreadsheetSearchQuery}
-                  onChange={(e) => setSpreadsheetSearchQuery(e.target.value)}
-                  className="bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 w-44 font-bold"
-                />
+                <button
+                  id="btn-finalize-active-spreadsheet"
+                  data-testid="btn-finalize-active-spreadsheet"
+                  onClick={handleFinalizarEAtivarPlanilha}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black uppercase tracking-wider shadow transition-colors cursor-pointer"
+                >
+                  <CheckCircle2 size={14} /> Finalizar e ativar planilha
+                </button>
               </div>
             </div>
 
-            {/* Excel Tabs row */}
-            {rawSheets.length > 0 && (
-              <div className="flex border-b border-slate-200 dark:border-slate-800 gap-1 overflow-x-auto pb-0.5 select-none bg-slate-50 dark:bg-slate-850/30 p-1 rounded-lg">
-                {rawSheets.map(s => (
-                  <button
-                    key={s.id}
-                    onClick={() => {
-                      setActivePreviewSheet(s.sheetName);
-                      setSelectedPreviewColumn("");
-                    }}
-                    className={`px-3 py-1.5 rounded-md text-[11px] font-black uppercase transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                      activePreviewSheet === s.sheetName 
-                        ? "bg-slate-900 text-white dark:bg-slate-800 font-extrabold shadow-sm" 
-                        : "text-slate-500 hover:bg-slate-200/55 dark:hover:bg-slate-800"
-                    }`}
-                  >
-                    <span>📊</span>
-                    <span>{s.customName || s.sheetName}</span>
-                    <span className="text-[9px] px-1 bg-black/10 rounded">{s.rowCount} rows</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Indicator bar */}
-            <div className="flex justify-between items-center text-xs font-mono bg-slate-50 dark:bg-slate-850/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/60">
-              <div className="flex gap-4">
-                <span>📂 Arquivo ativo: <strong className="text-slate-800 dark:text-slate-100">{rawFiles[0]?.name || "Planilha Carregada"}</strong></span>
-                <span>📈 Linhas totais: <strong className="text-blue-600 dark:text-blue-400">{activeSheetRows.length}</strong></span>
-                <span>📊 Colunas totais: <strong className="text-blue-600 dark:text-blue-400">{activeSheetColumns.length}</strong></span>
-              </div>
-              <span className="text-[10px] text-slate-400 uppercase font-black">Clique em um cabeçalho de coluna para configurar</span>
+            {/* Main Interactive Spreadsheet Grid */}
+            <div className="w-full">
+              <SpreadsheetExcelViewer
+                sheets={viewerSheets}
+                activeSheet={activePreviewSheet || rawSheets[0]?.sheetName || ""}
+                onSelectSheet={(sheetName) => setActivePreviewSheet(sheetName)}
+                columnProfiles={viewerColumnProfiles}
+                onSelectColumn={handleSelectColumnForConfig}
+                onRenameColumn={handleRenameColumnInViewer}
+                onToggleColumnUsage={handleToggleColumnUsageInViewer}
+                onToggleFilter={handleToggleFilterInViewer}
+                onSaveProfile={handleSaveProfile}
+              />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-              {/* Left SpreadSheet Grid Column */}
-              <div className="lg:col-span-2 space-y-3">
-                {activeSheetRows.length === 0 ? (
-                  <div className="p-12 text-center text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50">
-                    Nenhum registro encontrado para esta aba ou termo de busca.
-                  </div>
-                ) : (
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
-                    {/* Excel Sheet Table Grid with frozen header and scroll */}
-                    <div id="spreadsheet-grid" data-testid="spreadsheet-grid" className="overflow-auto max-h-[400px] max-w-full custom-scrollbar relative">
-                      <table className="w-full text-xs text-left border-collapse">
-                        <thead className="text-[10px] bg-slate-100 dark:bg-slate-800 uppercase tracking-wider text-slate-500 sticky top-0 z-20 shadow-xs">
-                          <tr>
-                            <th className="p-2 border-r border-b border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-center font-bold font-mono w-10 sticky left-0 z-30">
-                              #
-                            </th>
-                            {activeSheetColumns.map((col, cIdx) => {
-                              const isIgnored = ignoredColumns[col] === true;
-                              const alias = columnAliases[col] || col;
-                              const isSelected = selectedPreviewColumn === col;
-                              const isUnnamed = col.toLowerCase().startsWith("__empty");
-
-                              return (
-                                <th 
-                                  key={col}
-                                  onClick={() => setSelectedPreviewColumn(col)}
-                                  className={`p-3 border-r border-b border-slate-200 dark:border-slate-700 font-black cursor-pointer transition-colors relative whitespace-nowrap select-none ${
-                                    isSelected 
-                                      ? "bg-blue-600 text-white" 
-                                      : isIgnored
-                                        ? "bg-slate-100/50 dark:bg-slate-800/50 text-slate-400 italic line-through"
-                                        : isUnnamed
-                                          ? "bg-amber-50/70 hover:bg-amber-100/70 dark:bg-amber-950/20 text-amber-800 dark:text-amber-400"
-                                          : "hover:bg-slate-200 bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300"
-                                  }`}
-                                >
-                                  <div className="flex flex-col">
-                                    <span className="text-[8px] opacity-75 font-mono tracking-widest uppercase flex items-center gap-1">
-                                      {isIgnored ? "🚫 Ignorado" : `COL ${cIdx + 1}`}
-                                      {isUnnamed && <span className="bg-amber-600 text-white text-[7px] px-1 rounded font-sans uppercase">Sem nome</span>}
-                                    </span>
-                                    <span className="text-xs truncate max-w-[150px]">
-                                      {isUnnamed ? "Coluna sem nome" : alias}
-                                    </span>
-                                  </div>
-                                </th>
-                              );
-                            })}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-150 dark:divide-slate-800 bg-white dark:bg-slate-900 font-mono">
-                          {activeSheetRows.slice(0, 50).map((row, idx) => (
-                            <tr key={row.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-850/50 transition-colors">
-                              <td className="p-2 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-850 text-center text-slate-400 font-bold font-mono text-[10px] sticky left-0 z-10 shadow-xs">
-                                {row.linha || idx + 2}
-                              </td>
-                              {activeSheetColumns.map(col => {
-                                const isIgnored = ignoredColumns[col] === true;
-                                const val = row[col];
-                                return (
-                                  <td 
-                                    key={col} 
-                                    onClick={() => setSelectedPreviewColumn(col)}
-                                    className={`p-2 border-r border-slate-200 dark:border-slate-700 text-[11px] truncate max-w-[180px] cursor-pointer ${
-                                      isIgnored 
-                                        ? "text-slate-300 dark:text-slate-700 italic bg-slate-50/20" 
-                                        : "text-slate-800 dark:text-slate-200 font-semibold"
-                                    } ${selectedPreviewColumn === col ? "bg-blue-50 dark:bg-blue-950/20" : ""}`}
-                                  >
-                                    {val === undefined || val === null || String(val).trim() === "" ? (
-                                      <span className="text-slate-400 italic">Vazio</span>
-                                    ) : (
-                                      String(val)
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-                <p className="text-[10px] text-slate-400 italic text-right">
-                  Mostrando primeiras {Math.min(50, activeSheetRows.length)} de {activeSheetRows.length} linhas reais na aba "{activePreviewSheet}". Cabeçalhos fixos.
-                </p>
-              </div>
-
-              {/* Right Panel: Advanced Column Config Drawer */}
-              <div id="column-config-panel" data-testid="column-config-panel" className="space-y-4">
-                {selectedPreviewColumn ? (
-                  <div className="bg-slate-50 dark:bg-slate-850 p-4 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4">
-                    <div className="border-b border-slate-200 dark:border-slate-700 pb-2 flex justify-between items-center">
-                      <div>
-                        <span className="text-[9px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">Coluna Física</span>
-                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 truncate max-w-[180px]" title={selectedPreviewColumn}>{selectedPreviewColumn}</h4>
-                      </div>
-                      <span className="text-[9px] bg-slate-200 dark:bg-slate-850 text-slate-600 px-2 py-0.5 rounded font-bold uppercase font-mono">Configurações</span>
-                    </div>
-
-                    {/* Form Controls */}
-                    <div className="space-y-3.5 text-xs">
-                      {/* Alias */}
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Apelido Visível (Alias)</label>
-                        <input 
-                          type="text"
-                          value={columnAliases[selectedPreviewColumn] || ""}
-                          onChange={(e) => setColumnAliases({ ...columnAliases, [selectedPreviewColumn]: e.target.value })}
-                          placeholder={selectedPreviewColumn.toLowerCase().startsWith("__empty") ? "Coluna sem nome" : selectedPreviewColumn}
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"
-                        />
-                      </div>
-
-                      {/* Description */}
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Descrição Opcional</label>
-                        <input 
-                          type="text"
-                          value={colDescription[selectedPreviewColumn] || ""}
-                          onChange={(e) => setColDescription({ ...colDescription, [selectedPreviewColumn]: e.target.value })}
-                          placeholder="Ex: Valor bruto de notas emitidas"
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100"
-                        />
-                      </div>
-
-                      {/* Data Type */}
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Tipo de Dado</label>
-                        <select
-                          value={colDataType[selectedPreviewColumn] || "text"}
-                          onChange={(e) => setColDataType({ ...colDataType, [selectedPreviewColumn]: e.target.value })}
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"
-                        >
-                          <option value="text">Texto / Categoria</option>
-                          <option value="number">Número Inteiro / Decimal</option>
-                          <option value="currency">Moeda Financeira</option>
-                          <option value="date">Data de Registro</option>
-                        </select>
-                      </div>
-
-                      {/* Visual Format */}
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Formato Visual</label>
-                        <select
-                          value={colFormat[selectedPreviewColumn] || "texto"}
-                          onChange={(e) => setColFormat({ ...colFormat, [selectedPreviewColumn]: e.target.value })}
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"
-                        >
-                          <option value="texto">Texto plano</option>
-                          <option value="moeda">Moeda (R$ 0,00)</option>
-                          <option value="numero">Número com decimais</option>
-                          <option value="data">Data formatada (DD/MM/AAAA)</option>
-                          <option value="percentual">Percentual (0,00%)</option>
-                        </select>
-                      </div>
-
-                      {/* Grouping */}
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Agrupamento Contábil / Corporativo</label>
-                        <input 
-                          type="text"
-                          value={colGrouping[selectedPreviewColumn] || ""}
-                          onChange={(e) => setColGrouping({ ...colGrouping, [selectedPreviewColumn]: e.target.value })}
-                          placeholder="Ex: Grupo Econômico, Filiais"
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100"
-                        />
-                      </div>
-
-                      {/* Optional Rule */}
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Regra / Fórmula Customizada</label>
-                        <input 
-                          type="text"
-                          value={colRule[selectedPreviewColumn] || ""}
-                          onChange={(e) => setColRule({ ...colRule, [selectedPreviewColumn]: e.target.value })}
-                          placeholder="Ex: se valor > 0 então ativo"
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100"
-                        />
-                      </div>
-
-                      {/* Taxonomy Mapping to core fields */}
-                      <div className="bg-blue-50/50 dark:bg-slate-900 p-2.5 rounded-lg border border-blue-100 dark:border-slate-800">
-                        <label className="block text-[9px] font-black uppercase text-blue-700 dark:text-blue-400 mb-1">Mapear para a Taxonomia Sauron</label>
-                        <select
-                          value={Object.keys(fieldMappings).find(k => fieldMappings[k] === selectedPreviewColumn) || ""}
-                          onChange={(e) => {
-                            const coreKey = e.target.value;
-                            if (coreKey) {
-                              setFieldMappings({ ...fieldMappings, [coreKey]: selectedPreviewColumn });
-                            }
-                          }}
-                          className="w-full bg-white dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded px-2 py-1 text-xs text-slate-800 dark:text-slate-100"
-                        >
-                          <option value="">-- Não mapeado para Core --</option>
-                          {Object.keys(fieldMappings).map(k => (
-                            <option key={k} value={k}>{k}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Usage switches / Checkboxes */}
-                      <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2">
-                        <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">Módulos onde a coluna participa</span>
-                        
-                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
-                          <span className="text-slate-600 dark:text-slate-400">Marcar como Útil (Ativa)</span>
-                          <input 
-                            type="checkbox"
-                            checked={ignoredColumns[selectedPreviewColumn] !== true}
-                            onChange={(e) => setIgnoredColumns({ ...ignoredColumns, [selectedPreviewColumn]: !e.target.checked })}
-                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                          />
-                        </label>
-
-                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
-                          <span className="text-slate-600 dark:text-slate-400">Se vira filtro</span>
-                          <input 
-                            type="checkbox"
-                            checked={colIsFilter[selectedPreviewColumn] === true}
-                            onChange={(e) => setColIsFilter({ ...colIsFilter, [selectedPreviewColumn]: e.target.checked })}
-                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                          />
-                        </label>
-
-                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
-                          <span className="text-slate-600 dark:text-slate-400">Se vira KPI</span>
-                          <input 
-                            type="checkbox"
-                            checked={colIsKpi[selectedPreviewColumn] === true}
-                            onChange={(e) => setColIsKpi({ ...colIsKpi, [selectedPreviewColumn]: e.target.checked })}
-                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                          />
-                        </label>
-
-                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
-                          <span className="text-slate-600 dark:text-slate-400">Participa de Gráfico</span>
-                          <input 
-                            type="checkbox"
-                            checked={colParticipatesChart[selectedPreviewColumn] === true}
-                            onChange={(e) => setColParticipatesChart({ ...colParticipatesChart, [selectedPreviewColumn]: e.target.checked })}
-                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                          />
-                        </label>
-
-                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
-                          <span className="text-slate-600 dark:text-slate-400">People Intelligence</span>
-                          <input 
-                            type="checkbox"
-                            checked={colPeopleIntel[selectedPreviewColumn] === true}
-                            onChange={(e) => setColPeopleIntel({ ...colPeopleIntel, [selectedPreviewColumn]: e.target.checked })}
-                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                          />
-                        </label>
-
-                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
-                          <span className="text-slate-600 dark:text-slate-400">Alimentar DRE</span>
-                          <input 
-                            type="checkbox"
-                            checked={colDre[selectedPreviewColumn] === true}
-                            onChange={(e) => setColDre({ ...colDre, [selectedPreviewColumn]: e.target.checked })}
-                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                          />
-                        </label>
-
-                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
-                          <span className="text-slate-600 dark:text-slate-400">Participa de Comissão</span>
-                          <input 
-                            type="checkbox"
-                            checked={colCommission[selectedPreviewColumn] === true}
-                            onChange={(e) => setColCommission({ ...colCommission, [selectedPreviewColumn]: e.target.checked })}
-                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                          />
-                        </label>
-
-                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
-                          <span className="text-slate-600 dark:text-slate-400">Alimentar Apresentações</span>
-                          <input 
-                            type="checkbox"
-                            checked={colPresentation[selectedPreviewColumn] === true}
-                            onChange={(e) => setColPresentation({ ...colPresentation, [selectedPreviewColumn]: e.target.checked })}
-                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
-                          />
-                        </label>
-                      </div>
-
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-5 text-center text-slate-400 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl">
-                    <span className="text-lg block mb-1">👆</span>
-                    <span className="text-xs">Selecione qualquer cabeçalho de coluna na grade para abrir a configuração avançada livre.</span>
-                  </div>
-                )}
-              </div>
-            </div>
+            {/* Config Drawer Render when column selected */}
+            <ColumnConfigDrawer
+              isOpen={isColumnConfigDrawerOpen}
+              column={configDrawerColumn}
+              onClose={() => setIsColumnConfigDrawerOpen(false)}
+              onSave={handleSaveColumnConfig}
+            />
 
             <div className="flex justify-between items-center pt-4 border-t border-slate-150 dark:border-slate-800">
               <button 
@@ -2179,88 +2089,13 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
         {/* STEP 7: DATA AUDIT PANEL */}
         {activeStep === "auditoria" && (
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
-              <div>
-                <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">Passo 7: Painel de Atenção e Diagnóstico da Planilha</h2>
-                <p className="text-xs text-slate-400 mt-1">Pontos de atenção estruturais sugeridos para auxílio e tomada de decisão do consultor. A importação nunca é bloqueada.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                  importStatus === "Importado"
-                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400"
-                    : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400"
-                }`}>
-                  {importStatus}
-                </span>
-                <button 
-                  onClick={triggerIntegrationTests}
-                  className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 text-xs px-3 py-1.5 rounded-lg"
-                >
-                  <RefreshCw size={12} className={runTestsStatus === "running" ? "animate-spin" : ""} /> Disparar Testes Completo
-                </button>
-              </div>
-            </div>
-
-            {/* Test Results Logs Terminal if triggers */}
-            {runTestsStatus !== "idle" && (
-              <div className="bg-slate-950 text-slate-200 p-4 rounded-xl border border-slate-800 font-mono text-xs space-y-1.5 max-h-[220px] overflow-y-auto shadow-inner">
-                <p className="text-[10px] uppercase tracking-widest text-[#00ffcc] font-extrabold pb-1">Sauron OS Automation Logs Verifications:</p>
-                {testResultLogs.map((logStr, idx) => (
-                  <p key={idx} className="leading-tight">{logStr}</p>
-                ))}
-                {runTestsStatus === "success" && (
-                  <div className="col-span-full bg-emerald-950/40 border border-emerald-800/60 p-2.5 rounded-lg text-emerald-400 text-[11px] font-bold mt-2 flex items-center gap-2">
-                    <CheckCircle2 size={14} className="text-emerald-400 animate-pulse" />
-                    <span>✓ STATUS DE COMPILAÇÃO: 100% de cobertura de código e persistência validada com louvor. Pronto para publicação!</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Stat counts diagnostics and auditor warning lines */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl space-y-1 border border-slate-150">
-                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Amostra Analisada</span>
-                <p className="text-xl font-mono font-black text-slate-850 dark:text-slate-100">{validationLogs.totalRows} Linhas</p>
-                <span className="text-[9px] text-emerald-500 uppercase font-bold block">✓ 100% Preservadas (Não Destrutivo)</span>
-              </div>
-
-              <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl space-y-1 border border-slate-150">
-                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Campos Vazios</span>
-                <p className="text-xl font-mono font-black text-slate-850 dark:text-slate-100">{validationLogs.emptyFieldsCount || 0} nulos</p>
-                <span className="text-[9px] text-slate-400 block">Normais em exportações de ERP</span>
-              </div>
-
-              <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl space-y-1 border border-slate-150">
-                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Valores Negativos</span>
-                <p className="text-xl font-mono font-black text-amber-500">{validationLogs.negativeValuesCount || 0} alertas</p>
-                <span className="text-[9px] text-slate-400 block">Legítimos (despesas/opex)</span>
-              </div>
-
-              <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl space-y-1 border border-slate-150">
-                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Linhas Semelhantes</span>
-                <p className="text-xl font-mono font-black text-slate-850 dark:text-slate-100">{validationLogs.duplicatesCount || 0}</p>
-                <span className="text-[9px] text-emerald-500 block">Preservadas na íntegra (Sem alteração)</span>
-              </div>
-            </div>
-
-            {/* List of Warning Issues */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-black uppercase text-slate-450 block tracking-wider">Diagnóstico de Estrutura da Planilha (Preservação Ativa)</span>
-              <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-150 dark:border-slate-805 rounded-xl overflow-hidden">
-                {validationLogs.issues.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-slate-400">Nenhum ponto de atenção identificado na planilha ativa.</div>
-                ) : (
-                  validationLogs.issues.map((issueStr, idx) => (
-                    <div key={idx} className="p-3 flex items-start gap-2 text-xs bg-amber-50/20 dark:bg-amber-950/5">
-                      <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
-                      <span className="font-medium text-slate-700 dark:text-slate-350">{issueStr}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-              <p className="text-[10px] text-slate-405 leading-relaxed">Nota Metodológica: O Sauron opera em caráter 100% não obstrutivo. Registros com inconsistências continuam disponíveis de forma idêntica ao original para cruzamento.</p>
-            </div>
+            <SpreadsheetStructureDiagnostics
+              rows={rawRows}
+              columns={activeSheetColumns}
+              dbActiveRecords={dataSourceManager.getDatabaseRecords()}
+              onBackToMapeamento={() => setActiveStep("mapeamento")}
+              onActivateSource={handleFinalizarEAtivarPlanilha}
+            />
           </div>
         )}
 

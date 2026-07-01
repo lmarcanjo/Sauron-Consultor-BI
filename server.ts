@@ -52,6 +52,16 @@ app.post("/api/db/test-connection", async (req, res) => {
   }
 });
 
+// Testar e varrer tabelas/colunas (usado no painel)
+app.post("/api/db/test", async (req, res) => {
+  try {
+    const result = await databaseConnectionManager.getTablesAndColumns(req.body);
+    return res.json({ success: true, tables: result.tables, tableColumns: result.tableColumns, estimatedRows: result.estimatedRows });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message || "Erro ao testar e obter tabelas/colunas." });
+  }
+});
+
 // Listar tabelas (usado para preview e map)
 app.post("/api/db/list-tables", async (req, res) => {
   try {

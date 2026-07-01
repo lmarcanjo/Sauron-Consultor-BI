@@ -98,7 +98,7 @@ export class DataSourceManager {
     this.state = savedState
       ? JSON.parse(savedState)
       : {
-          activeDataSource: "DEMO_DATA",
+          activeDataSource: "SPREADSHEET_DATA",
           activeSpreadsheetIds: [],
           allowMixedSources: false,
           approvedByConsultant: false,
@@ -139,6 +139,14 @@ export class DataSourceManager {
         const rows = await IndexedSpreadsheetStorage.getRows(file.id);
         if (rows && rows.length > 0) {
           this.fileRowsMap[file.id] = rows;
+          
+          // Hydrate the in-memory sheets with full rows loaded from IndexedDB
+          file.sheets.forEach(sheet => {
+            const sheetRows = rows.filter(r => r.aba === sheet.sheetName);
+            if (sheetRows.length > 0) {
+              sheet.rows = sheetRows;
+            }
+          });
         }
       }
       this.cachedActiveRecords = null;
@@ -346,6 +354,15 @@ export class DataSourceManager {
   }
 
   public getActiveRecords(): LancamentoFinanceiro[] {
+    if (this.state.activeDataSource === "DEMO_DATA") {
+      const isDemoAllowed = typeof window !== "undefined" && 
+        (window.location.pathname.includes("/__internal/demo") || window.location.search.includes("demo=true"));
+      if (!isDemoAllowed) {
+        this.state.activeDataSource = "SPREADSHEET_DATA";
+        this.saveToStorage();
+      }
+    }
+
     if (this.cachedActiveRecords) {
       return this.cachedActiveRecords;
     }
@@ -420,6 +437,10 @@ export class DataSourceManager {
 
   public getWorkspace(): SpreadsheetWorkspace {
     return this.workspace;
+  }
+
+  public getDatabaseRecords(): LancamentoFinanceiro[] {
+    return this.databaseRecords;
   }
 
   public addSpreadsheetFile(file: SpreadsheetFile, mode: "APPEND" | "REPLACE" | "SEPARATE" | "PENDING") {

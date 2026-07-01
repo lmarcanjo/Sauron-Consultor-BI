@@ -166,7 +166,7 @@ export const AppSidebar: React.FC<SidebarProps> = ({
         {/* Navigation List */}
         <div className="flex-1 overflow-y-auto py-4 custom-scrollbar overflow-x-hidden px-2.5 space-y-1.5">
           {[
-            { title: "Casos", id: "executive_workspace", tab: "resumo", icon: Briefcase },
+            { title: "Projetos", id: "executive_workspace", tab: "resumo", icon: Briefcase },
             { title: "Centro de Comando", id: "executive_workspace", tab: "resumo", icon: Activity },
             { title: "Conectar Dados", id: "executive_workspace", tab: "dados", icon: Database },
             { title: "Diagnóstico", id: "executive_workspace", tab: "financeiro", icon: Target },

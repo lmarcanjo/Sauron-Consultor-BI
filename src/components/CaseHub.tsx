@@ -41,8 +41,8 @@ const DEFAULT_CONTEXT: WorkspaceContext = {
 
 // Default Bootstrap Project Layout
 const BOOTSTRAP_PROJECT_METADATA = {
-  client: "Grupo Comercial Alpha", group: "Grupo Alpha", segment: "Automotivo",
-  companies: ["Alpha Nissan", "Alpha Renault"], brands: ["Nissan", "Renault"], cnpjs: ["00.123.456/0001-01"],
+  client: "Projeto de Consultoria Padrão", group: "Corporativo", segment: "Automotivo",
+  companies: ["Unidade Nissan", "Unidade Renault"], brands: ["Nissan", "Renault"], cnpjs: ["00.123.456/0001-01"],
   dbConnections: [], spreadsheets: [], importProfile: null, filters: [],
   kpis: [
     { id: "k1", name: "Volume Bruto Geral", target: 3850000 },
@@ -53,7 +53,7 @@ const BOOTSTRAP_PROJECT_METADATA = {
     { id: "p1", description: "Otimizar mix de comissionamento de vendas da unidade Nissan", priority: "high", responsible: "Carlos Santos", deadline: "30/06/2026", status: "pending", origin: "KPI" },
     { id: "p2", description: "Lançar campanha de captação de pós-venda para inativos de 2 anos", priority: "medium", responsible: "Ana Paula Silva", deadline: "15/07/2026", status: "in-progress", origin: "Anomalia" }
   ],
-  observations: "Caso de consultoria padrão para o conselho exec.", history: [], auditLog: []
+  observations: "Projeto de consultoria padrão para o conselho exec.", history: [], auditLog: []
 };
 
 interface CaseHubProps {

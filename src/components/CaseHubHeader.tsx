@@ -53,7 +53,7 @@ export const CaseHubHeader: React.FC<CaseHubHeaderProps> = ({
             <Building size={20} />
           </div>
           <div>
-            <span className="text-[10px] font-black uppercase text-blue-500 tracking-wider">Centro de Comando do Caso</span>
+            <span className="text-[10px] font-black uppercase text-blue-500 tracking-wider">Centro de Comando do Projeto</span>
             <div className="flex items-center gap-2 mt-0.5">
               <select
                 value={activeProject?.id || ""}
@@ -77,7 +77,7 @@ export const CaseHubHeader: React.FC<CaseHubHeaderProps> = ({
             className="flex items-center gap-1.5"
           >
             <FolderPlus size={14} />
-            <span>Novo Caso</span>
+            <span>Novo Projeto</span>
           </SauronButton>
           <button
             onClick={() => setIsPanelOpen(!isPanelOpen)}
@@ -93,7 +93,7 @@ export const CaseHubHeader: React.FC<CaseHubHeaderProps> = ({
       {isCreatingProject && (
         <form onSubmit={handleCreateCase} className="p-6 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl space-y-4 animate-fade-in">
           <div className="flex justify-between items-center">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Inicializar Novo Caso de Consultoria</h3>
+            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Inicializar Novo Projeto de Consultoria</h3>
             <button type="button" onClick={() => setIsCreatingProject(false)} className="text-slate-400 hover:text-slate-600">
               <X size={16} />
             </button>
@@ -119,7 +119,7 @@ export const CaseHubHeader: React.FC<CaseHubHeaderProps> = ({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Segmento (DNA do Caso)</label>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Segmento (DNA do Projeto)</label>
               <SauronSelect
                 value={newProjectSegment}
                 onChange={(e) => setNewProjectSegment(e.target.value)}
@@ -140,7 +140,7 @@ export const CaseHubHeader: React.FC<CaseHubHeaderProps> = ({
               Cancelar
             </SauronButton>
             <SauronButton type="submit" variant="filled">
-              Inicializar Caso
+              Inicializar Projeto
             </SauronButton>
           </div>
         </form>

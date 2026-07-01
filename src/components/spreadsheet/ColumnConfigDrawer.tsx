@@ -170,6 +170,40 @@ export const ColumnConfigDrawer: React.FC<ColumnConfigDrawerProps> = ({
             <label className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
               Mapeamento de Recursos e Filtros
             </label>
+            <div className="flex gap-2 mb-2">
+              <button
+                type="button"
+                id="btn-mark-all-uses"
+                data-testid="btn-mark-all-uses"
+                onClick={() => {
+                  setIsFilter(true);
+                  setIsKPI(true);
+                  setIsDRE(true);
+                  setIsPessoas(true);
+                  setIsComissao(true);
+                  setIsApresentacao(true);
+                }}
+                className="flex-1 py-1 px-2 text-[9px] font-black uppercase tracking-wider bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/45 dark:hover:bg-blue-900/45 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded cursor-pointer transition-all text-center"
+              >
+                Usar coluna em tudo
+              </button>
+              <button
+                type="button"
+                id="btn-ignore-all-uses"
+                data-testid="btn-ignore-all-uses"
+                onClick={() => {
+                  setIsFilter(false);
+                  setIsKPI(false);
+                  setIsDRE(false);
+                  setIsPessoas(false);
+                  setIsComissao(false);
+                  setIsApresentacao(false);
+                }}
+                className="flex-1 py-1 px-2 text-[9px] font-black uppercase tracking-wider bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/45 dark:hover:bg-slate-700/45 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 rounded cursor-pointer transition-all text-center"
+              >
+                Ignorar coluna em tudo
+              </button>
+            </div>
             <div className="border border-slate-200 dark:border-slate-800 rounded-xl p-3 bg-slate-50/30 dark:bg-slate-950/20 space-y-2">
               
               {/* Filter switch */}

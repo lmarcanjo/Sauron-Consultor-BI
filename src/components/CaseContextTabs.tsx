@@ -15,7 +15,7 @@ interface CaseContextTabsProps {
 
 export const CaseContextTabs: React.FC<CaseContextTabsProps> = ({ activeTabId, setActiveTabId }) => {
   const tabs = [
-    { id: "resumo", label: "Resumo do Caso", icon: LayoutGrid },
+    { id: "resumo", label: "Resumo do Projeto", icon: LayoutGrid },
     { id: "dados", label: "Dados Conectados", icon: Database },
     { id: "financeiro", label: "Financeiro & DRE", icon: TrendingUp },
     { id: "comercial", label: "Comercial", icon: ShoppingBag },
@@ -23,8 +23,8 @@ export const CaseContextTabs: React.FC<CaseContextTabsProps> = ({ activeTabId, s
     { id: "reunioes", label: "Reuniões", icon: ClipboardList },
     { id: "planos", label: "Planos Táticos", icon: Target },
     { id: "apresentacoes", label: "Apresentações", icon: Sparkles },
-    { id: "dossie", label: "Dossiê do Caso", icon: FileText },
-    { id: "historico", label: "História do Caso", icon: Activity }
+    { id: "dossie", label: "Dossiê do Cliente", icon: FileText },
+    { id: "historico", label: "Histórico do Cliente", icon: Activity }
   ];
 
   return (

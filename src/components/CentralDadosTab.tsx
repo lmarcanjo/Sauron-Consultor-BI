@@ -20,6 +20,7 @@ interface CentralDadosTabProps {
   filtros?: FiltrosDashboard;
   visibleFilters?: string[];
   fieldMappings?: Record<string, string>;
+  initialStep?: number;
 }
 
 export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
@@ -30,9 +31,16 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   filtros = { grupos: [], cnpjs: [], marcas: [], meses: [], razoes: [] },
   visibleFilters = [],
   fieldMappings = {},
+  initialStep = 0,
 }) => {
   // Main 10-step tab layout state
-  const [activeTab, setActiveTab] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<number>(initialStep);
+
+  useEffect(() => {
+    if (initialStep !== undefined) {
+      setActiveTab(initialStep);
+    }
+  }, [initialStep]);
   const steps = [
     { title: "Cliente", desc: "Perfil e Segmento" },
     { title: "VPN", desc: "Túneis de Conexão" },

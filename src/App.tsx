@@ -43,7 +43,9 @@ import {
   ShieldAlert,
   ShieldCheck,
   Network,
-  Activity
+  Activity,
+  FileSpreadsheet,
+  Server
 } from "lucide-react";
 
 import { LancamentoFinanceiro, FiltrosDashboard, MetricasConsolidadas, ActiveDataSourceType } from "./types";
@@ -1659,30 +1661,31 @@ export default function App() {
               )}
 
            {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
-          {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 && !["vpn_gateway", "central_dados", "importacao", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio", "narrativa_executiva"].includes(activeTab) ? (
-            <div id="real-data-empty-state" className="bg-amber-50/70 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-900 rounded-xl p-8 text-center space-y-4 shadow-sm animate-fade-in mt-2 flex flex-col items-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
-                <Database size={22} className="animate-spin" style={{ animationDuration: '3s' }} />
+          {visualizacaoEmpresas === "reais" && dataOrigemReal.length === 0 && !["vpn_gateway", "central_dados", "importacao", "banco_connector", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio", "narrativa_executiva"].includes(activeTab) ? (
+            <div id="real-data-empty-state" className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center max-w-xl mx-auto my-12 space-y-6 shadow-md animate-fade-in flex flex-col items-center">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-500 border border-blue-100 dark:border-blue-900">
+                <Database size={26} className="text-blue-500" />
               </div>
-              <div className="space-y-1 max-w-lg">
-                <h3 className="text-sm font-black text-amber-800 dark:text-amber-300 uppercase tracking-wider">Modo Dados Reais</h3>
-                <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed font-semibold">
-                  Nenhum dado produtivo real foi conectado ainda. Para habilitar visualizações e relatórios do seu banco, conecte seu servidor relacional através do Console Master ou importe planilhas estruturadas.
+              <div className="space-y-2">
+                <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 uppercase tracking-tight">Comece conectando dados reais</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                  Importe uma planilha ou conecte um banco. O Sauron nunca altera, deleta ou esconde seus dados originais.
                 </p>
               </div>
-              <div className="flex flex-wrap justify-center gap-2.5 pt-2">
+              <div className="flex flex-col sm:flex-row justify-center gap-3 w-full pt-2">
                 <button
                   onClick={() => setActiveTab("importacao")}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] uppercase font-extrabold tracking-wider rounded-lg shadow-sm transition-all cursor-pointer inline-flex items-center gap-1.5"
+                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] uppercase font-black tracking-wider rounded-xl shadow-sm transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
                 >
-                  <Database size={11} />
-                  <span>Configurar Central de Dados</span>
+                  <FileSpreadsheet size={14} />
+                  <span>Importar planilha</span>
                 </button>
                 <button
-                  onClick={() => handleVisualizacaoChange("ficticias")}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-705 text-slate-700 dark:text-slate-300 text-[10px] uppercase font-extrabold tracking-wider rounded-lg transition-all cursor-pointer"
+                  onClick={() => setActiveTab("banco_connector")}
+                  className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-750 dark:text-slate-200 text-[11px] uppercase font-black tracking-wider rounded-xl border border-slate-200 dark:border-slate-750 transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
                 >
-                  Usar Modo Demonstração (Mock)
+                  <Server size={14} />
+                  <span>Conectar banco de dados</span>
                 </button>
               </div>
             </div>
@@ -1721,7 +1724,7 @@ export default function App() {
             </div>
           ) : (
             <>
-              {activeTab === "qa_console" && (
+              {activeTab === "qa_console" && (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.search.includes("qa=true"))) && (
                 <ProductQAConsole setActivePage={setActiveTab} />
               )}
 
@@ -1755,14 +1758,18 @@ export default function App() {
 
           {["importacao", "banco_connector", "etl_pipeline", "validacao_dados", "apis_feed", "sincronizacao", "fonte_ativa", "vpn_gateway"].includes(activeTab) && (
              <CentralDadosTab
-              dataOrigem={dataOrigem}
-              onDataLoaded={handleDatabaseDataLoaded}
-              currentSource={nomeFonte}
-              camposAusentes={camposAusentes}
-              filtros={filtros}
-              visibleFilters={visibleFilters}
-              fieldMappings={fieldMappings}
-            />
+               dataOrigem={dataOrigem}
+               onDataLoaded={handleDatabaseDataLoaded}
+               currentSource={nomeFonte}
+               camposAusentes={camposAusentes}
+               filtros={filtros}
+               visibleFilters={visibleFilters}
+               fieldMappings={fieldMappings}
+               initialStep={
+                 activeTab === "banco_connector" ? 2 :
+                 activeTab === "vpn_gateway" ? 1 : 3
+               }
+             />
           )}
           {["apresentacoes", "narrativa_executiva", "story_builder", "apresentacoes_templates"].includes(activeTab) && (
             <PresentationBuilderPage 
