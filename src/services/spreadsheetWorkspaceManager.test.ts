@@ -194,4 +194,85 @@ describe("SpreadsheetWorkspaceManager & E2E Flow Suite", () => {
     expect(f1?.status).toBe("INACTIVE");
     expect(f2?.status).toBe("PENDING_VALIDATION");
   });
+
+  it("should successfully import REL_PEC_J26.csv and satisfy all non-destructive consultative requirements", () => {
+    // 1. Setup a SpreadsheetFile that mimics the parsed REL_PEC_J26.csv
+    const relPecFile: SpreadsheetFile = {
+      id: "REL_PEC_J26_test",
+      fileName: "REL_PEC_J26.csv",
+      importedAt: new Date().toISOString(),
+      importedBy: "Lennon Marcanjo",
+      status: "PENDING_VALIDATION",
+      totalRows: 4,
+      totalColumns: 5,
+      sheets: [
+        {
+          id: "sheet_rel_pec",
+          fileId: "REL_PEC_J26_test",
+          sheetName: "REL_PEC_J26",
+          rows: [
+            { id: "r1", "Mês": "2026-01-01", "Receita": 10000, "Custo": -2000, "__EMPTY": "vazio1", "__EMPTY_1": "vazio2" },
+            { id: "r2", "Mês": "2026-01-01", "Receita": 10000, "Custo": -2000, "__EMPTY": "vazio1", "__EMPTY_1": "vazio2" },
+            { id: "r3", "Mês": "", "Receita": 15000, "Custo": "", "__EMPTY": "val3", "__EMPTY_1": "" },
+            { id: "r4", "Mês": "2026-03-01", "Receita": 12000, "Custo": -1500, "__EMPTY": "", "__EMPTY_1": "" }
+          ],
+          columns: [
+            { name: "Mês", type: "string", hasEmptyValues: true },
+            { name: "Receita", type: "number", hasEmptyValues: false },
+            { name: "Custo", type: "number", hasEmptyValues: true },
+            { name: "__EMPTY", type: "string", hasEmptyValues: true },
+            { name: "__EMPTY_1", type: "string", hasEmptyValues: true }
+          ]
+        }
+      ]
+    };
+
+    // Import the spreadsheet using REPLACE strategy (simulating clean start)
+    SpreadsheetWorkspaceManager.importarPlanilha(relPecFile, "REPLACE");
+
+    const ws = dataSourceManager.getWorkspace();
+    const imported = ws.files.find(f => f.id === "REL_PEC_J26_test");
+
+    // 1 & 2 & 7: CSV imports successfully, all 4 rows, all columns including __EMPTY, and no data is deleted
+    expect(imported).toBeDefined();
+    expect(imported?.totalRows).toBe(4);
+    expect(imported?.sheets[0].rows.length).toBe(4);
+    
+    // Check preservation of __EMPTY columns (Requirement 2)
+    const firstRow = imported?.sheets[0].rows[0] as any;
+    expect(firstRow.__EMPTY).toBe("vazio1");
+    expect(firstRow.__EMPTY_1).toBe("vazio2");
+
+    // Check cells are empty but imported is not blocked (Requirement 3)
+    const thirdRow = imported?.sheets[0].rows[2] as any;
+    expect(thirdRow.Mês).toBe("");
+    expect(thirdRow.Custo).toBe("");
+
+    // Check duplicities are preserved (Requirement 4)
+    expect(imported?.sheets[0].rows[0].Receita).toBe(10000);
+    expect(imported?.sheets[0].rows[1].Receita).toBe(10000);
+
+    // Calculate quality score and report warnings (Requirement 6: no Critical, has consultative issues)
+    const quality = SpreadsheetWorkspaceManager.verQualidade("REL_PEC_J26_test");
+    expect(quality.label).not.toBe("Crítica");
+    expect(quality.score).toBeGreaterThanOrEqual(70);
+    
+    // Check that reports use advisory warning phrases
+    const hasAttention = quality.report.some((r: string) => r.includes("Ponto de atenção:"));
+    const hasERPNormal = quality.report.some((r: string) => r.includes("Pode ser normal em exportações de ERP"));
+    expect(hasAttention).toBe(true);
+    expect(hasERPNormal).toBe(true);
+
+    // 8. Test that no mock data leaks after importing real spreadsheet
+    dataSourceManager.setActiveSource("SPREADSHEET_DATA");
+    // Approve and Activate
+    SpreadsheetWorkspaceManager.aprovarPlanilha("REL_PEC_J26_test");
+    const activeRecords = dataSourceManager.getActiveRecords();
+    
+    const anyDemo = activeRecords.some((r: any) => 
+      r.__isDemo === true || r.sourceType === "DEMO_DATA" || r.Grupo === "Ficticio"
+    );
+    expect(anyDemo).toBe(false);
+    expect(activeRecords.length).toBe(4); // All real records preserved perfectly!
+  });
 });

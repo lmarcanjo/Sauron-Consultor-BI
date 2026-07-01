@@ -94,6 +94,7 @@ import { ReportsPage } from "./components/pages/ReportsPage";
 import { ExecutiveWorkspace } from "./components/ExecutiveWorkspace";
 import { CommandPalette } from "./components/CommandPalette";
 import { SDLStudio } from "./components/SDLStudio";
+import { ProductQAConsole } from "./components/ProductQAConsole";
 
 import { AppSidebar } from "./components/AppSidebar";
 import { availableTemplates } from "./utils/industryTemplates";
@@ -1483,6 +1484,7 @@ export default function App() {
               {/* Discrete Central de Dados button */}
               <button
                 onClick={() => setIsCentralDadosOpen(true)}
+                data-testid="btn-open-data-center"
                 className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] uppercase tracking-wide font-black cursor-pointer h-8 shrink-0 shadow-xs"
                 title="Configurações de banco de dados, planilhas, VPN, segmentos e APIs"
               >
@@ -1719,6 +1721,10 @@ export default function App() {
             </div>
           ) : (
             <>
+              {activeTab === "qa_console" && (
+                <ProductQAConsole setActivePage={setActiveTab} />
+              )}
+
               {activeTab === "sdl_studio" && (
                 <SDLStudio onExit={() => setActiveTab("executive_workspace")} />
               )}
@@ -1981,6 +1987,7 @@ export default function App() {
               activeFiles={activeFiles}
               onSelectTab={setActiveTab}
               formatCurrency={formatCurrencyValue}
+              onDataLoaded={handleDatabaseDataLoaded}
             />
           )}
 

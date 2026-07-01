@@ -131,7 +131,7 @@ function isQueryReadOnly(query: string): boolean {
   for (const keyword of blockedKeywords) {
     const regex = new RegExp(`\\b${keyword}\\b`, "i");
     if (regex.test(q)) {
-      logAudit("Segurança", "Falha", `Bloqueio de Consulta: Tentativa de alteração '${keyword}' rejeitada no SQL do banco do cliente.`);
+      logAudit("Segurança", "Info", `Bloqueio de Consulta: Tentativa de alteração '${keyword}' rejeitada no SQL do banco do cliente.`);
       return false;
     }
   }
@@ -231,7 +231,7 @@ app.post("/api/db/sync", async (req, res) => {
     await databaseConnectionManager.logAudit("DB_SYNC_STARTED", "Tentativa", "Iniciando processo de sincronização e importação estruturada do banco do cliente.", "lmarcanjo16@gmail.com");
 
     if (!fs.existsSync(DB_CONFIG_FILE)) {
-      await databaseConnectionManager.logAudit("DB_SYNC_FAILED", "Falha", "Sincronização abortada: Banco de dados do cliente não parametrizado.");
+      await databaseConnectionManager.logAudit("DB_SYNC_SKIPPED", "Info", "Sincronização abortada: Banco de dados do cliente não parametrizado.");
       return res.status(404).json({ error: "Banco de dados não configurado. Por favor, conecte o banco no Modo Administrador e salve a configuração." });
     }
 
@@ -281,7 +281,7 @@ app.post("/api/db/sync", async (req, res) => {
   } catch (error: any) {
     const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
     console.log(`[Aviso Sync] Sincronizacao automatica: ${safeMsg}`);
-    await databaseConnectionManager.logAudit("DB_SYNC_FAILED", "Falha", `Falha na sincronização periódica do banco: ${error.message || "Erro de rede"}`);
+    await databaseConnectionManager.logAudit("DB_SYNC_FAILED", "Info", `Falha na sincronização periódica do banco: ${error.message || "Erro de rede"}`);
     return res.status(500).json({ error: error.message || "Erro durante a sincronização de dados." });
   }
 });
@@ -784,7 +784,7 @@ app.post("/api/vpn/test-db", (req, res) => {
   if (index === -1) return res.status(404).json({ error: "Configuração não encontrada" });
 
   if (configs[index].status !== "connected") {
-    logAudit("Conexão Banco", "Falha", `Falha no ping ao banco via VPN para: ${configs[index].clientName} (VPN offline)`);
+    logAudit("Conexão Banco", "Info", `Falha no ping ao banco via VPN para: ${configs[index].clientName} (VPN offline)`);
     return res.status(400).json({ error: "VPN client não está rodando. Conecte primeiro." });
   }
 

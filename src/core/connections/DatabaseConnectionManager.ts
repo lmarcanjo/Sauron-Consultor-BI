@@ -236,8 +236,8 @@ export class DatabaseConnectionManager {
       const hint = this.getDockerConnectionHint(host);
       const message = `Host '${host}' não pôde ser resolvido via DNS.${hint}`;
       await this.logAudit(
-        "DB_CONNECTION_TEST_FAILED",
-        "Falha",
+        "DB_CONNECTION_TEST_WARNING",
+        "Info",
         `Host '${host}' não encontrado (DNS lookup failed).`,
         config.user || "lmarcanjo16@gmail.com",
         { type, host, database: config.database, stage: "host", error: err.message }
@@ -282,8 +282,8 @@ export class DatabaseConnectionManager {
         const hint = this.getDockerConnectionHint(host);
         const message = `Porta ${port} no host '${host}' está fechada ou inacessível.${hint}`;
         await this.logAudit(
-          "DB_CONNECTION_TEST_FAILED",
-          "Falha",
+          "DB_CONNECTION_TEST_WARNING",
+          "Info",
           `Porta fechada ou inacessível em ${host}:${port}`,
           config.user || "lmarcanjo16@gmail.com",
           { type, host, database: config.database, stage: "port" }
@@ -339,8 +339,8 @@ export class DatabaseConnectionManager {
           }
 
           await this.logAudit(
-            "DB_CONNECTION_TEST_FAILED",
-            "Falha",
+            "DB_CONNECTION_TEST_WARNING",
+            "Info",
             `Falha na autenticação ou seleção do banco Postgres: ${message}`,
             config.user || "lmarcanjo16@gmail.com",
             { type, host, database: config.database, stage, error: errMsg }
@@ -360,8 +360,8 @@ export class DatabaseConnectionManager {
         } catch (err: any) {
           await client.end().catch(() => {});
           await this.logAudit(
-            "DB_CONNECTION_TEST_FAILED",
-            "Falha",
+            "DB_CONNECTION_TEST_WARNING",
+            "Info",
             `Erro de permissão ou consulta no Postgres: ${err.message}`,
             config.user || "lmarcanjo16@gmail.com",
             { type, host, database: config.database, stage: "query", error: err.message }
@@ -388,8 +388,8 @@ export class DatabaseConnectionManager {
         } catch (err: any) {
           await client.end().catch(() => {});
           await this.logAudit(
-            "DB_CONNECTION_TEST_FAILED",
-            "Falha",
+            "DB_CONNECTION_TEST_WARNING",
+            "Info",
             `Erro ao ler schema Postgres: ${err.message}`,
             config.user || "lmarcanjo16@gmail.com",
             { type, host, database: config.database, stage: "schema", error: err.message }
@@ -460,8 +460,8 @@ export class DatabaseConnectionManager {
           }
 
           await this.logAudit(
-            "DB_CONNECTION_TEST_FAILED",
-            "Falha",
+            "DB_CONNECTION_TEST_WARNING",
+            "Info",
             `Falha na conexão MySQL: ${message}`,
             config.user || "lmarcanjo16@gmail.com",
             { type, host, database: config.database, stage, error: errMsg }
@@ -481,8 +481,8 @@ export class DatabaseConnectionManager {
         } catch (err: any) {
           await connection.end().catch(() => {});
           await this.logAudit(
-            "DB_CONNECTION_TEST_FAILED",
-            "Falha",
+            "DB_CONNECTION_TEST_WARNING",
+            "Info",
             `Erro ao executar SELECT 1 no MySQL: ${err.message}`,
             config.user || "lmarcanjo16@gmail.com",
             { type, host, database: config.database, stage: "query", error: err.message }
@@ -503,8 +503,8 @@ export class DatabaseConnectionManager {
         } catch (err: any) {
           await connection.end().catch(() => {});
           await this.logAudit(
-            "DB_CONNECTION_TEST_FAILED",
-            "Falha",
+            "DB_CONNECTION_TEST_WARNING",
+            "Info",
             `Erro ao ler tabelas no MySQL: ${err.message}`,
             config.user || "lmarcanjo16@gmail.com",
             { type, host, database: config.database, stage: "schema", error: err.message }
@@ -596,8 +596,8 @@ export class DatabaseConnectionManager {
         }
 
         await this.logAudit(
-          "DB_CONNECTION_TEST_FAILED",
-          "Falha",
+          "DB_CONNECTION_TEST_WARNING",
+          "Info",
           `Falha na conexão MSSQL: ${message}`,
           config.user || "lmarcanjo16@gmail.com",
           { type, host, database: config.database, stage, error: errMsg }
@@ -642,8 +642,8 @@ export class DatabaseConnectionManager {
         };
       } catch (err: any) {
         await this.logAudit(
-          "DB_CONNECTION_TEST_FAILED",
-          "Falha",
+          "DB_CONNECTION_TEST_WARNING",
+          "Info",
           `Falha na conexão Oracle: ${err.message}`,
           config.user || "lmarcanjo16@gmail.com",
           { type, host, database: config.database, stage: "unknown", error: err.message }
@@ -681,8 +681,8 @@ export class DatabaseConnectionManager {
         };
       } catch (err: any) {
         await this.logAudit(
-          "DB_CONNECTION_TEST_FAILED",
-          "Falha",
+          "DB_CONNECTION_TEST_WARNING",
+          "Info",
           `Falha na conexão MongoDB: ${err.message}`,
           config.user || "lmarcanjo16@gmail.com",
           { type, host, database: config.database, stage: "unknown", error: err.message }

@@ -11,13 +11,15 @@ interface ExecutiveWorkspaceProps {
   activeFiles: any[];
   onSelectTab: (tabId: string) => void;
   formatCurrency: (value: number) => string;
+  onDataLoaded?: (data: any[], sourceName: string) => void;
 }
 
 export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
   filteredData,
   activeFiles,
   onSelectTab,
-  formatCurrency
+  formatCurrency,
+  onDataLoaded
 }) => {
   return (
     <CaseHub
@@ -25,6 +27,7 @@ export const ExecutiveWorkspace: React.FC<ExecutiveWorkspaceProps> = ({
       activeFiles={activeFiles}
       onSelectTab={onSelectTab}
       formatCurrency={formatCurrency}
+      onDataLoaded={onDataLoaded}
     />
   );
 };

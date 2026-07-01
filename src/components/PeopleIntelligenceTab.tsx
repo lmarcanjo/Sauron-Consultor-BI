@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Users, 
   TrendingUp, 
@@ -51,6 +51,7 @@ import { SauronLineageBadge } from "../sauron-sdk/domain/SauronLineageBadge";
 // Services and Engine
 import { executivePeopleService, CollaboratorDossier } from "../core/compensation/ExecutivePeopleService";
 import { compensationEngine, CompensationResult } from "../core/compensation/CompensationEngine";
+import { dataSourceManager } from "../services/dataSourceManager";
 
 interface PeopleIntelligenceTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -99,7 +100,74 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
   const [groupBy, setGroupBy] = useState("NONE");
 
   // Get all dossiers
-  const allDossiers = executivePeopleService.getDossiers();
+  const isRealSpreadsheet = dataSourceManager.getActiveSource() === "SPREADSHEET_DATA";
+  
+  const realSellers = useMemo(() => {
+    if (!isRealSpreadsheet) return [];
+    const records = dataSourceManager.getActiveRecords();
+    const uniqueNames = new Set<string>();
+    records.forEach(r => {
+      const name = r.Vendedor || r.vendedor || r.Consultor || r.consultor || r.Colaborador || r.colaborador;
+      if (name && String(name).trim() !== "" && !String(name).toLowerCase().includes("demonstrativo")) {
+        uniqueNames.add(String(name).trim());
+      }
+    });
+
+    if (uniqueNames.size === 0) {
+      uniqueNames.add("Colaborador não mapeado");
+    }
+
+    return Array.from(uniqueNames).map((name, idx) => {
+      let totalSales = 0;
+      let accessoriesSales = 0;
+      records.forEach(r => {
+        const rName = r.Vendedor || r.vendedor || r.Consultor || r.consultor || r.Colaborador || r.colaborador;
+        if (rName && String(rName).trim() === name) {
+          const val = parseFloat(String(r.Receita || r.receita || r.Venda || r.venda || r.Receitas || r.receitas || 0).replace(/[^\d.-]/g, ""));
+          if (!isNaN(val)) totalSales += val;
+        }
+      });
+
+      return {
+        id: `seller_${idx}`,
+        name: name,
+        email: "Informação não disponível na planilha importada.",
+        role: "Campo não mapeado.",
+        team: "Campo não mapeado.",
+        store: "Campo não mapeado.",
+        department: "Campo não mapeado.",
+        manager: "Campo não mapeado.",
+        status: "Ativo" as const,
+        hireDate: "Informação não disponível na planilha importada.",
+        experience: "Informação não disponível na planilha importada.",
+        achievements: "Informação não disponível na planilha importada.",
+        strengths: "Informação não disponível na planilha importada.",
+        weaknesses: "Informação não disponível na planilha importada.",
+        feedback: "Informação não disponível na planilha importada.",
+        performance: {
+          collaboratorId: `seller_${idx}`,
+          totalSales,
+          accessoriesSales,
+          partsSales: 0,
+          csat: 4.5,
+          cancellationRate: 0,
+          campaignParticipated: [],
+          lineage: {
+            totalSalesCell: `Receita[${idx}]`,
+            accessoriesSalesCell: `N/A`,
+            partsSalesCell: `N/A`,
+            csatCell: `N/A`,
+            cancellationRateCell: `N/A`
+          }
+        },
+        timeline: [],
+        pdi: [],
+        documents: [],
+      };
+    });
+  }, [isRealSpreadsheet, props.dataOrigem]);
+
+  const allDossiers = isRealSpreadsheet ? realSellers : executivePeopleService.getDossiers();
 
   // Handle click on a table row to go to the dossier
   const handleSelectCollaborator = (dossier: CollaboratorDossier) => {
@@ -146,7 +214,9 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
   }
 
   // Active Selected Dossier details
-  const activeDossier = executivePeopleService.getCollaboratorDossier(selectedColabId) || allDossiers[0];
+  const activeDossier = isRealSpreadsheet
+    ? (allDossiers.find(d => d.id === selectedColabId) || allDossiers[0])
+    : (executivePeopleService.getCollaboratorDossier(selectedColabId) || allDossiers[0]);
   const activeCompensation: CompensationResult = compensationEngine.calculate(
     activeDossier.performance,
     activePolicyId

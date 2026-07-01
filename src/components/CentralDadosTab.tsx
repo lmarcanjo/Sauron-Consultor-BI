@@ -9,6 +9,7 @@ import { LancamentoFinanceiro, FiltrosDashboard } from "../types";
 import { DatabaseConnector } from "./DatabaseConnector";
 import { useDataSourceManager } from "../hooks/useDataSourceManager";
 import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
+import { ImportacaoPlanilhasTab } from "./ImportacaoPlanilhasTab";
 
 interface CentralDadosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -73,6 +74,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   const [dragActive, setDragActive] = useState<boolean>(false);
 
   // Spreadsheet Beta custom states
+  const [showRealImporter, setShowRealImporter] = useState<boolean>(false);
   const [showConsolidator, setShowConsolidator] = useState<boolean>(false);
   const [selectedFilesForConsolidation, setSelectedFilesForConsolidation] = useState<string[]>([]);
   const [consolidatedFileName, setConsolidatedFileName] = useState<string>("Consolidado Geral Q2");
@@ -742,7 +744,32 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
           {/* TAB 4: PLANILHAS */}
           {activeTab === 3 && (
-            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6" id="spreadsheet-workspace-dashboard">
+            showRealImporter ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center bg-slate-900 text-white px-6 py-4 rounded-2xl border border-slate-800">
+                  <div>
+                    <h3 className="font-extrabold text-sm flex items-center gap-2">
+                      <FileSpreadsheet className="text-blue-400" />
+                      Importação Inteligente de Planilhas
+                    </h3>
+                    <p className="text-[11px] text-slate-400">Insira e mapeie novos arquivos Excel ou CSV de faturamento.</p>
+                  </div>
+                  <button
+                    onClick={() => setShowRealImporter(false)}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    Voltar ao Workspace
+                  </button>
+                </div>
+                <ImportacaoPlanilhasTab
+                  dataOrigem={dataOrigem}
+                  onDataLoaded={onDataLoaded}
+                  currentSource={currentSource}
+                  onClose={() => setShowRealImporter(false)}
+                />
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-6" id="spreadsheet-workspace-dashboard">
               
               {/* Toolbar header */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-900 pb-5">
@@ -826,6 +853,18 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                   >
                     <Plus size={14} />
                     Simular Planilha
+                  </button>
+                  <button
+                    id="btn-open-real-importer"
+                    onClick={() => {
+                      setShowRealImporter(true);
+                      setShowConsolidator(false);
+                      setShowComparer(false);
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold uppercase rounded-lg bg-blue-600 hover:bg-blue-700 text-white cursor-pointer transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus size={14} />
+                    Importar Planilha Real
                   </button>
                 </div>
               </div>
@@ -1276,6 +1315,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
               </div>
 
             </div>
+            )
           )}
 
           {/* TAB 5: SCHEMA MAPPING */}

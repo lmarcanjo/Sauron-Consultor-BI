@@ -174,7 +174,10 @@ export const AppSidebar: React.FC<SidebarProps> = ({
             { title: "Planos", id: "executive_workspace", tab: "planos", icon: CheckSquare },
             { title: "Pessoas", id: "executive_workspace", tab: "pessoas", icon: Users },
             { title: "Administração", id: "perfis", tab: null, icon: Settings },
-            ...(userRole === "Super Admin" ? [{ title: "SDL Studio", id: "sdl_studio", tab: null, icon: Layers }] : [])
+            ...(userRole === "Super Admin" ? [
+              { title: "Product QA Console", id: "qa_console", tab: null, icon: ShieldAlert },
+              { title: "SDL Studio", id: "sdl_studio", tab: null, icon: Layers }
+            ] : [])
           ].map((item, idx) => {
             const isItemActive = () => {
               if (item.id === "executive_workspace" && activePage === "executive_workspace") {
@@ -199,6 +202,7 @@ export const AppSidebar: React.FC<SidebarProps> = ({
                       }
                       if (window.innerWidth < 1024) setIsMobileOpen(false);
                     }}
+                    data-testid={item.title === "Conectar Dados" ? "btn-open-data-center" : undefined}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
                       isActive 
                         ? "bg-blue-600/15 text-blue-400 font-extrabold border-l-2 border-blue-500 pl-2.5" 
@@ -216,6 +220,7 @@ export const AppSidebar: React.FC<SidebarProps> = ({
                         window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: item.tab }));
                       }
                     }}
+                    data-testid={item.title === "Conectar Dados" ? "btn-open-data-center" : undefined}
                     title={item.title}
                     className={`w-full flex justify-center py-2.5 rounded-lg transition-colors cursor-pointer ${
                       isActive 

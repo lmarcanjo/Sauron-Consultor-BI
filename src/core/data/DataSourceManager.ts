@@ -15,6 +15,7 @@ import {
   ImportProfile 
 } from "../../types/dataSource";
 import { gerarDadosSimulados, generateDemoSpreadsheetRows } from "../../data/demoData";
+import { AuditEngine } from "../audit/AuditEngine";
 
 // --- GLOBAL QUERY SECURITY / PROTECTIONS ---
 export function assertNoMockDataWhenRealSource(
@@ -150,6 +151,7 @@ export class DataSourceManager {
           console.error("[Sauron Storage] Erro ao salvar sauron_ds_filters:", e);
         }
 
+        // Safe progressive saving for versions
         try {
           this.dataVersions.forEach(v => {
             if (v.status === "DISCARDED") {
@@ -158,7 +160,7 @@ export class DataSourceManager {
           });
           localStorage.setItem("sauron_ds_versions", JSON.stringify(this.dataVersions));
         } catch (versionsError) {
-          console.warn("[Sauron Storage] Falha ao salvar versões completas devido a limite de cota.", versionsError);
+          console.warn("[Sauron Storage] Falha ao salvar versões completas. Tentando versão reduzida (apenas última/oficial)...", versionsError);
           const lightVersions = this.dataVersions.map((v, idx) => {
             const isLatestOrOfficial = v.status === "OFFICIAL" || idx === this.dataVersions.length - 1;
             return {
@@ -169,14 +171,47 @@ export class DataSourceManager {
           try {
             localStorage.setItem("sauron_ds_versions", JSON.stringify(lightVersions));
           } catch (e2) {
-            console.error("[Sauron Storage] Falha crítica ao salvar versões reduzidas.", e2);
+            console.warn("[Sauron Storage] Falha ao salvar versões reduzidas. Tentando versão super reduzida (limite de 20 linhas para prévia)...", e2);
+            const superLightVersions = this.dataVersions.map((v, idx) => {
+              const isLatestOrOfficial = v.status === "OFFICIAL" || idx === this.dataVersions.length - 1;
+              return {
+                ...v,
+                data: isLatestOrOfficial ? v.data.slice(0, 20) : []
+              };
+            });
+            try {
+              localStorage.setItem("sauron_ds_versions", JSON.stringify(superLightVersions));
+            } catch (e3) {
+              console.warn("[Sauron Storage] Falha ao salvar super reduzido. Gravando apenas metadados das versões (sem array de dados)...", e3);
+              const ultraLightVersions = this.dataVersions.map(v => ({
+                ...v,
+                data: []
+              }));
+              try {
+                localStorage.setItem("sauron_ds_versions", JSON.stringify(ultraLightVersions));
+              } catch (e4) {
+                console.error("[Sauron Storage] Falha crítica e irreversível ao salvar metadados das versões:", e4);
+              }
+            }
+          }
+          // Log a warning to the audit logs so it is visible
+          try {
+            AuditEngine.getInstance().logEvent(
+              "STORAGE_QUOTA_OPTIMIZATION",
+              "O volume de dados de versões excedeu a cota do localStorage. Histórico otimizado automaticamente para liberar espaço.",
+              "WARNING",
+              { user: "Lennon Marcanjo" }
+            );
+          } catch (err) {
+            console.error("Erro ao registrar log de armazenamento:", err);
           }
         }
         
+        // Safe progressive saving for workspace
         try {
           localStorage.setItem("sauron_ds_workspace", JSON.stringify(this.workspace));
         } catch (workspaceError) {
-          console.warn("[Sauron Storage] Falha ao salvar workspace completo no localStorage devido ao limite de cota.", workspaceError);
+          console.warn("[Sauron Storage] Falha ao salvar workspace completo. Tentando workspace leve (500 linhas para arquivos ativos)...", workspaceError);
           const lightWorkspace = {
             ...this.workspace,
             files: this.workspace.files.map(file => ({
@@ -193,7 +228,40 @@ export class DataSourceManager {
           try {
             localStorage.setItem("sauron_ds_workspace", JSON.stringify(lightWorkspace));
           } catch (e2) {
-            console.error("[Sauron Storage] Mesmo o workspace reduzido excedeu a cota.", e2);
+            console.warn("[Sauron Storage] Falha no workspace leve. Tentando workspace super leve (50 linhas)...", e2);
+            const superLightWorkspace = {
+              ...this.workspace,
+              files: this.workspace.files.map(file => ({
+                ...file,
+                sheets: file.sheets.map(sheet => {
+                  const isActive = this.workspace.activeFileIds.includes(file.id);
+                  return {
+                    ...sheet,
+                    rows: isActive ? sheet.rows.slice(0, 50) : []
+                  };
+                })
+              }))
+            };
+            try {
+              localStorage.setItem("sauron_ds_workspace", JSON.stringify(superLightWorkspace));
+            } catch (e3) {
+              console.warn("[Sauron Storage] Falha no workspace super leve. Gravando apenas metadados do workspace (sem dados)...", e3);
+              const ultraLightWorkspace = {
+                ...this.workspace,
+                files: this.workspace.files.map(file => ({
+                  ...file,
+                  sheets: file.sheets.map(sheet => ({
+                    ...sheet,
+                    rows: []
+                  }))
+                }))
+              };
+              try {
+                localStorage.setItem("sauron_ds_workspace", JSON.stringify(ultraLightWorkspace));
+              } catch (e4) {
+                console.error("[Sauron Storage] Falha crítica ao salvar metadados do workspace:", e4);
+              }
+            }
           }
         }
       } catch (globalError) {
@@ -558,9 +626,8 @@ export class DataSourceManager {
 
     const namelessCols = columns.filter(k => k.startsWith("__EMPTY") || k.toLowerCase().includes("vazio") || k.trim() === "");
     if (namelessCols.length > 0) {
-      const deduction = Math.min(30, namelessCols.length * 10);
-      score -= deduction;
-      report.push(`Detetadas ${namelessCols.length} colunas sem cabeçalho amigável (Ex: ${namelessCols.join(", ")}). Desconto: -${deduction}pts.`);
+      score -= Math.min(10, namelessCols.length * 2);
+      report.push(`Ponto de atenção: Detetadas ${namelessCols.length} colunas sem cabeçalho nomeado (Ex: ${namelessCols.join(", ")}). Pode ser normal em exportações de ERP. O consultor pode ignorar ou renomear se necessário. Não bloqueia a importação.`);
     }
 
     let emptyCellsCount = 0;
@@ -574,9 +641,8 @@ export class DataSourceManager {
     });
     if (emptyCellsCount > 0) {
       const emptyPct = (emptyCellsCount / totalCells) * 100;
-      const deduction = Math.min(30, Math.round(emptyPct * 1.5));
-      score -= deduction;
-      report.push(`Detetadas ${emptyCellsCount} células vazias de um total de ${totalCells} (${emptyPct.toFixed(1)}%). Desconto: -${deduction}pts.`);
+      score -= Math.min(10, Math.round(emptyPct * 0.5));
+      report.push(`Ponto de atenção: Detetadas ${emptyCellsCount} células vazias (${emptyPct.toFixed(1)}%). Pode ser normal em exportações de ERP. O consultor pode ignorar ou revisar se necessário. Não bloqueia a importação.`);
     }
 
     let invalidDatesCount = 0;
@@ -595,9 +661,8 @@ export class DataSourceManager {
     });
     if (invalidDatesCount > 0) {
       const invalidDatePct = (invalidDatesCount / totalRows) * 100;
-      const deduction = Math.min(30, Math.round(invalidDatePct * 1.2));
-      score -= deduction;
-      report.push(`Detetados ${invalidDatesCount} registros com datas inválidas ou vazias no campo temporal (${invalidDatePct.toFixed(1)}%). Desconto: -${deduction}pts.`);
+      score -= Math.min(10, Math.round(invalidDatePct * 0.4));
+      report.push(`Ponto de atenção: Detetados ${invalidDatesCount} registros com datas vazias ou sob outro formato (${invalidDatePct.toFixed(1)}%). Pode ser normal em exportações de ERP. O consultor pode ignorar ou revisar se necessário. Não bloqueia a importação.`);
     }
 
     let inconsistentTypesCount = 0;
@@ -621,9 +686,8 @@ export class DataSourceManager {
     if (inconsistentTypesCount > 0) {
       const totalNumericCells = totalRows * numericFields.length;
       const incPct = (inconsistentTypesCount / totalNumericCells) * 100;
-      const deduction = Math.min(30, Math.round(incPct * 2));
-      score -= deduction;
-      report.push(`Detetados ${inconsistentTypesCount} valores inconsistentes ou não numéricos em colunas financeiras (${incPct.toFixed(1)}%). Desconto: -${deduction}pts.`);
+      score -= Math.min(10, Math.round(incPct * 0.5));
+      report.push(`Ponto de atenção: Detetados ${inconsistentTypesCount} campos financeiros vazios ou descritivos (${incPct.toFixed(1)}%). Pode ser normal em exportações de ERP. O consultor pode ignorar ou revisar se necessário. Não bloqueia a importação.`);
     }
 
     let duplicateRowsCount = 0;
@@ -638,15 +702,13 @@ export class DataSourceManager {
     });
     if (duplicateRowsCount > 0) {
       const dupPct = (duplicateRowsCount / totalRows) * 100;
-      const deduction = Math.min(25, Math.round(dupPct * 1.5));
-      score -= deduction;
-      report.push(`Detetadas ${duplicateRowsCount} possíveis linhas duplicadas de lançamentos idênticos (${dupPct.toFixed(1)}%). Desconto: -${deduction}pts.`);
+      score -= Math.min(10, Math.round(dupPct * 0.5));
+      report.push(`Ponto de atenção: Detetadas ${duplicateRowsCount} possíveis linhas duplicadas de lançamentos (${dupPct.toFixed(1)}%). Pode ser normal em exportações de ERP. O consultor pode ignorar ou revisar se necessário. Não bloqueia a importação.`);
     }
 
-    score = Math.max(0, Math.min(100, score));
+    score = Math.max(70, Math.min(100, score));
     let label: "Excelente" | "Boa" | "Atenção" | "Crítica" = "Excelente";
-    if (score < 40) label = "Crítica";
-    else if (score < 70) label = "Atenção";
+    if (score < 80) label = "Atenção";
     else if (score < 90) label = "Boa";
 
     return { score, label, report };

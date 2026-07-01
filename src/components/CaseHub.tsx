@@ -61,12 +61,14 @@ interface CaseHubProps {
   activeFiles: any[];
   onSelectTab: (tabId: string) => void;
   formatCurrency: (value: number) => string;
+  onDataLoaded?: (data: any[], sourceName: string) => void;
 }
 
 export const CaseHub: React.FC<CaseHubProps> = ({
   filteredData,
   activeFiles,
-  formatCurrency
+  formatCurrency,
+  onDataLoaded
 }) => {
   const [projects, setProjects] = useState<WorkspaceProject[]>([]);
   const [activeProject, setActiveProject] = useState<WorkspaceProject | null>(null);
@@ -209,7 +211,7 @@ export const CaseHub: React.FC<CaseHubProps> = ({
           )}
 
           {activeTabId === "dados" && (
-            <CentralDadosTab dataOrigem={filteredData} onDataLoaded={() => {}} currentSource="Conexão de Dados Ativa" camposAusentes={[]} />
+            <CentralDadosTab dataOrigem={filteredData} onDataLoaded={onDataLoaded || (() => {})} currentSource="Conexão de Dados Ativa" camposAusentes={[]} />
           )}
 
           {activeTabId === "financeiro" && (

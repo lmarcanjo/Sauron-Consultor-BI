@@ -1,0 +1,7 @@
+Grupo,CNPJ,Marca,Empresa,Mês,Razão,Categoria,Receita,Custo,Despesa,Lucro,Margem,Vendedor,StatusLinha,MetodologiaSauron
+Grupo Topázio,11.111.111/0001-11,Topázio Nissan,Topázio Nissan S/A,Janeiro,Venda de Veículos,Receitas,180000.00,0.00,0.00,180000.00,1.00,Harry Potter,Ativo,Premium
+Grupo Topázio,11.111.111/0001-11,Topázio Nissan,Topázio Nissan S/A,Fevereiro,Serviços Oficina,Receitas,55000.00,0.00,0.00,55000.00,1.00,Hermione Granger,Ativo,Premium
+Grupo Topázio,11.111.111/0001-11,Topázio Nissan,Topázio Nissan S/A,Março,Marketing,Despesas,0.00,0.00,15000.00,-15000.00,0.00,Harry Potter,Ativo,Premium
+Grupo Topázio,22.222.222/0001-22,Topázio Fiat,Topázio Fiat S/A,Janeiro,Venda de Veículos,Receitas,250000.00,0.00,0.00,250000.00,1.00,Ron Weasley,Ativo,Standard
+Grupo Topázio,22.222.222/0001-22,Topázio Fiat,Topázio Fiat S/A,Fevereiro,Imóveis,Despesas,0.00,0.00,28000.00,-28000.00,0.00,Ron Weasley,Ativo,Standard
+Grupo Topázio,33.333.333/0001-33,Topázio Jeep,Topázio Jeep S/A,Janeiro,Venda de Veículos,Receitas,390000.00,0.00,0.00,390000.00,1.00,Harry Potter,Ativo,Premium

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { 
   Upload, FileSpreadsheet, Eye, Shuffle, Plus, Play, Trash2, HelpCircle, ArrowRight, 
   Download, BarChart2, Presentation, ShieldAlert, Sparkles, Folder, Check, AlertCircle, 
@@ -14,6 +14,7 @@ interface ImportacaoPlanilhasProps {
   dataOrigem: LancamentoFinanceiro[];
   onDataLoaded: (data: LancamentoFinanceiro[], sourceName: string) => void;
   currentSource: string;
+  onClose?: () => void;
 }
 
 interface RawFile {
@@ -59,6 +60,19 @@ interface ImportProfile {
   mappings: Record<string, string>;
   filters: CustomFilter[];
   calculatedFields: CalculatedField[];
+  columnProfiles?: {
+    arquivo: string;
+    aba: string;
+    colunaOriginal: string;
+    alias: string;
+    tipo: string;
+    uso: boolean;
+    filtros: boolean;
+    modulosRelacionados: string[];
+    ignoradaOuAtiva: boolean;
+    criadoPor: string;
+    criadoEm: string;
+  }[];
 }
 
 interface SlideDeckItem {
@@ -72,14 +86,59 @@ interface SlideDeckItem {
 export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
   dataOrigem,
   onDataLoaded,
-  currentSource
+  currentSource,
+  onClose
 }) => {
   // Navigation tabs
   type Step = "upload" | "abas" | "mapeamento" | "previa" | "filtros" | "calculos" | "relatorios" | "apresentacao" | "perfis" | "auditoria";
   const [activeStep, setActiveStep] = useState<Step>("upload");
+
+  // Excel-like Spreadsheet Viewer interactive states
+  const [activePreviewSheet, setActivePreviewSheet] = useState<string>("");
+  const [columnAliases, setColumnAliases] = useState<Record<string, string>>({});
+  const [ignoredColumns, setIgnoredColumns] = useState<Record<string, boolean>>({});
+  const [columnTypes, setColumnTypes] = useState<Record<string, "text" | "number" | "currency">>({});
+  const [spreadsheetSearchQuery, setSpreadsheetSearchQuery] = useState<string>("");
+  const [selectedPreviewColumn, setSelectedPreviewColumn] = useState<string>("");
+  const [importHistory, setImportHistory] = useState<{ id: string; fileName: string; date: string; rows: number; cols: number; active: boolean }[]>([
+    { id: "hist_1", fileName: "vendas_jan_fevereiro.csv", date: "2026-06-25 14:32", rows: 1450, cols: 9, active: true },
+    { id: "hist_2", fileName: "DRE_concessionarias_v2.xlsx", date: "2026-06-28 09:15", rows: 320, cols: 11, active: false }
+  ]);
+  
+  // Multiple Spreadsheet Aggregation Strategy States
+  const [aggregationStrategy, setAggregationStrategy] = useState<"APPEND" | "REPLACE" | "MERGE">("APPEND");
+  const [joinKey, setJoinKey] = useState<string>("Empresa");
+  const [conflictResolution, setConflictResolution] = useState<"LAST_WINS" | "FIRST_WINS" | "PROMPT">("LAST_WINS");
   
   // Segment Setup Suggestion
   const [selectedSegment, setSelectedSegment] = useState<"automotivo" | "agro" | "servicos" | "industria" | "geral">("geral");
+
+  // Column-specific configuration states (User Mapping configuration per column)
+  const [colDescription, setColDescription] = useState<Record<string, string>>({});
+  const [colDataType, setColDataType] = useState<Record<string, string>>({});
+  const [colIsFilter, setColIsFilter] = useState<Record<string, boolean>>({});
+  const [colIsKpi, setColIsKpi] = useState<Record<string, boolean>>({});
+  const [colParticipatesChart, setColParticipatesChart] = useState<Record<string, boolean>>({});
+  const [colPeopleIntel, setColPeopleIntel] = useState<Record<string, boolean>>({});
+  const [colDre, setColDre] = useState<Record<string, boolean>>({});
+  const [colCommission, setColCommission] = useState<Record<string, boolean>>({});
+  const [colPresentation, setColPresentation] = useState<Record<string, boolean>>({});
+  const [colFormat, setColFormat] = useState<Record<string, string>>({});
+  const [colGrouping, setColGrouping] = useState<Record<string, string>>({});
+  const [colRule, setColRule] = useState<Record<string, string>>({});
+
+  // Flexible next step options chosen by the consultant
+  const [flexibleChoices, setFlexibleChoices] = useState<Record<string, boolean>>({
+    base_consulta: true,
+    criar_filtros: false,
+    tabela_visual: false,
+    criar_grafico: false,
+    people_intel: false,
+    alimentar_dre: false,
+    comissoes: false,
+    apresentacoes: false,
+    apenas_armazenar: false,
+  });
 
   // Layers (State Management)
   const [rawFiles, setRawFiles] = useState<RawFile[]>([]);
@@ -146,8 +205,11 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     const excludedKeys = ["id", "Grupo", "CNPJ", "Marca", "Empresa", "Filial", "Mês", "Razão", "Categoria", "Receita", "Custo", "Despesa", "Lucro", "Margem", "Valor"];
     excludedKeys.forEach(k => cols.delete(k));
 
-    return Array.from(cols).sort();
-  }, [dataOrigem, rawRows]);
+    // Exclude columns that are marked as ignored by the consultant
+    const filteredCols = Array.from(cols).filter(k => ignoredColumns[k] !== true);
+
+    return filteredCols.sort();
+  }, [dataOrigem, rawRows, ignoredColumns]);
 
   // Dynamic metrics computed from active rawRows
   const reportsMetrics = React.useMemo(() => {
@@ -225,11 +287,207 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     issues: []
   });
 
+  // Synchronize validationLogs dynamically based on rawRows and fieldMappings (consultive, non-blocking)
+  useEffect(() => {
+    const totalRows = rawRows.length;
+    if (totalRows === 0) {
+      setValidationLogs({
+        totalRows: 0,
+        emptyFieldsCount: 0,
+        negativeValuesCount: 0,
+        duplicatesCount: 0,
+        issues: []
+      });
+      return;
+    }
+
+    let emptyFieldsCount = 0;
+    let negativeValuesCount = 0;
+    let duplicatesCount = 0;
+    const seenRows = new Set<string>();
+    let hasEmptyHeaders = false;
+
+    // Detect all non-system column keys in rawRows
+    const allKeys = new Set<string>();
+    rawRows.forEach(row => {
+      Object.keys(row).forEach(k => {
+        const systemTracking = ["id", "aba", "arquivo", "linha", "coluna", "dataImportacao", "usuario", "nome_arquivo", "nome_aba", "numero_linha", "usuário", "data_importacao"];
+        if (!systemTracking.includes(k)) {
+          allKeys.add(k);
+        }
+      });
+    });
+
+    hasEmptyHeaders = Array.from(allKeys).some(k => k.startsWith("__EMPTY"));
+
+    rawRows.forEach((row) => {
+      // 1. Células vazias (empty fields count)
+      allKeys.forEach(k => {
+        const v = row[k];
+        if (v === undefined || v === null || String(v).trim() === "") {
+          emptyFieldsCount++;
+        }
+      });
+
+      // 2. Valores negativos
+      ["Receita", "Custo", "Despesa", "Lucro", "Margem"].forEach(k => {
+        const val = Number(row[k]);
+        if (!isNaN(val) && val < 0) {
+          negativeValuesCount++;
+        }
+      });
+
+      // 3. Duplicados
+      const cleanedRow: any = {};
+      allKeys.forEach(k => {
+        cleanedRow[k] = row[k];
+      });
+      const str = JSON.stringify(cleanedRow);
+      if (seenRows.has(str)) {
+        duplicatesCount++;
+      } else {
+        seenRows.add(str);
+      }
+    });
+
+    const issues: string[] = [];
+
+    // Success note (informative)
+    issues.push(
+      `Planilha importada com sucesso: ${totalRows} registros preservados.`
+    );
+
+    // 1. __EMPTY column diagnostics
+    if (hasEmptyHeaders) {
+      issues.push(
+        "Foram encontradas colunas sem nome. Elas foram preservadas e poderão ser ignoradas ou renomeadas pelo consultor."
+      );
+    }
+
+    // 2. Empty cells diagnostics
+    if (emptyFieldsCount > 0) {
+      issues.push(
+        "Existem células vazias. Isso pode ser esperado conforme o tipo do relatório."
+      );
+    }
+
+    // 3. Duplicates diagnostics
+    if (duplicatesCount > 0) {
+      issues.push(
+        "Foram encontradas linhas semelhantes. Elas foram preservadas. O consultor pode revisar se deseja tratar como duplicidade."
+      );
+    }
+
+    // 4. Date validation (only if mapped to Mês and not empty)
+    const dateCol = fieldMappings["Mês"];
+    if (dateCol && dateCol !== "") {
+      const invalidDatesCount = rawRows.filter(r => {
+        const v = r[dateCol];
+        if (v === undefined || v === null || String(v).trim() === "") return true;
+        const str = String(v).trim().toLowerCase();
+        if (str === "n/d" || str === "n/a" || str === "outros" || str === "competência") return true;
+        return false;
+      }).length;
+
+      if (invalidDatesCount > 0) {
+        issues.push(
+          "Algumas linhas não possuem data válida no campo selecionado como data. Revise se esta coluna realmente representa data."
+        );
+      }
+    }
+
+    setValidationLogs({
+      totalRows,
+      emptyFieldsCount,
+      negativeValuesCount,
+      duplicatesCount,
+      issues
+    });
+  }, [rawRows, fieldMappings]);
+
+  const importStatus = useMemo(() => {
+    if (rawRows.length === 0) {
+      return "Aguardando mapeamento";
+    }
+    // If we have some warnings/issues (more than just the success message)
+    if (validationLogs.issues.length > 1) {
+      return "Importado com avisos";
+    }
+    return "Importado";
+  }, [rawRows, validationLogs.issues]);
+
   // UI feedback States
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [excelPreviewActive, setExcelPreviewActive] = useState<"raw" | "treated" | "calculated">("raw");
   const [testResultLogs, setTestResultLogs] = useState<string[]>([]);
   const [runTestsStatus, setRunTestsStatus] = useState<"idle" | "running" | "success" | "failed">("idle");
+
+  // Derive active sheet rows with sheet filtering and query searching
+  const activeSheetRows = useMemo(() => {
+    let rows = rawRows;
+    if (activePreviewSheet) {
+      rows = rows.filter(r => r.aba === activePreviewSheet);
+    }
+    if (spreadsheetSearchQuery) {
+      const q = spreadsheetSearchQuery.toLowerCase();
+      rows = rows.filter(r => {
+        return Object.values(r).some(val => String(val).toLowerCase().includes(q));
+      });
+    }
+    return rows;
+  }, [rawRows, activePreviewSheet, spreadsheetSearchQuery]);
+
+  // Derive active columns from the sheet rows (excluding internal properties)
+  const activeSheetColumns = useMemo(() => {
+    const cols = new Set<string>();
+    activeSheetRows.slice(0, 20).forEach(r => {
+      Object.keys(r).forEach(k => {
+        const systemTracking = ["id", "aba", "arquivo", "linha", "coluna", "dataImportacao", "usuario", "nome_arquivo", "nome_aba", "numero_linha", "usuário", "data_importacao"];
+        if (!systemTracking.includes(k)) {
+          cols.add(k);
+        }
+      });
+    });
+    return Array.from(cols);
+  }, [activeSheetRows]);
+
+  // Derive column-specific statistics in real time for auditor panel
+  const selectedColumnStats = useMemo(() => {
+    if (!selectedPreviewColumn || activeSheetRows.length === 0) return null;
+    const values = activeSheetRows.map(r => r[selectedPreviewColumn]);
+    const totalCount = values.length;
+    const emptyCount = values.filter(v => v === undefined || v === null || String(v).trim() === "").length;
+    const filledPercent = totalCount > 0 ? Math.round(((totalCount - emptyCount) / totalCount) * 100) : 0;
+    const uniqueValues = Array.from(new Set(values.filter(v => v !== undefined && v !== null && String(v).trim() !== "")));
+    
+    let numCount = 0;
+    let currencyCount = 0;
+    values.forEach(v => {
+      if (v === undefined || v === null || String(v).trim() === "") return;
+      const str = String(v).trim();
+      if (str.startsWith("R$") || str.startsWith("$") || str.includes("€") || str.match(/^\d+,\d{2}$/)) {
+        currencyCount++;
+      } else if (!isNaN(Number(String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "")))) {
+        numCount++;
+      }
+    });
+
+    let detectedType: "text" | "number" | "currency" = "text";
+    if (currencyCount > totalCount * 0.4) {
+      detectedType = "currency";
+    } else if (numCount > totalCount * 0.4) {
+      detectedType = "number";
+    }
+
+    return {
+      totalCount,
+      emptyCount,
+      filledPercent,
+      uniqueCount: uniqueValues.length,
+      detectedType,
+      sample: uniqueValues.slice(0, 5)
+    };
+  }, [selectedPreviewColumn, activeSheetRows]);
 
   // Load sample profiles
   useEffect(() => {
@@ -442,7 +700,14 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
           type: file.type || "application/octet-stream"
         });
 
-        const arrayBuffer = await file.arrayBuffer();
+        let arrayBuffer = await file.arrayBuffer();
+        if (file.name.toLowerCase().endsWith(".csv")) {
+          const text = new TextDecoder("utf-8").decode(arrayBuffer);
+          if (text.includes(";") && !text.includes(",")) {
+            const replaced = text.replace(/;/g, ",");
+            arrayBuffer = new TextEncoder().encode(replaced).buffer;
+          }
+        }
         const workbook = XLSX.read(arrayBuffer, { type: "array" });
 
         workbook.SheetNames.forEach((sheetName, sIdx) => {
@@ -512,6 +777,24 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
         setRawSheets(newSheetsList);
         setRawRows(newRowsList);
 
+        if (newSheetsList.length > 0) {
+          setActivePreviewSheet(newSheetsList[0].sheetName);
+        }
+
+        // Add file to import history
+        const histId = `hist_${Date.now()}`;
+        setImportHistory(prev => [
+          {
+            id: histId,
+            fileName: fileNames.join(", ") || "Planilha Carregada",
+            date: new Date().toISOString().replace("T", " ").substring(0, 16),
+            rows: newRowsList.length,
+            cols: totalColCount,
+            active: true
+          },
+          ...prev
+        ]);
+
         // Quality and data integrity auditor
         const emptyFields = newRowsList.filter(r => !r.Empresa || r.Empresa === "Empresa Geral").length;
         const negativeValues = newRowsList.filter(r => r.Receita < 0 || r.Custo < 0 || r.Despesa < 0).length;
@@ -542,6 +825,218 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     } catch (err: any) {
       console.error(err);
       alert("Falha de processamento das planilhas: " + err.message);
+    }
+  };
+
+  const handleSuggestMapping = () => {
+    const suggestedAliases: Record<string, string> = { ...columnAliases };
+    const suggestionsMade: string[] = [];
+
+    activeSheetColumns.forEach(col => {
+      const lower = col.toLowerCase();
+      // Empty column handling (Rule 4)
+      if (lower.startsWith("__empty")) {
+        suggestedAliases[col] = "Campo auxiliar consultor";
+        suggestionsMade.push(`Empty column [${col}] renamed to "Campo auxiliar consultor"`);
+      } else if (lower.includes("grupo")) {
+        suggestedAliases[col] = "Grupo";
+        setColIsFilter(prev => ({ ...prev, [col]: true }));
+        setColIsKpi(prev => ({ ...prev, [col]: false }));
+        setColFormat(prev => ({ ...prev, [col]: "texto" }));
+        suggestionsMade.push(`Coluna [${col}] sugerida como filtro de Grupo`);
+      } else if (lower.includes("cnpj")) {
+        suggestedAliases[col] = "CNPJ";
+        setColFormat(prev => ({ ...prev, [col]: "texto" }));
+        suggestionsMade.push(`Coluna [${col}] sugerida como CNPJ`);
+      } else if (lower.includes("marca") || lower.includes("bandeira")) {
+        suggestedAliases[col] = "Marca";
+        setColIsFilter(prev => ({ ...prev, [col]: true }));
+        suggestionsMade.push(`Coluna [${col}] sugerida como filtro de Marca`);
+      } else if (lower.includes("empresa") || lower.includes("razão social") || lower.includes("razao")) {
+        suggestedAliases[col] = "Empresa";
+        setColIsFilter(prev => ({ ...prev, [col]: true }));
+        suggestionsMade.push(`Coluna [${col}] sugerida como filtro de Empresa`);
+      } else if (lower.includes("mês") || lower.includes("mes") || lower.includes("competência") || lower.includes("competencia")) {
+        suggestedAliases[col] = "Mês";
+        setColFormat(prev => ({ ...prev, [col]: "data" }));
+        suggestionsMade.push(`Coluna [${col}] sugerida como formato Data (Mês)`);
+      } else if (lower.includes("receita") || lower.includes("faturamento") || lower.includes("valor") || lower.includes("lucro") || lower.includes("custo") || lower.includes("despesa")) {
+        setColIsKpi(prev => ({ ...prev, [col]: true }));
+        setColFormat(prev => ({ ...prev, [col]: "moeda" }));
+        suggestionsMade.push(`Coluna [${col}] sugerida como KPI Financeiro com formato Moeda`);
+      } else if (lower.includes("vendedor") || lower.includes("consultor")) {
+        setColPeopleIntel(prev => ({ ...prev, [col]: true }));
+        suggestionsMade.push(`Coluna [${col}] sugerida para People Intelligence`);
+      }
+    });
+
+    setColumnAliases(suggestedAliases);
+    alert(`Sugestões de Mapeamento Aplicadas!\nTotal de sugestões geradas: ${suggestionsMade.length}\nVocê pode editar qualquer campo manualmente.`);
+  };
+
+  const handleConfirmarFlexibleImport = () => {
+    if (rawFiles.length === 0 || rawRows.length === 0) {
+      alert("Nenhuma planilha carregada para confirmação. Por favor, carregue um arquivo no Passo 1.");
+      return;
+    }
+
+    const selectedSheets = rawSheets.filter(s => s.selected);
+    if (selectedSheets.length === 0) {
+      alert("Por favor, selecione pelo menos uma aba para importação no Passo 2.");
+      return;
+    }
+
+    const selectedSheetNames = selectedSheets.map(s => s.sheetName);
+    const selectedFileNames = selectedSheets.map(s => s.fileName);
+
+    let finalRows = rawRows.filter(row => 
+      selectedSheetNames.includes(row.aba) && selectedFileNames.includes(row.arquivo)
+    );
+
+    // Apply any column aliases mapping to finalRows
+    finalRows = finalRows.map(row => {
+      const mappedRow = { ...row };
+      activeSheetColumns.forEach(col => {
+        const alias = columnAliases[col];
+        if (alias && alias !== col) {
+          mappedRow[alias] = row[col];
+        }
+      });
+      return mappedRow;
+    });
+
+    const fileId = `import_f_${Date.now()}`;
+    const newSpreadsheetFile = {
+      id: fileId,
+      fileName: rawFiles[0]?.name || "Planilha Real",
+      nome: rawFiles[0]?.name || "Planilha Real",
+      importedAt: new Date().toISOString(),
+      dataImportacao: new Date().toISOString(),
+      importedBy: "Lennon Marcanjo",
+      usuario: "Lennon Marcanjo",
+      status: "ACTIVE" as const,
+      approvedByConsultant: true,
+      totalRows: finalRows.length,
+      totalColumns: activeSheetColumns.length,
+      totalAbas: selectedSheets.length,
+      version: "v1",
+      versao: "v1",
+      sheets: selectedSheets.map(s => ({
+        id: s.id,
+        fileId: fileId,
+        sheetName: s.customName || s.sheetName,
+        rows: finalRows.filter(r => r.aba === s.sheetName),
+        columns: activeSheetColumns.map(col => ({
+          name: col,
+          type: colDataType[col] || "text",
+          hasEmptyValues: false,
+          alias: columnAliases[col] || col,
+          ignored: ignoredColumns[col] === true,
+          dataType: colDataType[col] || "text"
+        }))
+      }))
+    };
+
+    // Register spreadsheet in the workspace manager and approve & activate it
+    SpreadsheetWorkspaceManager.importarPlanilha(newSpreadsheetFile, "REPLACE");
+    SpreadsheetWorkspaceManager.aprovarPlanilha(fileId);
+    SpreadsheetWorkspaceManager.ativarPlanilha(fileId);
+
+    // Set Active Source globally
+    dataSourceManager.setActiveSource("SPREADSHEET_DATA");
+    dataSourceManager.saveToStorage();
+
+    // Rerender/notify parent
+    onDataLoaded(finalRows as LancamentoFinanceiro[], `Planilhas Combinadas (${selectedSheets.length} abas de dados reais)`);
+    
+    const targets = Object.keys(flexibleChoices)
+      .filter(k => flexibleChoices[k] === true)
+      .map(k => {
+        const labels: Record<string, string> = {
+          base_consulta: "Base de consulta",
+          criar_filtros: "Criar filtros",
+          tabela_visual: "Criar tabela visual",
+          criar_grafico: "Criar gráfico",
+          people_intel: "People Intelligence",
+          alimentar_dre: "DRE",
+          comissoes: "Comissões",
+          apresentacoes: "Apresentações",
+          apenas_armazenar: "Apenas armazenar no caso"
+        };
+        return labels[k] || k;
+      });
+
+    alert(`Importação Flexível confirmada com sucesso!\n${finalRows.length} registros reais ativos.\nDestinos configurados:\n- ${targets.join("\n- ")}`);
+    
+    if (onClose) {
+      onClose();
+    } else {
+      setActiveStep("relatorios");
+    }
+  };
+
+  const handleConfirmarImportacao = () => {
+    if (rawFiles.length === 0 || rawRows.length === 0) {
+      alert("Nenhuma planilha carregada para confirmação. Por favor, carregue um arquivo no Passo 1.");
+      return;
+    }
+
+    const selectedSheets = rawSheets.filter(s => s.selected);
+    if (selectedSheets.length === 0) {
+      alert("Por favor, selecione pelo menos uma aba para importação no Passo 2.");
+      return;
+    }
+
+    const selectedSheetNames = selectedSheets.map(s => s.sheetName);
+    const selectedFileNames = selectedSheets.map(s => s.fileName);
+
+    const finalRows = rawRows.filter(row => 
+      selectedSheetNames.includes(row.aba) && selectedFileNames.includes(row.arquivo)
+    );
+
+    const fileId = `import_f_${Date.now()}`;
+    const newSpreadsheetFile = {
+      id: fileId,
+      fileName: rawFiles[0]?.name || "Planilha Real",
+      nome: rawFiles[0]?.name || "Planilha Real",
+      importedAt: new Date().toISOString(),
+      dataImportacao: new Date().toISOString(),
+      importedBy: "Lennon Marcanjo",
+      usuario: "Lennon Marcanjo",
+      status: "ACTIVE" as const,
+      approvedByConsultant: true,
+      totalRows: finalRows.length,
+      totalColumns: 13,
+      totalAbas: selectedSheets.length,
+      version: "v1",
+      versao: "v1",
+      sheets: selectedSheets.map(s => ({
+        id: s.id,
+        fileId: fileId,
+        sheetName: s.customName || s.sheetName,
+        rows: finalRows.filter(r => r.aba === s.sheetName),
+        columns: []
+      }))
+    };
+
+    // Register spreadsheet in the workspace manager and approve & activate it
+    SpreadsheetWorkspaceManager.importarPlanilha(newSpreadsheetFile, "REPLACE");
+    SpreadsheetWorkspaceManager.aprovarPlanilha(fileId);
+    SpreadsheetWorkspaceManager.ativarPlanilha(fileId);
+
+    // Set Active Source globally
+    dataSourceManager.setActiveSource("SPREADSHEET_DATA");
+    dataSourceManager.saveToStorage();
+
+    // Rerender/notify parent
+    onDataLoaded(finalRows as LancamentoFinanceiro[], `Planilhas Combinadas (${selectedSheets.length} abas de dados reais)`);
+    
+    alert(`Importação confirmada com sucesso! ${finalRows.length} registros reais ativos.`);
+    
+    if (onClose) {
+      onClose();
+    } else {
+      setActiveStep("relatorios");
     }
   };
 
@@ -631,6 +1126,39 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
   const [newProfileName, setNewProfileName] = useState("");
   const handleSaveProfile = () => {
     const profileName = newProfileName || `Perfil — ${selectedSegment.toUpperCase()} ${new Date().toLocaleDateString()}`;
+    
+    const colProfs = activeSheetColumns.map(col => {
+      const isIgnored = ignoredColumns[col] === true;
+      const alias = columnAliases[col] || col;
+      const dataType = colDataType[col] || "text";
+      const isFilter = colIsFilter[col] === true;
+      const isKpi = colIsKpi[col] === true;
+      const participatesChart = colParticipatesChart[col] === true;
+      
+      const modulos: string[] = [];
+      if (colIsFilter[col]) modulos.push("Filtros");
+      if (colIsKpi[col]) modulos.push("KPIs");
+      if (colParticipatesChart[col]) modulos.push("Gráficos");
+      if (colPeopleIntel[col]) modulos.push("People Intelligence");
+      if (colDre[col]) modulos.push("DRE");
+      if (colCommission[col]) modulos.push("Comissões");
+      if (colPresentation[col]) modulos.push("Apresentações");
+
+      return {
+        arquivo: rawFiles[0]?.name || "Planilha Real",
+        aba: activePreviewSheet || "Planilha Importada",
+        colunaOriginal: col,
+        alias: alias,
+        tipo: dataType,
+        uso: !isIgnored,
+        filtros: isFilter,
+        modulosRelacionados: modulos,
+        ignoradaOuAtiva: !isIgnored,
+        criadoPor: "Lennon Marcanjo",
+        criadoEm: new Date().toISOString()
+      };
+    });
+
     const newProfile: ImportProfile = {
       id: `saved_prof_${Date.now()}`,
       name: profileName,
@@ -638,7 +1166,8 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
       segment: selectedSegment,
       mappings: fieldMappings,
       filters: customFilters,
-      calculatedFields: calculatedFields
+      calculatedFields: calculatedFields,
+      columnProfiles: colProfs
     };
     setImportProfileList([...importProfileList, newProfile]);
     setActiveProfileId(newProfile.id);
@@ -654,6 +1183,42 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     setCustomFilters(profile.filters);
     setCalculatedFields(profile.calculatedFields);
     setActiveProfileId(id);
+    if (profile.columnProfiles) {
+      const aliases: Record<string, string> = {};
+      const ignoreds: Record<string, boolean> = {};
+      const dataTypes: Record<string, string> = {};
+      const filters: Record<string, boolean> = {};
+      const kpis: Record<string, boolean> = {};
+      const charts: Record<string, boolean> = {};
+      const people: Record<string, boolean> = {};
+      const dres: Record<string, boolean> = {};
+      const commissions: Record<string, boolean> = {};
+      const presentations: Record<string, boolean> = {};
+
+      profile.columnProfiles.forEach(cp => {
+        aliases[cp.colunaOriginal] = cp.alias;
+        ignoreds[cp.colunaOriginal] = !cp.uso;
+        dataTypes[cp.colunaOriginal] = cp.tipo;
+        filters[cp.colunaOriginal] = cp.filtros;
+        kpis[cp.colunaOriginal] = cp.modulosRelacionados.includes("KPIs");
+        charts[cp.colunaOriginal] = cp.modulosRelacionados.includes("Gráficos");
+        people[cp.colunaOriginal] = cp.modulosRelacionados.includes("People Intelligence");
+        dres[cp.colunaOriginal] = cp.modulosRelacionados.includes("DRE");
+        commissions[cp.colunaOriginal] = cp.modulosRelacionados.includes("Comissões");
+        presentations[cp.colunaOriginal] = cp.modulosRelacionados.includes("Apresentações");
+      });
+
+      setColumnAliases(aliases);
+      setIgnoredColumns(ignoreds);
+      setColDataType(dataTypes);
+      setColIsFilter(filters);
+      setColIsKpi(kpis);
+      setColParticipatesChart(charts);
+      setColPeopleIntel(people);
+      setColDre(dres);
+      setColCommission(commissions);
+      setColPresentation(presentations);
+    }
   };
 
   // Integration test engine simulation
@@ -723,11 +1288,11 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
         {[
           { id: "upload", stepNum: "1", label: "Carga de Arquivos" },
           { id: "abas", stepNum: "2", label: "Abas Encontradas", countAlert: rawSheets.length },
-          { id: "mapeamento", stepNum: "3", label: "Mapeamento" },
-          { id: "previa", stepNum: "4", label: "Prévia de Dados" },
+          { id: "mapeamento", stepNum: "3", label: "Planilha Inteligente" },
+          { id: "previa", stepNum: "4", label: "Avanço Flexível" },
           { id: "filtros", stepNum: "5", label: "Criar Filtros", countAlert: customFilters.length },
           { id: "calculos", stepNum: "6", label: "Campos Calculados", countAlert: calculatedFields.length },
-          { id: "auditoria", stepNum: "7", label: "Auditoria Qualidade" },
+          { id: "auditoria", stepNum: "7", label: "Painel de Atenção" },
           { id: "relatorios", stepNum: "8", label: "Relatórios & Dashboards" },
           { id: "apresentacao", stepNum: "9", label: "Slides & Reunião" },
           { id: "perfis", stepNum: "10", label: "Salvar Perfil" }
@@ -809,8 +1374,6 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
               <p className="text-xs font-bold text-slate-705 dark:text-slate-250">Arraste seus arquivos de planilhas ou dê um clique para navegar</p>
               <p className="text-[10.5px] text-slate-405">Suporte: .XLSX, .XLS, .CSV ou .TSV de qualquer layout e número de abas</p>
             </div>
-
-            {/* Uploaded File List metadata */}
             {rawFiles.length > 0 && (
               <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Planilhas Ativas Registradas ({rawFiles.length})</span>
@@ -822,12 +1385,95 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
                         <span className="font-bold text-slate-700 dark:text-slate-300">{f.name}</span>
                         <span className="text-[10px] text-slate-400">({Math.round(f.size/1024)} KB)</span>
                       </div>
-                      <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-400 font-bold px-2 py-0.5 rounded text-[10px]">RAW LOADED</span>
+                      <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-450 font-bold px-2 py-0.5 rounded text-[10px]">RAW LOADED</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            {/* Strategy Selectors and Import History */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Consolidation Settings */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">Configurações de Consolidação (Multi-Planilha)</span>
+                <p className="text-[11px] text-slate-450">Escolha o comportamento ao importar múltiplas planilhas simultâneas.</p>
+                
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Estratégia de Integração</label>
+                    <select
+                      value={aggregationStrategy}
+                      onChange={(e) => setAggregationStrategy(e.target.value as any)}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold"
+                    >
+                      <option value="APPEND">Somar & Consolidar (Append Rows)</option>
+                      <option value="REPLACE">Substituir Base Existente (Overwrite)</option>
+                      <option value="MERGE">Mesclar por Chave Primária (Join Keys)</option>
+                    </select>
+                  </div>
+
+                  {aggregationStrategy === "MERGE" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Chave de Junção (Join)</label>
+                        <select
+                          value={joinKey}
+                          onChange={(e) => setJoinKey(e.target.value)}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold"
+                        >
+                          <option value="Empresa">Empresa</option>
+                          <option value="CNPJ">CNPJ</option>
+                          <option value="Marca">Marca/Bandeira</option>
+                          <option value="Mês">Mês</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Conflitos de Duplicados</label>
+                        <select
+                          value={conflictResolution}
+                          onChange={(e) => setConflictResolution(e.target.value as any)}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold"
+                        >
+                          <option value="LAST_WINS">Última Escrita (Last Wins)</option>
+                          <option value="FIRST_WINS">Primeira Escrita (First Wins)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Visual Import History */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Histórico de Carga Recente</span>
+                <p className="text-[11px] text-slate-450">Tente desativar/ativar fontes para auditorias de performance.</p>
+
+                <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar">
+                  {importHistory.map(hist => (
+                    <div key={hist.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px]">
+                      <div className="truncate max-w-[160px]">
+                        <span className="font-bold block truncate text-slate-700 dark:text-slate-300" title={hist.fileName}>{hist.fileName}</span>
+                        <span className="text-[9px] text-slate-400">{hist.date} • {hist.rows} rows • {hist.cols} cols</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[8.5px] font-bold uppercase px-1.5 py-0.5 rounded ${hist.active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-500"}`}>
+                          {hist.active ? "Ativo" : "Pendente"}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={hist.active}
+                          onChange={(e) => {
+                            setImportHistory(prev => prev.map(p => p.id === hist.id ? { ...p, active: e.target.checked } : p));
+                          }}
+                          className="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -914,146 +1560,475 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
           </div>
         )}
 
-        {/* STEP 3: MAPPING DESIGN */}
+        {/* STEP 3: PLANILHA INTELIGENTE - EXCEL-LIKE SPREADSHEET GRID VIEWER & COLUMN CONFIG */}
         {activeStep === "mapeamento" && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-4">
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm space-y-5">
+            <div className="border-b border-slate-105 dark:border-slate-800 pb-3 flex justify-between items-center flex-wrap gap-2">
               <div>
-                <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">Passo 3: Mapeamento Inteligente de Campos</h2>
-                <p className="text-xs text-slate-400 mt-1">Conecte as colunas extraídas de sua fita à taxonomia unificada do Sauron Consultor OS.</p>
+                <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350 flex items-center gap-2">
+                  <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded">Excel-like</span>
+                  Passo 3: Planilha Inteligente — Visualizador e Configuração de Campos
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  A planilha foi importada exatamente como veio. Clique em uma coluna para abrir o painel lateral de configuração livre do consultor.
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-400 uppercase font-bold">Apoio do Segmento:</span>
-                <select 
-                  value={selectedSegment} 
-                  onChange={(e) => setSelectedSegment(e.target.value as any)}
-                  className="bg-slate-50 dark:bg-slate-850 p-1 rounded border border-slate-250 text-xs font-bold"
+
+              {/* View options / Search bar & Suggestions button */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  id="btn-suggest-mapping"
+                  data-testid="btn-suggest-mapping"
+                  onClick={handleSuggestMapping}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-black uppercase transition-colors"
                 >
-                  <option value="geral">Geral / Financeiro</option>
-                  <option value="automotivo">Automotivo</option>
-                  <option value="agro">Agronegócio</option>
-                  <option value="servicos">Serviços</option>
-                  <option value="industria">Indústria</option>
-                </select>
+                  <Sparkles size={13} /> Sugerir Mapeamento
+                </button>
+
+                <button
+                  id="btn-save-import-profile"
+                  data-testid="btn-save-import-profile"
+                  onClick={handleSaveProfile}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black uppercase transition-colors"
+                >
+                  <Save size={13} /> Salvar Perfil
+                </button>
+
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar na planilha..."
+                  value={spreadsheetSearchQuery}
+                  onChange={(e) => setSpreadsheetSearchQuery(e.target.value)}
+                  className="bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 w-44 font-bold"
+                />
               </div>
             </div>
 
-            {/* Mappings Form interface */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.keys(fieldMappings).map(coreKey => (
-                <div key={coreKey} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-850 border border-slate-150 dark:border-slate-805 rounded-xl">
-                  <div className="space-y-0.5 select-none">
-                    <span className="text-xs font-black text-slate-800 dark:text-slate-200">{coreKey}</span>
-                    <p className="text-[10px] text-slate-400">Padrão unificado Sauron</p>
-                  </div>
-                  <div className="flex items-center gap-2 w-48">
-                    <ArrowRight size={12} className="text-slate-400" />
-                    <input 
-                      type="text" 
-                      value={fieldMappings[coreKey]} 
-                      onChange={(e) => setFieldMappings({ ...fieldMappings, [coreKey]: e.target.value })}
-                      className="bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1 text-xs font-mono font-bold w-full text-slate-800 dark:text-slate-100" 
-                    />
-                  </div>
-                </div>
-              ))}
+            {/* Excel Tabs row */}
+            {rawSheets.length > 0 && (
+              <div className="flex border-b border-slate-200 dark:border-slate-800 gap-1 overflow-x-auto pb-0.5 select-none bg-slate-50 dark:bg-slate-850/30 p-1 rounded-lg">
+                {rawSheets.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      setActivePreviewSheet(s.sheetName);
+                      setSelectedPreviewColumn("");
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-[11px] font-black uppercase transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                      activePreviewSheet === s.sheetName 
+                        ? "bg-slate-900 text-white dark:bg-slate-800 font-extrabold shadow-sm" 
+                        : "text-slate-500 hover:bg-slate-200/55 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <span>📊</span>
+                    <span>{s.customName || s.sheetName}</span>
+                    <span className="text-[9px] px-1 bg-black/10 rounded">{s.rowCount} rows</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Indicator bar */}
+            <div className="flex justify-between items-center text-xs font-mono bg-slate-50 dark:bg-slate-850/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800/60">
+              <div className="flex gap-4">
+                <span>📂 Arquivo ativo: <strong className="text-slate-800 dark:text-slate-100">{rawFiles[0]?.name || "Planilha Carregada"}</strong></span>
+                <span>📈 Linhas totais: <strong className="text-blue-600 dark:text-blue-400">{activeSheetRows.length}</strong></span>
+                <span>📊 Colunas totais: <strong className="text-blue-600 dark:text-blue-400">{activeSheetColumns.length}</strong></span>
+              </div>
+              <span className="text-[10px] text-slate-400 uppercase font-black">Clique em um cabeçalho de coluna para configurar</span>
             </div>
 
-            <div className="flex justify-end pt-3">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              {/* Left SpreadSheet Grid Column */}
+              <div className="lg:col-span-2 space-y-3">
+                {activeSheetRows.length === 0 ? (
+                  <div className="p-12 text-center text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50">
+                    Nenhum registro encontrado para esta aba ou termo de busca.
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
+                    {/* Excel Sheet Table Grid with frozen header and scroll */}
+                    <div id="spreadsheet-grid" data-testid="spreadsheet-grid" className="overflow-auto max-h-[400px] max-w-full custom-scrollbar relative">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead className="text-[10px] bg-slate-100 dark:bg-slate-800 uppercase tracking-wider text-slate-500 sticky top-0 z-20 shadow-xs">
+                          <tr>
+                            <th className="p-2 border-r border-b border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-center font-bold font-mono w-10 sticky left-0 z-30">
+                              #
+                            </th>
+                            {activeSheetColumns.map((col, cIdx) => {
+                              const isIgnored = ignoredColumns[col] === true;
+                              const alias = columnAliases[col] || col;
+                              const isSelected = selectedPreviewColumn === col;
+                              const isUnnamed = col.toLowerCase().startsWith("__empty");
+
+                              return (
+                                <th 
+                                  key={col}
+                                  onClick={() => setSelectedPreviewColumn(col)}
+                                  className={`p-3 border-r border-b border-slate-200 dark:border-slate-700 font-black cursor-pointer transition-colors relative whitespace-nowrap select-none ${
+                                    isSelected 
+                                      ? "bg-blue-600 text-white" 
+                                      : isIgnored
+                                        ? "bg-slate-100/50 dark:bg-slate-800/50 text-slate-400 italic line-through"
+                                        : isUnnamed
+                                          ? "bg-amber-50/70 hover:bg-amber-100/70 dark:bg-amber-950/20 text-amber-800 dark:text-amber-400"
+                                          : "hover:bg-slate-200 bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300"
+                                  }`}
+                                >
+                                  <div className="flex flex-col">
+                                    <span className="text-[8px] opacity-75 font-mono tracking-widest uppercase flex items-center gap-1">
+                                      {isIgnored ? "🚫 Ignorado" : `COL ${cIdx + 1}`}
+                                      {isUnnamed && <span className="bg-amber-600 text-white text-[7px] px-1 rounded font-sans uppercase">Sem nome</span>}
+                                    </span>
+                                    <span className="text-xs truncate max-w-[150px]">
+                                      {isUnnamed ? "Coluna sem nome" : alias}
+                                    </span>
+                                  </div>
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-150 dark:divide-slate-800 bg-white dark:bg-slate-900 font-mono">
+                          {activeSheetRows.slice(0, 50).map((row, idx) => (
+                            <tr key={row.id || idx} className="hover:bg-slate-50 dark:hover:bg-slate-850/50 transition-colors">
+                              <td className="p-2 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-850 text-center text-slate-400 font-bold font-mono text-[10px] sticky left-0 z-10 shadow-xs">
+                                {row.linha || idx + 2}
+                              </td>
+                              {activeSheetColumns.map(col => {
+                                const isIgnored = ignoredColumns[col] === true;
+                                const val = row[col];
+                                return (
+                                  <td 
+                                    key={col} 
+                                    onClick={() => setSelectedPreviewColumn(col)}
+                                    className={`p-2 border-r border-slate-200 dark:border-slate-700 text-[11px] truncate max-w-[180px] cursor-pointer ${
+                                      isIgnored 
+                                        ? "text-slate-300 dark:text-slate-700 italic bg-slate-50/20" 
+                                        : "text-slate-800 dark:text-slate-200 font-semibold"
+                                    } ${selectedPreviewColumn === col ? "bg-blue-50 dark:bg-blue-950/20" : ""}`}
+                                  >
+                                    {val === undefined || val === null || String(val).trim() === "" ? (
+                                      <span className="text-slate-400 italic">Vazio</span>
+                                    ) : (
+                                      String(val)
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                <p className="text-[10px] text-slate-400 italic text-right">
+                  Mostrando primeiras {Math.min(50, activeSheetRows.length)} de {activeSheetRows.length} linhas reais na aba "{activePreviewSheet}". Cabeçalhos fixos.
+                </p>
+              </div>
+
+              {/* Right Panel: Advanced Column Config Drawer */}
+              <div id="column-config-panel" data-testid="column-config-panel" className="space-y-4">
+                {selectedPreviewColumn ? (
+                  <div className="bg-slate-50 dark:bg-slate-850 p-4 border border-slate-200 dark:border-slate-800 rounded-xl space-y-4">
+                    <div className="border-b border-slate-200 dark:border-slate-700 pb-2 flex justify-between items-center">
+                      <div>
+                        <span className="text-[9px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">Coluna Física</span>
+                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 truncate max-w-[180px]" title={selectedPreviewColumn}>{selectedPreviewColumn}</h4>
+                      </div>
+                      <span className="text-[9px] bg-slate-200 dark:bg-slate-850 text-slate-600 px-2 py-0.5 rounded font-bold uppercase font-mono">Configurações</span>
+                    </div>
+
+                    {/* Form Controls */}
+                    <div className="space-y-3.5 text-xs">
+                      {/* Alias */}
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Apelido Visível (Alias)</label>
+                        <input 
+                          type="text"
+                          value={columnAliases[selectedPreviewColumn] || ""}
+                          onChange={(e) => setColumnAliases({ ...columnAliases, [selectedPreviewColumn]: e.target.value })}
+                          placeholder={selectedPreviewColumn.toLowerCase().startsWith("__empty") ? "Coluna sem nome" : selectedPreviewColumn}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"
+                        />
+                      </div>
+
+                      {/* Description */}
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Descrição Opcional</label>
+                        <input 
+                          type="text"
+                          value={colDescription[selectedPreviewColumn] || ""}
+                          onChange={(e) => setColDescription({ ...colDescription, [selectedPreviewColumn]: e.target.value })}
+                          placeholder="Ex: Valor bruto de notas emitidas"
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100"
+                        />
+                      </div>
+
+                      {/* Data Type */}
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Tipo de Dado</label>
+                        <select
+                          value={colDataType[selectedPreviewColumn] || "text"}
+                          onChange={(e) => setColDataType({ ...colDataType, [selectedPreviewColumn]: e.target.value })}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"
+                        >
+                          <option value="text">Texto / Categoria</option>
+                          <option value="number">Número Inteiro / Decimal</option>
+                          <option value="currency">Moeda Financeira</option>
+                          <option value="date">Data de Registro</option>
+                        </select>
+                      </div>
+
+                      {/* Visual Format */}
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Formato Visual</label>
+                        <select
+                          value={colFormat[selectedPreviewColumn] || "texto"}
+                          onChange={(e) => setColFormat({ ...colFormat, [selectedPreviewColumn]: e.target.value })}
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"
+                        >
+                          <option value="texto">Texto plano</option>
+                          <option value="moeda">Moeda (R$ 0,00)</option>
+                          <option value="numero">Número com decimais</option>
+                          <option value="data">Data formatada (DD/MM/AAAA)</option>
+                          <option value="percentual">Percentual (0,00%)</option>
+                        </select>
+                      </div>
+
+                      {/* Grouping */}
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Agrupamento Contábil / Corporativo</label>
+                        <input 
+                          type="text"
+                          value={colGrouping[selectedPreviewColumn] || ""}
+                          onChange={(e) => setColGrouping({ ...colGrouping, [selectedPreviewColumn]: e.target.value })}
+                          placeholder="Ex: Grupo Econômico, Filiais"
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100"
+                        />
+                      </div>
+
+                      {/* Optional Rule */}
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Regra / Fórmula Customizada</label>
+                        <input 
+                          type="text"
+                          value={colRule[selectedPreviewColumn] || ""}
+                          onChange={(e) => setColRule({ ...colRule, [selectedPreviewColumn]: e.target.value })}
+                          placeholder="Ex: se valor > 0 então ativo"
+                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100"
+                        />
+                      </div>
+
+                      {/* Taxonomy Mapping to core fields */}
+                      <div className="bg-blue-50/50 dark:bg-slate-900 p-2.5 rounded-lg border border-blue-100 dark:border-slate-800">
+                        <label className="block text-[9px] font-black uppercase text-blue-700 dark:text-blue-400 mb-1">Mapear para a Taxonomia Sauron</label>
+                        <select
+                          value={Object.keys(fieldMappings).find(k => fieldMappings[k] === selectedPreviewColumn) || ""}
+                          onChange={(e) => {
+                            const coreKey = e.target.value;
+                            if (coreKey) {
+                              setFieldMappings({ ...fieldMappings, [coreKey]: selectedPreviewColumn });
+                            }
+                          }}
+                          className="w-full bg-white dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded px-2 py-1 text-xs text-slate-800 dark:text-slate-100"
+                        >
+                          <option value="">-- Não mapeado para Core --</option>
+                          {Object.keys(fieldMappings).map(k => (
+                            <option key={k} value={k}>{k}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Usage switches / Checkboxes */}
+                      <div className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2">
+                        <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">Módulos onde a coluna participa</span>
+                        
+                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
+                          <span className="text-slate-600 dark:text-slate-400">Marcar como Útil (Ativa)</span>
+                          <input 
+                            type="checkbox"
+                            checked={ignoredColumns[selectedPreviewColumn] !== true}
+                            onChange={(e) => setIgnoredColumns({ ...ignoredColumns, [selectedPreviewColumn]: !e.target.checked })}
+                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          />
+                        </label>
+
+                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
+                          <span className="text-slate-600 dark:text-slate-400">Se vira filtro</span>
+                          <input 
+                            type="checkbox"
+                            checked={colIsFilter[selectedPreviewColumn] === true}
+                            onChange={(e) => setColIsFilter({ ...colIsFilter, [selectedPreviewColumn]: e.target.checked })}
+                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          />
+                        </label>
+
+                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
+                          <span className="text-slate-600 dark:text-slate-400">Se vira KPI</span>
+                          <input 
+                            type="checkbox"
+                            checked={colIsKpi[selectedPreviewColumn] === true}
+                            onChange={(e) => setColIsKpi({ ...colIsKpi, [selectedPreviewColumn]: e.target.checked })}
+                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          />
+                        </label>
+
+                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
+                          <span className="text-slate-600 dark:text-slate-400">Participa de Gráfico</span>
+                          <input 
+                            type="checkbox"
+                            checked={colParticipatesChart[selectedPreviewColumn] === true}
+                            onChange={(e) => setColParticipatesChart({ ...colParticipatesChart, [selectedPreviewColumn]: e.target.checked })}
+                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          />
+                        </label>
+
+                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
+                          <span className="text-slate-600 dark:text-slate-400">People Intelligence</span>
+                          <input 
+                            type="checkbox"
+                            checked={colPeopleIntel[selectedPreviewColumn] === true}
+                            onChange={(e) => setColPeopleIntel({ ...colPeopleIntel, [selectedPreviewColumn]: e.target.checked })}
+                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          />
+                        </label>
+
+                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
+                          <span className="text-slate-600 dark:text-slate-400">Alimentar DRE</span>
+                          <input 
+                            type="checkbox"
+                            checked={colDre[selectedPreviewColumn] === true}
+                            onChange={(e) => setColDre({ ...colDre, [selectedPreviewColumn]: e.target.checked })}
+                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          />
+                        </label>
+
+                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
+                          <span className="text-slate-600 dark:text-slate-400">Participa de Comissão</span>
+                          <input 
+                            type="checkbox"
+                            checked={colCommission[selectedPreviewColumn] === true}
+                            onChange={(e) => setColCommission({ ...colCommission, [selectedPreviewColumn]: e.target.checked })}
+                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          />
+                        </label>
+
+                        <label className="flex items-center justify-between cursor-pointer py-0.5 select-none">
+                          <span className="text-slate-600 dark:text-slate-400">Alimentar Apresentações</span>
+                          <input 
+                            type="checkbox"
+                            checked={colPresentation[selectedPreviewColumn] === true}
+                            onChange={(e) => setColPresentation({ ...colPresentation, [selectedPreviewColumn]: e.target.checked })}
+                            className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
+                          />
+                        </label>
+                      </div>
+
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-5 text-center text-slate-400 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl">
+                    <span className="text-lg block mb-1">👆</span>
+                    <span className="text-xs">Selecione qualquer cabeçalho de coluna na grade para abrir a configuração avançada livre.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t border-slate-150 dark:border-slate-800">
+              <button 
+                onClick={() => setActiveStep("abas")}
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-all"
+              >
+                Voltar para Abas
+              </button>
               <button 
                 onClick={() => setActiveStep("previa")}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer"
+                className="flex items-center gap-1 px-4 py-2 bg-slate-900 hover:bg-slate-850 text-white rounded-lg text-xs font-bold cursor-pointer transition-all"
               >
-                Gerar Prévia Consolidadada <ArrowRight size={12} />
+                Ir para Destinos da Carga <ArrowRight size={12} />
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 4: INTERACTIVE PREVIEW */}
+        {/* STEP 4: PRÓXIMA ETAPA FLEXÍVEL (FREELY SELECT TARGET DESTINATIONS) */}
         {activeStep === "previa" && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm space-y-4">
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center flex-wrap gap-2">
-              <div>
-                <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">Passo 4: Auditor de Prévia Consolidada de Dados</h2>
-                <p className="text-xs text-slate-400 mt-1">Navegue pelas linhas agregadas em tempo real. Alterne visualizações para inspecionar tratativas.</p>
-              </div>
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-105 dark:border-slate-800 pb-3">
+              <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">
+                Passo 4: Próxima Etapa Flexível
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Defina livremente qual o destino e usos desta planilha no Sauron Platform. O consultor tem autonomia absoluta.
+              </p>
+            </div>
 
-              {/* View options */}
-              <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-lg flex gap-1 select-none text-[10px] font-black uppercase">
-                <button 
-                  onClick={() => setExcelPreviewActive("raw")}
-                  className={`px-3 py-1.5 rounded-md cursor-pointer ${excelPreviewActive === "raw" ? "bg-white dark:bg-slate-950 shadow-xs font-extrabold text-blue-600 dark:text-blue-400" : "text-slate-400"}`}
-                >
-                  Dados Brutos (Raw)
-                </button>
-                <button 
-                  onClick={() => setExcelPreviewActive("treated")}
-                  className={`px-3 py-1.5 rounded-md cursor-pointer ${excelPreviewActive === "treated" ? "bg-white dark:bg-slate-950 shadow-xs font-extrabold text-blue-600 dark:text-blue-400" : "text-slate-400"}`}
-                >
-                  Camada Tratada
-                </button>
-                <button 
-                  onClick={() => setExcelPreviewActive("calculated")}
-                  className={`px-3 py-1.5 rounded-md cursor-pointer ${excelPreviewActive === "calculated" ? "bg-white dark:bg-slate-950 shadow-xs font-extrabold text-blue-600 dark:text-blue-400" : "text-slate-400"}`}
-                >
-                  Campos Calculados
-                </button>
+            <div className="bg-blue-50/30 dark:bg-slate-850/30 border border-blue-100 dark:border-slate-800 rounded-xl p-5 space-y-4">
+              <h3 className="text-xs font-black uppercase text-blue-700 dark:text-blue-400 tracking-wider">
+                O que deseja fazer com esta planilha?
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                {[
+                  { key: "base_consulta", label: "Usar como base de consulta", desc: "A planilha estará disponível em todo o ecossistema Sauron para consultas e cruzamentos." },
+                  { key: "criar_filtros", label: "Criar filtros", desc: "Gerar filtros de segmentação no painel de controle a partir das colunas úteis selecionadas." },
+                  { key: "tabela_visual", label: "Criar tabela visual", desc: "Formatar e publicar uma grade em tempo real nos dashboards para o cliente." },
+                  { key: "criar_grafico", label: "Criar gráfico", desc: "Alimentar charts e visualizações inteligentes usando as séries financeiras." },
+                  { key: "people_intel", label: "Alimentar People Intelligence", desc: "Usar dados da fita para monitorar performance de consultores e vendedores." },
+                  { key: "alimentar_dre", label: "Alimentar DRE", desc: "Integrar dados automaticamente na estrutura contábil/financeira de contas." },
+                  { key: "comissoes", label: "Alimentar Comissões", desc: "Calcular regras de faturamento e taxas por filial ou representante comercial." },
+                  { key: "apresentacoes", label: "Alimentar Apresentações", desc: "Exportar as conclusões e análises recomendadas para os slides executivos." },
+                  { key: "apenas_armazenar", label: "Apenas armazenar no caso", desc: "Salvar a fita na nuvem de forma íntegra sem transformações ativas de DRE." }
+                ].map((choice) => {
+                  const isChecked = flexibleChoices[choice.key] === true;
+                  return (
+                    <div 
+                      key={choice.key}
+                      onClick={() => setFlexibleChoices({ ...flexibleChoices, [choice.key]: !isChecked })}
+                      className={`p-3.5 rounded-xl border-2 transition-all cursor-pointer select-none space-y-1.5 ${
+                        isChecked 
+                          ? "border-blue-600 bg-blue-50/25 dark:bg-blue-950/20" 
+                          : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-350"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-black text-slate-800 dark:text-slate-200">{choice.label}</span>
+                        <input 
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {}} // handled by div onClick
+                          className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4 pointer-events-none"
+                        />
+                      </div>
+                      <p className="text-[10px] text-slate-400 leading-tight">
+                        {choice.desc}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Dynamic visual column badges */}
-            <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-150 dark:border-slate-805 flex flex-wrap gap-1.5 select-none text-[10px] font-mono leading-none">
-              <span className="text-slate-400 font-sans uppercase font-black mr-2">Dicionário Ativo:</span>
-              <span className="bg-blue-105 text-blue-600 px-2 py-1 rounded font-extrabold flex items-center gap-1">DRE</span>
-              <span className="bg-emerald-105 text-emerald-600 px-2 py-1 rounded font-extrabold flex items-center gap-1">Faturamento</span>
-              <span className="bg-amber-105 text-amber-600 px-2 py-1 rounded font-extrabold flex items-center gap-1">Auditoria</span>
-              {customFilters.map(f => (
-                <span key={f.id} className="bg-indigo-105 text-indigo-600 px-2 py-1 rounded font-extrabold flex items-center gap-1">Filtro: {f.label}</span>
-              ))}
-              {calculatedFields.map(f => (
-                <span key={f.id} className="bg-purple-100 text-purple-600 px-2 py-1 bg-purple-105 rounded font-extrabold flex items-center gap-1">Calco: {f.name}</span>
-              ))}
+            <div className="flex justify-between items-center pt-4 border-t border-slate-150 dark:border-slate-800">
+              <button 
+                onClick={() => setActiveStep("mapeamento")}
+                className="px-3.5 py-1.5 bg-slate-105 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-all"
+              >
+                Voltar para Planilha Inteligente
+              </button>
+              
+              <button 
+                id="btn-confirm-flexible-import"
+                data-testid="btn-confirm-flexible-import"
+                onClick={handleConfirmarFlexibleImport}
+                className="flex items-center gap-1.5 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black uppercase tracking-wider shadow-md cursor-pointer transition-all animate-pulse"
+              >
+                <CheckCircle2 size={14} /> Confirmar Importação Flexível
+              </button>
             </div>
-
-            {/* Simulated Data Preview Table */}
-            {rawRows.length === 0 ? (
-              <div className="p-8 text-center text-slate-400">Nenhum registro carregado ou gerado.</div>
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-slate-150 dark:border-slate-800">
-                <table className="w-full text-xs text-left text-slate-600 dark:text-slate-300">
-                  <thead className="text-[10px] bg-slate-50 dark:bg-slate-850 uppercase tracking-wider text-slate-400 font-bold">
-                    <tr>
-                      <th className="p-2.5 font-bold">Empresa / Talhão</th>
-                      <th className="p-2.5 font-bold">Mês</th>
-                      <th className="p-2.5 font-bold">Carga Origem / Marca</th>
-                      <th className="p-2.5 font-bold text-right">Vendas / Receita</th>
-                      <th className="p-2.5 font-bold text-right">Custos</th>
-                      <th className="p-2.5 font-bold text-right">OPEX / Despesa</th>
-                      <th className="p-2.5 font-bold font-mono">Status Importação</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-150 dark:divide-slate-800 bg-white dark:bg-slate-900 font-medium">
-                    {rawRows.slice(0, 8).map((row, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors">
-                        <td className="p-2.5 font-bold text-slate-900 dark:text-white truncate max-w-[150px]">{row.Empresa}</td>
-                        <td className="p-2.5">{row.Mês}</td>
-                        <td className="p-2.5"><span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-[10px] rounded text-slate-500 font-bold">{row.Marca}</span></td>
-                        <td className="p-2.5 text-right font-mono font-bold text-emerald-600 dark:text-emerald-450">R$ {row.Receita?.toLocaleString()}</td>
-                        <td className="p-2.5 text-right font-mono text-slate-500">R$ {row.Custo?.toLocaleString()}</td>
-                        <td className="p-2.5 text-right font-mono text-red-500">R$ {row.Despesa?.toLocaleString()}</td>
-                        <td className="p-2.5">
-                          <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase">
-                            {idx % 4 === 0 ? "RE-MAPPED" : "INTEGRATED"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <p className="text-[10px] text-slate-400 mt-1 italic text-right">Showing first 8 records of {rawRows.length} total rows.</p>
           </div>
         )}
 
@@ -1217,15 +2192,24 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
           <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
             <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center">
               <div>
-                <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">Passo 7: Validador de Qualidade e Integridade de Abas</h2>
-                <p className="text-xs text-slate-400 mt-1">Conduza auditorias de conformidade com tolerâncias automáticas de desvio padrão financeiro.</p>
+                <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">Passo 7: Painel de Atenção e Diagnóstico da Planilha</h2>
+                <p className="text-xs text-slate-400 mt-1">Pontos de atenção estruturais sugeridos para auxílio e tomada de decisão do consultor. A importação nunca é bloqueada.</p>
               </div>
-              <button 
-                onClick={triggerIntegrationTests}
-                className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 text-xs px-3 py-1.5 rounded-lg"
-              >
-                <RefreshCw size={12} className={runTestsStatus === "running" ? "animate-spin" : ""} /> Disparar Testes Completo
-              </button>
+              <div className="flex items-center gap-2">
+                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                  importStatus === "Importado"
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400"
+                    : "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400"
+                }`}>
+                  {importStatus}
+                </span>
+                <button 
+                  onClick={triggerIntegrationTests}
+                  className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 text-xs px-3 py-1.5 rounded-lg"
+                >
+                  <RefreshCw size={12} className={runTestsStatus === "running" ? "animate-spin" : ""} /> Disparar Testes Completo
+                </button>
+              </div>
             </div>
 
             {/* Test Results Logs Terminal if triggers */}
@@ -1249,44 +2233,44 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
               <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl space-y-1 border border-slate-150">
                 <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Amostra Analisada</span>
                 <p className="text-xl font-mono font-black text-slate-850 dark:text-slate-100">{validationLogs.totalRows} Linhas</p>
-                <span className="text-[9px] text-emerald-500 uppercase font-bold block">✓ 100% integradas</span>
+                <span className="text-[9px] text-emerald-500 uppercase font-bold block">✓ 100% Preservadas (Não Destrutivo)</span>
               </div>
 
               <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl space-y-1 border border-slate-150">
-                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Células Vazias</span>
+                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Campos Vazios</span>
                 <p className="text-xl font-mono font-black text-slate-850 dark:text-slate-100">{validationLogs.emptyFieldsCount || 0} nulos</p>
-                <span className="text-[9px] text-slate-400 block">Substituição por padrão zero</span>
+                <span className="text-[9px] text-slate-400 block">Normais em exportações de ERP</span>
               </div>
 
               <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl space-y-1 border border-slate-150">
-                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Lançamentos Negativos</span>
+                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Valores Negativos</span>
                 <p className="text-xl font-mono font-black text-amber-500">{validationLogs.negativeValuesCount || 0} alertas</p>
-                <span className="text-[9px] text-slate-400 block">Identificados como custos OPEX</span>
+                <span className="text-[9px] text-slate-400 block">Legítimos (despesas/opex)</span>
               </div>
 
               <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl space-y-1 border border-slate-150">
-                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Erros Duplos</span>
+                <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Linhas Semelhantes</span>
                 <p className="text-xl font-mono font-black text-slate-850 dark:text-slate-100">{validationLogs.duplicatesCount || 0}</p>
-                <span className="text-[9px] text-emerald-500 block">Preservados na camada raw_spreadsheet</span>
+                <span className="text-[9px] text-emerald-500 block">Preservadas na íntegra (Sem alteração)</span>
               </div>
             </div>
 
             {/* List of Warning Issues */}
             <div className="space-y-2">
-              <span className="text-[10px] font-black uppercase text-slate-450 block tracking-wider">Lista de Inconsistências Mapeadas do Histórico</span>
+              <span className="text-[10px] font-black uppercase text-slate-450 block tracking-wider">Diagnóstico de Estrutura da Planilha (Preservação Ativa)</span>
               <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-150 dark:border-slate-805 rounded-xl overflow-hidden">
                 {validationLogs.issues.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-slate-400">Nenhuma irregularidade encontrada na simulação/planilha ativa.</div>
+                  <div className="p-4 text-center text-xs text-slate-400">Nenhum ponto de atenção identificado na planilha ativa.</div>
                 ) : (
                   validationLogs.issues.map((issueStr, idx) => (
                     <div key={idx} className="p-3 flex items-start gap-2 text-xs bg-amber-50/20 dark:bg-amber-950/5">
-                      <AlertCircle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+                      <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
                       <span className="font-medium text-slate-700 dark:text-slate-350">{issueStr}</span>
                     </div>
                   ))
                 )}
               </div>
-              <p className="text-[10px] text-slate-405 leading-relaxed">Nota Metodológica: O Sauron opera em caráter não destrutivo. Registros com inconsistência continuam disponíveis para cruzamento a nível de auditoria documental.</p>
+              <p className="text-[10px] text-slate-405 leading-relaxed">Nota Metodológica: O Sauron opera em caráter 100% não obstrutivo. Registros com inconsistências continuam disponíveis de forma idêntica ao original para cruzamento.</p>
             </div>
           </div>
         )}
