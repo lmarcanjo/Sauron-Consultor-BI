@@ -43,8 +43,8 @@ test('Spreadsheet Import, Excel Viewer, and Flexible Mapping Flow', async ({ pag
     // After uploading, we should be in Step 2: "Abas Encontradas"
     await expect(page.locator('text=Passo 2: Mapeamento de Abas Detectadas')).toBeVisible();
 
-    // Click "Confirmar Configuração" to go to Step 3 (Planilha Inteligente)
-    const confirmAbasBtn = page.locator('button:has-text("Confirmar Configuração")');
+    // Click "Continuar para Configurar Colunas" to go to Step 3 (Mapeamento)
+    const confirmAbasBtn = page.locator('button:has-text("Continuar para Configurar Colunas")');
     await expect(confirmAbasBtn).toBeVisible();
     await confirmAbasBtn.click();
 
@@ -97,8 +97,16 @@ test('Spreadsheet Import, Excel Viewer, and Flexible Mapping Flow', async ({ pag
     // Verify alias is now saved in the UI and displayed in the column profile / header
     await expect(page.locator('[data-testid="header-col-alias-__EMPTY_1"]:has-text("My Renamed Aux Column")')).toBeVisible();
 
-    // Verify "Finalizar e ativar planilha" button exists and works
-    const finalizeBtn = page.locator('#btn-finalize-active-spreadsheet');
+    // Go to Step 4 "Ativar fonte"
+    const nextStepBtn = page.locator('button:has-text("Ir para Ativar Fonte")');
+    await expect(nextStepBtn).toBeVisible();
+    await nextStepBtn.click();
+
+    // Verify Step 4 "Ativar fonte" content is shown
+    await expect(page.locator('text=Pronto para Ativar Fonte de Dados')).toBeVisible();
+
+    // Verify "Finalizar e ativar fonte" button exists and works in step 4
+    const finalizeBtn = page.locator('#btn-finalize-active-spreadsheet-step');
     await expect(finalizeBtn).toBeVisible();
     await finalizeBtn.click();
 
@@ -109,13 +117,8 @@ test('Spreadsheet Import, Excel Viewer, and Flexible Mapping Flow', async ({ pag
     await page.locator('[data-testid="btn-open-data-center"]').click();
     await page.click('button:has-text("PLANILHAS")');
 
-    // Transition to Step 3 (Planilha Inteligente) to verify persistence of renamed column alias
-    // Note: The app should load current source data or we can load a demo to verify grid alias persistence
-    await page.click('button:has-text("Segmento Automotivo")');
-    await page.locator('button:has-text("Confirmar Configuração")').click();
-    
-    // Verify that rigid mapping panel has been completely removed and does not show up
-    await expect(page.locator('text=Mapeamento de Dados (Schema Mapping Panel)')).not.toBeVisible();
+    // Verify that the active source is SPREADSHEET_DATA
+    await expect(page.locator('text=SPREADSHEET_DATA')).toBeVisible();
 
   } finally {
     // Clean up temporary files
