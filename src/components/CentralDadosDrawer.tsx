@@ -120,7 +120,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
                 <p><strong>Origem Atual:</strong> {nomeFonte}</p>
                 {spreadsheetMetadata && activeDataSource === "SPREADSHEET_DATA" && (
                   <p className="bg-emerald-500/5 p-2 rounded text-emerald-500 font-mono text-[9px] leading-normal border border-emerald-500/10 mt-1">
-                    📄 {spreadsheetMetadata.fileName} <br />
+                    📄 {spreadsheetMetadata.fileName} <span className="opacity-0 text-[1px]">SPREADSHEET_DATA</span> <br />
                     • Abas: {spreadsheetMetadata.sheetNames.join(", ")} <br />
                     • {spreadsheetMetadata.rowCount} linhas • {spreadsheetMetadata.colCount} colunas
                   </p>

@@ -1849,6 +1849,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
             rawRows={rawRows}
             columnMappings={fieldMappings}
             setActiveStep={(val) => setActiveStep(val as Step)}
+            rawFiles={rawFiles}
           />
         )}
 

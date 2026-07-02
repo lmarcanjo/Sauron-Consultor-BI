@@ -27,11 +27,11 @@ export const DiagnosticoObstaculosTab: React.FC<DiagnosticoObstaculosTabProps> =
 
   if (isPendingConfiguration) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
-        <ShieldAlert className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
-        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
-        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
-          Esta fonte de dados (planilha) não possui métricas quantitativas marcadas (KPI ou DRE) para que o motor de diagnóstico identifique anomalias e desvios reais.
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans">
+        <ShieldAlert className="text-emerald-500 w-12 h-12 animate-pulse" />
+        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Configuração Pendente</h3>
+        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
+          Fonte de dados ativa. Configure os campos deste módulo para gerar análises.
         </p>
       </div>
     );

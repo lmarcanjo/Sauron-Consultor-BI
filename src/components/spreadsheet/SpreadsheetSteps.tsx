@@ -12,6 +12,22 @@ import { ColumnConfigDrawer } from "./ColumnConfigDrawer";
 import { SpreadsheetStructureDiagnostics } from "./SpreadsheetStructureDiagnostics";
 import { SpreadsheetColumn, SpreadsheetSheet } from "../../types/dataSource";
 
+export function canActivateSpreadsheetImport(rawRows: any[], rawFiles?: any[]): { canActivate: boolean; reason?: string } {
+  if (rawFiles && rawFiles.length === 0) {
+    return { canActivate: false, reason: "Nenhum arquivo de planilha foi selecionado ou carregado." };
+  }
+  if (!rawRows || rawRows.length === 0) {
+    return { canActivate: false, reason: "A planilha carregada não possui nenhuma linha de dados." };
+  }
+  const firstRow = rawRows[0];
+  const hasAtLeastOneCol = Object.keys(firstRow || {}).length > 0;
+  if (!hasAtLeastOneCol) {
+    return { canActivate: false, reason: "A planilha carregada não possui colunas válidas." };
+  }
+  return { canActivate: true };
+}
+
+
 // --- 1. SPREADSHEET UPLOAD STEP ---
 interface SpreadsheetUploadStepProps {
   importProgress: { message: string; percent: number } | null;
@@ -277,9 +293,9 @@ export const SpreadsheetPreviewStep: React.FC<SpreadsheetPreviewStepProps> = ({
           </button>
           <button
             onClick={() => setActiveStep("mapeamento")}
-            className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-750 text-white rounded-lg flex items-center gap-1.5"
+            className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-750 text-white rounded-lg flex items-center gap-1.5 cursor-pointer"
           >
-            Configurar Colunas <ArrowRight size={14} />
+            Confirmar Configuração e Continuar para Configurar Colunas <ArrowRight size={14} />
           </button>
         </div>
       </div>
@@ -406,19 +422,19 @@ export const SpreadsheetColumnConfigStep: React.FC<SpreadsheetColumnConfigStepPr
   isMappingValid
 }) => {
   const fields = [
-    { key: "Grupo", label: "Holding / Grupo", desc: "Grupo empresarial (ex: Grupo Alpha)", required: true },
-    { key: "CNPJ", label: "CNPJ Filial", desc: "CNPJ com ou sem máscara (ex: 00.000.000/0001-00)", required: true },
-    { key: "Marca", label: "Marca / Bandeira", desc: "Bandeira/Marca de operação (ex: Nissan, Renault)", required: true },
-    { key: "Empresa", label: "Razão Social", desc: "Nome empresarial (ex: Alpha Sul Veículos)", required: true },
-    { key: "Mês", label: "Mês de Lançamento", desc: "Data ou descrição mensal (ex: 2026-06)", required: true },
-    { key: "Razão", label: "Conta Contábil / Razão", desc: "Conta de destino (ex: Vendas de Veículos)", required: true },
-    { key: "Receita", label: "Volume de Receitas", desc: "Valores positivos de entrada faturamento", required: true },
-    { key: "Custo", label: "Valores de Custo", desc: "Valores de custo (COGS) positivos", required: true },
-    { key: "Despesa", label: "Valores de Despesas", desc: "Valores operacionais gerais positivos", required: true }
+    { key: "Grupo", label: "Holding / Grupo", desc: "Grupo empresarial (ex: Grupo Alpha)", required: false },
+    { key: "CNPJ", label: "CNPJ Filial", desc: "CNPJ com ou sem máscara (ex: 00.000.000/0001-00)", required: false },
+    { key: "Marca", label: "Marca / Bandeira", desc: "Bandeira/Marca de operação (ex: Nissan, Renault)", required: false },
+    { key: "Empresa", label: "Razão Social", desc: "Nome empresarial (ex: Alpha Sul Veículos)", required: false },
+    { key: "Mês", label: "Mês de Lançamento", desc: "Data ou descrição mensal (ex: 2026-06)", required: false },
+    { key: "Razão", label: "Conta Contábil / Razão", desc: "Conta de destino (ex: Vendas de Veículos)", required: false },
+    { key: "Receita", label: "Volume de Receitas", desc: "Valores positivos de entrada faturamento", required: false },
+    { key: "Custo", label: "Valores de Custo", desc: "Valores de custo (COGS) positivos", required: false },
+    { key: "Despesa", label: "Valores de Despesas", desc: "Valores operacionais gerais positivos", required: false }
   ];
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
+    <div id="step-3-mapeamento-container" className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
       <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">Passo 3: Mapeador de Colunas e Validador Estrutural</h2>
@@ -427,18 +443,15 @@ export const SpreadsheetColumnConfigStep: React.FC<SpreadsheetColumnConfigStepPr
         <div className="flex gap-2">
           <button
             onClick={() => setActiveStep("abas")}
-            className="px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-250 text-slate-700 rounded-lg"
+            className="px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-250 text-slate-700 rounded-lg cursor-pointer"
           >
             Voltar
           </button>
           <button
             onClick={() => setActiveStep("ativacao")}
-            className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 text-white ${
-              isMappingValid ? "bg-blue-600 hover:bg-blue-750" : "bg-slate-400 cursor-not-allowed"
-            }`}
-            disabled={!isMappingValid}
+            className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-750 text-white rounded-lg flex items-center gap-1.5 cursor-pointer"
           >
-            Revisar e Ativar Fonte <ArrowRight size={14} />
+            Ir para Ativar Fonte <ArrowRight size={14} />
           </button>
         </div>
       </div>
@@ -570,6 +583,7 @@ interface SpreadsheetActivationStepProps {
   rawRows: any[];
   columnMappings: Record<string, string>;
   setActiveStep: (val: "upload" | "abas" | "mapeamento" | "ativacao") => void;
+  rawFiles?: any[];
 }
 
 export const SpreadsheetActivationStep: React.FC<SpreadsheetActivationStepProps> = ({
@@ -581,7 +595,8 @@ export const SpreadsheetActivationStep: React.FC<SpreadsheetActivationStepProps>
   handleFinalizarEAtivar,
   rawRows,
   columnMappings,
-  setActiveStep
+  setActiveStep,
+  rawFiles
 }) => {
   const [newFilterCol, setNewFilterCol] = React.useState("");
   const [newFilterLabel, setNewFilterLabel] = React.useState("");
@@ -621,6 +636,9 @@ export const SpreadsheetActivationStep: React.FC<SpreadsheetActivationStepProps>
     setNewCalcFormula("");
   };
 
+  const activationCheck = canActivateSpreadsheetImport(rawRows, rawFiles);
+  const isFinalizeDisabled = !activationCheck.canActivate || isSavingConfig;
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
       <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -628,20 +646,30 @@ export const SpreadsheetActivationStep: React.FC<SpreadsheetActivationStepProps>
           <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">Passo 4: Finalização e Ativação do Backbone</h2>
           <p className="text-xs text-slate-400 mt-1">Homologue a estrutura importada para propagar os dados nos módulos de consultoria.</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveStep("mapeamento")}
-            className="px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-250 text-slate-700 rounded-lg cursor-pointer"
-          >
-            Voltar
-          </button>
-          <button
-            onClick={handleFinalizarEAtivar}
-            className="px-5 py-2 text-xs font-black uppercase bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-1.5 cursor-pointer shadow-md transition-colors"
-            disabled={isSavingConfig}
-          >
-            {isSavingConfig ? "Ativando..." : "Finalizar e Ativar Fonte"} <Check size={14} />
-          </button>
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveStep("mapeamento")}
+              className="px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-250 text-slate-700 rounded-lg cursor-pointer"
+            >
+              Voltar
+            </button>
+            <button
+              id="btn-finalize-active-spreadsheet-step"
+              onClick={handleFinalizarEAtivar}
+              className={`px-5 py-2 text-xs font-black uppercase text-white rounded-lg flex items-center gap-1.5 cursor-pointer shadow-md transition-colors ${
+                isFinalizeDisabled ? "bg-slate-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"
+              }`}
+              disabled={isFinalizeDisabled}
+            >
+              {isSavingConfig ? "Ativando..." : "Finalizar e Ativar Fonte"} <Check size={14} />
+            </button>
+          </div>
+          {!activationCheck.canActivate && (
+            <span className="text-[10px] text-rose-500 font-bold block bg-rose-50 dark:bg-rose-950/20 px-2 py-1 rounded">
+              Bloqueado: {activationCheck.reason}
+            </span>
+          )}
         </div>
       </div>
 

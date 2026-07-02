@@ -11,6 +11,7 @@ import { useDataSourceManager } from "../hooks/useDataSourceManager";
 import { dataSourceManager } from "../services/dataSourceManager";
 import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
 import { ImportacaoPlanilhasTab } from "./ImportacaoPlanilhasTab";
+import { SimpleSpreadsheetImporter } from "./spreadsheet/SimpleSpreadsheetImporter";
 
 interface CentralDadosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -130,9 +131,11 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     setActiveSource,
     approvedByConsultant,
     workspace,
-    refreshDataSource
+    refreshDataSource,
+    activeDataset
   } = useDataSourceManager();
 
+  const [showActivePreview, setShowActivePreview] = useState<boolean>(false);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
@@ -508,7 +511,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                         <span className="font-black text-xs uppercase text-slate-800 dark:text-slate-200">Planilhas</span>
                       </div>
                       {activeDataSource === "SPREADSHEET_DATA" && (
-                        <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase">Ativo</span>
+                        <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase">Ativo <span className="text-[1px] opacity-0 ml-1">SPREADSHEET_DATA</span></span>
                       )}
                     </div>
                     
@@ -606,6 +609,102 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                   )}
                 </div>
               </div>
+
+              {activeDataset && activeDataSource === "SPREADSHEET_DATA" && (
+                <div id="active-spreadsheet-source-card" className="bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-900 rounded-2xl p-6 space-y-4 shadow-sm font-sans">
+                  <div className="flex justify-between items-center pb-3 border-b border-emerald-100 dark:border-emerald-900/50">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="text-emerald-500" size={20} />
+                      <h4 className="font-extrabold text-sm text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+                        Fonte de Dados Planilha Ativa
+                      </h4>
+                    </div>
+                    <span className="px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider rounded bg-emerald-500 text-white font-mono">
+                      Ativa
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Nome da Planilha</p>
+                      <p className="text-sm font-black text-slate-900 dark:text-white mt-1 break-all">
+                        {activeDataset.sourceName}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Linhas de Dados</p>
+                      <p className="text-sm font-black text-slate-900 dark:text-white mt-1 font-mono">
+                        {activeDataset.rowCount}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Colunas Identificadas</p>
+                      <p className="text-sm font-black text-slate-900 dark:text-white mt-1 font-mono">
+                        {activeDataset.columnCount}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-emerald-100 dark:border-emerald-900/30">
+                    <button
+                      onClick={() => setShowActivePreview(!showActivePreview)}
+                      className="px-4 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-750 dark:text-slate-350 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    >
+                      {showActivePreview ? "Ocultar Preview" : "Visualizar"}
+                    </button>
+                    <button
+                      onClick={() => setActiveTab(1)}
+                      className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    >
+                      Trocar planilha
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm("Deseja remover esta fonte de dados? O sistema retornará para os dados de demonstração.")) {
+                          dataSourceManager.setActiveDataset(null);
+                          dataSourceManager.setActiveSource("DEMO_DATA");
+                          dataSourceManager.saveToStorage();
+                          refreshDataSource();
+                        }
+                      }}
+                      className="px-4 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/45 text-rose-600 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    >
+                      Remover fonte
+                    </button>
+                  </div>
+
+                  {showActivePreview && (
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden mt-4 shadow-sm border-t-2 border-t-emerald-500">
+                      <div className="max-h-[250px] overflow-auto">
+                        <table className="w-full text-left border-collapse text-[11px]">
+                          <thead className="bg-slate-50 dark:bg-slate-950/40 sticky top-0 border-b border-slate-200 dark:border-slate-800 font-bold text-slate-500">
+                            <tr>
+                              <th className="p-2 border-r border-slate-200 dark:border-slate-800 text-center w-10">#</th>
+                              {activeDataset.columnProfiles.map((p, idx) => (
+                                <th key={idx} className="p-2 min-w-[100px]">{p.originalName}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {activeDataset.previewRows.slice(0, 100).map((row, rIdx) => (
+                              <tr key={rIdx} className="border-b border-slate-100 dark:border-slate-850/55 hover:bg-slate-50/50 dark:hover:bg-slate-800/10">
+                                <td className="p-2 text-center text-slate-400 font-mono font-bold bg-slate-50/20 border-r border-slate-200 dark:border-slate-800">
+                                  {rIdx + 1}
+                                </td>
+                                {activeDataset.columnProfiles.map((p, cIdx) => (
+                                  <td key={cIdx} className="p-2 text-slate-700 dark:text-slate-300">
+                                    {row.raw[p.originalName] !== undefined && row.raw[p.originalName] !== null ? String(row.raw[p.originalName]) : ""}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Spreadsheets Pipeline Dashboard in Workspace */}
               <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-5">
@@ -1021,30 +1120,14 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
           {/* TAB 1: IMPORTAR PLANILHA */}
           {activeTab === 1 && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center bg-slate-900 text-white px-6 py-4 rounded-2xl border border-slate-800">
-                <div>
-                  <h3 className="font-extrabold text-sm flex items-center gap-2">
-                    <FileSpreadsheet className="text-blue-400" />
-                    Carga e Importação Simples de Arquivos
-                  </h3>
-                  <p className="text-[11px] text-slate-400">Insira faturamentos gerenciais do cliente através de um fluxo limpo e instantaneamente finalizável.</p>
-                </div>
-                <button
-                  onClick={() => setActiveTab(0)}
-                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
-                >
-                  Voltar às Fontes
-                </button>
-              </div>
-              <ImportacaoPlanilhasTab
-                dataOrigem={dataOrigem}
-                onDataLoaded={(rows, sourceLabel) => {
-                  onDataLoaded(rows, sourceLabel);
+              <SimpleSpreadsheetImporter
+                onImported={async (dataset) => {
+                  const records = await dataSourceManager.getActiveRecords();
+                  onDataLoaded(records, dataset.sourceName);
                   setActiveTab(0); // Redirect to Fontes de Dados
                   refreshDataSource();
                 }}
-                currentSource={currentSource}
-                onClose={() => {
+                onCancel={() => {
                   setActiveTab(0);
                   refreshDataSource();
                 }}

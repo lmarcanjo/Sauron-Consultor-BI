@@ -20,12 +20,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ filteredData, form
 
   if (filteredData.length > 0 && !hasValues) {
     return (
-      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 p-6 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans" id="dashboard-mapping-alert">
-        <h3 className="text-sm font-extrabold text-amber-800 dark:text-amber-400 uppercase tracking-wider">Mapeamento Necessário</h3>
-        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Este relatório precisa de um campo de valor ou data. Mapeie uma coluna para continuar.</p>
-        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-          O dataset ativo de planilhas importadas não possui colunas numéricas nativas de Receita, Custo ou Despesas mapeadas adequadamente. 
-          Use a aba de Mapeamento Inteligente na Central de Dados para associar suas colunas livres e habilitar os gráficos.
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans" id="dashboard-mapping-alert">
+        <TrendingUp className="text-emerald-500 w-12 h-12 animate-pulse" />
+        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Configuração Pendente</h3>
+        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
+          Fonte de dados ativa. Configure os campos deste módulo para gerar análises.
         </p>
       </div>
     );
