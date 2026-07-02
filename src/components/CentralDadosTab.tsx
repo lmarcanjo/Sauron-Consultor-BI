@@ -10,7 +10,6 @@ import { DatabaseConnector } from "./DatabaseConnector";
 import { useDataSourceManager } from "../hooks/useDataSourceManager";
 import { dataSourceManager } from "../services/dataSourceManager";
 import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
-import { ImportacaoPlanilhasTab } from "./ImportacaoPlanilhasTab";
 import { SimpleSpreadsheetImporter } from "./spreadsheet/SimpleSpreadsheetImporter";
 
 interface CentralDadosTabProps {
@@ -91,7 +90,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   const [compareVersion2, setCompareVersion2] = useState<string>("");
   const [showComparer, setShowComparer] = useState<boolean>(false);
 
-  // 5. Schema Mapping State
+  // 5. Column Mapping State
   const [customMappings, setCustomMappings] = useState<Record<string, string>>({
     Grupo: "Grupo",
     CNPJ: "CNPJ",
@@ -660,9 +659,13 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                     </button>
                     <button
                       onClick={() => {
-                        if (confirm("Deseja remover esta fonte de dados? O sistema retornará para os dados de demonstração.")) {
+                        const msg = isDemoUrl 
+                          ? "Deseja remover esta fonte de dados? O sistema retornará para os dados de demonstração." 
+                          : "Deseja remover esta fonte de dados? O sistema será limpo para conectar dados reais.";
+                        if (confirm(msg)) {
                           dataSourceManager.setActiveDataset(null);
-                          dataSourceManager.setActiveSource("DEMO_DATA");
+                          dataSourceManager.setActiveSource(isDemoUrl ? "DEMO_DATA" : "SPREADSHEET_DATA");
+                          dataSourceManager.setApproved(false);
                           dataSourceManager.saveToStorage();
                           refreshDataSource();
                         }

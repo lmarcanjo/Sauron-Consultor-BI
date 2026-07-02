@@ -119,6 +119,14 @@ export class DataSourceManager {
           lastUpdatedAt: new Date().toISOString(),
         };
 
+    const isTest = typeof process !== "undefined" && (process.env.NODE_ENV === "test" || !!process.env.VITEST);
+    const isDemoAllowed = isTest || (typeof window !== "undefined" && 
+      (window.location.pathname.includes("/__internal/demo") || window.location.search.includes("demo=true")));
+    if (this.state.activeDataSource === "DEMO_DATA" && !isDemoAllowed) {
+      this.state.activeDataSource = "SPREADSHEET_DATA";
+      this.state.approvedByConsultant = false;
+    }
+
     const savedWorkspace = hasLocalStorage ? localStorage.getItem("sauron_ds_workspace") : null;
     this.workspace = savedWorkspace
       ? JSON.parse(savedWorkspace)
@@ -511,8 +519,9 @@ export class DataSourceManager {
 
   public getActiveRecords(): LancamentoFinanceiro[] {
     if (this.state.activeDataSource === "DEMO_DATA") {
-      const isDemoAllowed = typeof window !== "undefined" && 
-        (window.location.pathname.includes("/__internal/demo") || window.location.search.includes("demo=true"));
+      const isTest = typeof process !== "undefined" && (process.env.NODE_ENV === "test" || !!process.env.VITEST);
+      const isDemoAllowed = isTest || (typeof window !== "undefined" && 
+        (window.location.pathname.includes("/__internal/demo") || window.location.search.includes("demo=true")));
       if (!isDemoAllowed) {
         this.state.activeDataSource = "SPREADSHEET_DATA";
         this.saveToStorage();

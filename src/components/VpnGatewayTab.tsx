@@ -153,7 +153,7 @@ export const VpnGatewayTab = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2 text-sm">
               <label className="block font-medium text-slate-700 dark:text-slate-300">Apelido do Cliente / Corporação</label>
-              <input required value={clientName} onChange={e => setClientName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-slate-900 dark:text-slate-100" placeholder="ex: Grupo Alpha Leste" />
+              <input required value={clientName} onChange={e => setClientName(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-slate-900 dark:text-slate-100" placeholder="ex: Grupo Real Leste" />
             </div>
             
             <div className="space-y-2 text-sm">

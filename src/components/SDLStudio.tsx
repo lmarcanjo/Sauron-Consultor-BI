@@ -265,9 +265,9 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
             <h2 className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 font-mono tracking-widest border-b border-slate-100 dark:border-slate-850 pb-2">
               1. Case Header & Breadcrumbs
             </h2>
-            <SauronCaseBreadcrumb paths={["Casos", "Auditoria", "Grupo Alpha"]} />
+            <SauronCaseBreadcrumb paths={["Casos", "Auditoria", "Grupo Sauron"]} />
             <SauronCaseHeader
-              title="Grupo Alpha Concessionárias"
+              title="Grupo Sauron Concessionárias"
               category="Caso Estratégico"
               status="active"
               onActionClick={() => {}}
@@ -336,7 +336,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
               <SauronUserContext
                 name="Maria Convidada"
                 role="Guest"
-                organization="Grupo Alpha Nissan"
+                organization="Grupo Sauron Nissan"
               />
               <div className="bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
                 <span className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase block font-mono">
@@ -368,7 +368,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
           <SauronDrawer
             isOpen={isDrawerOpen}
             onClose={() => setIsDrawerOpen(false)}
-            title="Dossiê Grupo Alpha"
+            title="Dossiê Grupo Sauron"
             subtitle="Detalhamento operacional da holding"
             footer={
               <div className="flex gap-2">

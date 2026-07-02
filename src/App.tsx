@@ -1727,9 +1727,9 @@ export default function App() {
                 <Database size={26} className="text-blue-500" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 uppercase tracking-tight">Comece conectando dados reais</h3>
+                <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 uppercase tracking-tight">Você ainda não conectou dados reais</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                  Importe uma planilha ou conecte um banco. O Sauron nunca altera, deleta ou esconde seus dados originais.
+                  Você ainda não conectou dados reais. Importe uma planilha ou conecte um banco para começar.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row justify-center gap-3 w-full pt-2">

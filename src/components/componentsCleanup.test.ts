@@ -217,4 +217,70 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
     }
     expect(violations.length).toBe(0);
   });
+
+  // Test 10: CTO-directed absolute cleanup and prohibition checks
+  it("enforces complete absence of legacy importer imports and unrequested/forbidden terms in normal code", () => {
+    const srcDir = path.resolve(__dirname); // src/components/
+    const forbiddenImports = ["ImportacaoPlanilhasTab", "SpreadsheetSteps"];
+    const forbiddenTerms = [
+      "Grupo Alpha",
+      "Topázio",
+      "Simular Planilha",
+      "Schema Mapping",
+      "Grupo obrigatório",
+      "CNPJ obrigatório",
+      "Receita obrigatória"
+    ];
+
+    const scanForLegacy = (dir: string) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== "node_modules" && entry.name !== "dist" && entry.name !== ".vite" && entry.name !== "build") {
+            scanForLegacy(fullPath);
+          }
+        } else if (entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))) {
+          // Skip test files
+          if (
+            fullPath.includes("test") ||
+            entry.name.includes("test")
+          ) {
+            continue;
+          }
+
+          const content = fs.readFileSync(fullPath, "utf-8");
+
+          // Check forbidden imports
+          forbiddenImports.forEach(term => {
+            const hasForbiddenImport = content.includes(`import`) && content.includes(term);
+            if (hasForbiddenImport) {
+              console.error(`Legacy importer component/utility "${term}" imported in "${fullPath}"`);
+              expect(hasForbiddenImport).toBe(false);
+            }
+          });
+
+          // Check forbidden terms
+          forbiddenTerms.forEach(term => {
+            if (content.includes(term)) {
+              console.error(`Forbidden legacy term "${term}" found in normal application file "${fullPath}"`);
+              expect(content.includes(term)).toBe(false);
+            }
+          });
+        }
+      }
+    };
+
+    scanForLegacy(srcDir);
+
+    // Also explicitly scan App.tsx
+    const appPath = path.resolve(__dirname, "../App.tsx");
+    const appContent = fs.readFileSync(appPath, "utf-8");
+    forbiddenTerms.forEach(term => {
+      if (appContent.includes(term)) {
+        console.error(`Forbidden legacy term "${term}" found in App.tsx`);
+        expect(appContent.includes(term)).toBe(false);
+      }
+    });
+  });
 });
