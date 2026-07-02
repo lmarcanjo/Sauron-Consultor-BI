@@ -85,12 +85,25 @@ export const CaseHub: React.FC<CaseHubProps> = ({
     workspaceIntelligenceEngine.contextManager.getContext() || DEFAULT_CONTEXT
   );
 
-  const dummyMetrics = useMemo(() => ({
-    receitaTotal: filteredData.reduce((sum, d) => sum + (d.Receita || 0), 0) || 5400000,
-    custoTotal: filteredData.reduce((sum, d) => sum + (d.Custo || 0), 0) || 3800000,
-    despesaTotal: filteredData.reduce((sum, d) => sum + (d.Despesa || 0), 0) || 1100000,
-    lucroTotal: 500000, margemMedia: 9.2, porMarca: [], porCnpj: [], porRazao: [], porMes: []
-  }), [filteredData]);
+  const dummyMetrics = useMemo(() => {
+    const hasData = filteredData.length > 0;
+    const receitaTotal = hasData ? filteredData.reduce((sum, d) => sum + (d.Receita || 0), 0) : 0;
+    const custoTotal = hasData ? filteredData.reduce((sum, d) => sum + (d.Custo || 0), 0) : 0;
+    const despesaTotal = hasData ? filteredData.reduce((sum, d) => sum + (d.Despesa || 0), 0) : 0;
+    const lucroTotal = receitaTotal - custoTotal - despesaTotal;
+    const margemMedia = receitaTotal > 0 ? (lucroTotal / receitaTotal) * 100 : 0;
+    return {
+      receitaTotal,
+      custoTotal,
+      despesaTotal,
+      lucroTotal,
+      margemMedia,
+      porMarca: [],
+      porCnpj: [],
+      porRazao: [],
+      porMes: []
+    };
+  }, [filteredData]);
 
   useEffect(() => {
     const unsub = workspaceIntelligenceEngine.contextManager.subscribe(setContext);

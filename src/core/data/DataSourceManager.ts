@@ -348,6 +348,7 @@ export class DataSourceManager {
   public setActiveDataset(dataset: ActiveDataset | null) {
     this.activeDataset = dataset;
     if (dataset && dataset.sourceType === "SPREADSHEET_DATA") {
+      this.state.approvedByConsultant = true;
       this.setActiveSource("SPREADSHEET_DATA");
     }
     this.saveToStorage();
@@ -442,6 +443,14 @@ export class DataSourceManager {
     this.state.activeDataSource = source;
     if (source === "DEMO_DATA") {
       this.state.approvedByConsultant = true;
+    }
+    this.saveToStorage();
+    this.triggerUpdateEvent();
+  }
+
+  public clearDemoFallback() {
+    if (this.state.activeDataSource === "DEMO_DATA") {
+      this.state.activeDataSource = "SPREADSHEET_DATA";
     }
     this.saveToStorage();
     this.triggerUpdateEvent();

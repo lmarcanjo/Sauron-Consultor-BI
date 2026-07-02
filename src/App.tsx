@@ -248,6 +248,25 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleDatasetActivated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      console.log("[Sauron OS] DATASET_ACTIVATED received:", customEvent.detail);
+      setActiveSource("SPREADSHEET_DATA");
+      setHistoricalData(null);
+      refreshDataSource();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("DATASET_ACTIVATED", handleDatasetActivated);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("DATASET_ACTIVATED", handleDatasetActivated);
+      }
+    };
+  }, [setActiveSource, refreshDataSource]);
+
   // COMPARATIVE RAPORTS SNAPSHOT CONTROL
   const [reportHistory, setReportHistory] = useState<any[]>([]);
   const [selectedComparisonSnapshotId, setSelectedComparisonSnapshotId] = useState<string>("");

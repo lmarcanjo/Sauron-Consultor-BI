@@ -14,6 +14,13 @@ import { ColumnConfigDrawer } from "./spreadsheet/ColumnConfigDrawer";
 import { SpreadsheetColumn, SpreadsheetSheet } from "../types/dataSource";
 import { SpreadsheetStructureDiagnostics } from "./spreadsheet/SpreadsheetStructureDiagnostics";
 import { generateDemoSpreadsheetRows } from "../data/demoData";
+import { 
+  SpreadsheetUploadStep, 
+  SpreadsheetPreviewStep, 
+  SpreadsheetColumnConfigStep, 
+  SpreadsheetDiagnosticsStep, 
+  SpreadsheetActivationStep 
+} from "./spreadsheet/SpreadsheetSteps";
 
 interface ImportacaoPlanilhasProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -148,6 +155,8 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
 
   // Layers (State Management)
   const [rawFiles, setRawFiles] = useState<RawFile[]>([]);
+  const [selectedFileId, setSelectedFileId] = useState<string>("");
+  const [isSavingConfig, setIsSavingConfig] = useState<boolean>(false);
   const [rawSheets, setRawSheets] = useState<RawSheet[]>([]);
   const [rawRows, setRawRows] = useState<any[]>([]); // Layer 3: Unmodified Data Rows
   const [importProfileList, setImportProfileList] = useState<ImportProfile[]>(() => {
@@ -1752,433 +1761,91 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
       </div>
 
       {/* STEP 1: UPLOAD WORKBENCH */}
-        {activeStep === "upload" && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">Passo 1: Carregar Planilhas e Fontes Auxiliares</h2>
-              <p className="text-xs text-slate-400 mt-1">Carregue arquivos .xlsx, .xls ou .csv para processamento e consolidação automática.</p>
-            </div>
-
-            {/* Upload Progress Bar */}
-            {importProgress && (
-              <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-150 dark:border-blue-900 rounded-xl space-y-2 animate-fade-in shadow-3xs">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
-                    <RefreshCw size={14} className="animate-spin text-blue-500" />
-                    {importProgress.message}
-                  </span>
-                  <span className="font-mono text-blue-700 dark:text-blue-400 font-bold">{importProgress.percent}%</span>
-                </div>
-                <div className="w-full bg-slate-200 dark:bg-slate-850 rounded-full h-2 overflow-hidden border border-slate-300/30">
-                  <div 
-                    className="bg-blue-600 h-full rounded-full transition-all duration-300 ease-out"
-                    style={{ width: `${importProgress.percent}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Upload Area */}
-            <div 
-              onClick={triggerFileSelect}
-              className="border-2 border-dashed border-slate-205 dark:border-slate-800 rounded-2xl p-8 bg-slate-50/30 dark:bg-slate-900/20 hover:bg-blue-50/10 hover:border-blue-400 transition-colors cursor-pointer text-center space-y-3"
-            >
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleLocalFileLoad} 
-                accept=".csv, .xlsx, .xls, .tsv" 
-                multiple 
-                className="hidden" 
-              />
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto">
-                <Upload className="text-blue-600 dark:text-blue-400" size={24} />
-              </div>
-              <p className="text-xs font-bold text-slate-705 dark:text-slate-250">Arraste seus arquivos de planilhas ou dê um clique para navegar</p>
-              <p className="text-[10.5px] text-slate-405">Suporte: .XLSX, .XLS, .CSV ou .TSV de qualquer layout e número de abas</p>
-            </div>
-
-            {/* Configurações de Demonstração */}
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Aceleração: Carregar Estrutura Fictícia</span>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                {[
-                  { id: "automotivo", label: "Concessionárias", icon: Car },
-                  { id: "agro", label: "Agronegócio", icon: Tractor },
-                  { id: "servicos", label: "Serviços B2B", icon: Briefcase },
-                  { id: "industria", label: "Indústria", icon: Factory },
-                ].map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => carregarDemonstrativoFicticio(item.id as "automotivo" | "agro" | "servicos" | "industria")}
-                    className="flex flex-col items-center justify-center p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900/50 hover:bg-blue-50 hover:border-blue-300 transition-colors gap-2 cursor-pointer"
-                  >
-                    <item.icon className="text-blue-500" size={24} />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {rawFiles.length > 0 && (
-              <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Planilhas Ativas Registradas ({rawFiles.length})</span>
-                <div className="divide-y divide-slate-200/50 dark:divide-slate-800">
-                  {rawFiles.map(f => (
-                    <div key={f.id} className="py-2 flex items-center justify-between text-xs font-mono">
-                      <div className="flex items-center gap-2">
-                        <FileSpreadsheet size={14} className="text-emerald-500" />
-                        <span className="font-bold text-slate-700 dark:text-slate-300">{f.name}</span>
-                        <span className="text-[10px] text-slate-400">({Math.round(f.size/1024)} KB)</span>
-                      </div>
-                      <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-450 font-bold px-2 py-0.5 rounded text-[10px]">RAW LOADED</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Strategy Selectors and Import History */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Consolidation Settings */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">Configurações de Consolidação (Multi-Planilha)</span>
-                <p className="text-[11px] text-slate-450">Escolha o comportamento ao importar múltiplas planilhas simultâneas.</p>
-                
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Estratégia de Integração</label>
-                    <select
-                      value={aggregationStrategy}
-                      onChange={(e) => setAggregationStrategy(e.target.value as any)}
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold"
-                    >
-                      <option value="APPEND">Adicionar ao final (APPEND)</option>
-                      <option value="REPLACE">Sobrescrever tudo (REPLACE)</option>
-                      <option value="MERGE">Carregar como nova versão independente (SEPARATE)</option>
-                    </select>
-                  </div>
-
-                  {aggregationStrategy === "MERGE" && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Chave de Junção (Join)</label>
-                        <select
-                          value={joinKey}
-                          onChange={(e) => setJoinKey(e.target.value)}
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold"
-                        >
-                          <option value="Empresa">Empresa</option>
-                          <option value="CNPJ">CNPJ</option>
-                          <option value="Marca">Marca/Bandeira</option>
-                          <option value="Mês">Mês</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Conflitos de Duplicados</label>
-                        <select
-                          value={conflictResolution}
-                          onChange={(e) => setConflictResolution(e.target.value as any)}
-                          className="w-full bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-700 rounded px-2.5 py-1.5 text-xs font-bold"
-                        >
-                          <option value="LAST_WINS">Última Escrita (Last Wins)</option>
-                          <option value="FIRST_WINS">Primeira Escrita (First Wins)</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Visual Import History */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Histórico de Carga Recente</span>
-                <p className="text-[11px] text-slate-450">Tente desativar/ativar fontes para auditorias de performance.</p>
-
-                <div className="space-y-2 max-h-[150px] overflow-y-auto custom-scrollbar">
-                  {importHistory.map(hist => (
-                    <div key={hist.id} className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-[11px]">
-                      <div className="truncate max-w-[160px]">
-                        <span className="font-bold block truncate text-slate-700 dark:text-slate-300" title={hist.fileName}>{hist.fileName}</span>
-                        <span className="text-[9px] text-slate-400">{hist.date} • {hist.rows} rows • {hist.cols} cols</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[8.5px] font-bold uppercase px-1.5 py-0.5 rounded ${hist.active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-500"}`}>
-                          {hist.active ? "Ativo" : "Pendente"}
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={hist.active}
-                          onChange={(e) => {
-                            setImportHistory(prev => prev.map(p => p.id === hist.id ? { ...p, active: e.target.checked } : p));
-                          }}
-                          className="rounded text-blue-600 focus:ring-blue-500 h-3.5 w-3.5 cursor-pointer"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {rawRows.length > 0 && (
-              <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  onClick={() => setActiveStep("abas")}
-                  className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
-                >
-                  Continuar para Visualizar Planilha <ArrowRight size={14} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+      {activeStep === "upload" && (
+        <SpreadsheetUploadStep
+          importProgress={importProgress}
+          triggerFileSelect={triggerFileSelect}
+          fileInputRef={fileInputRef}
+          handleLocalFileLoad={handleLocalFileLoad}
+          carregarDemonstrativoFicticio={carregarDemonstrativoFicticio}
+          rawFiles={rawFiles}
+          aggregationStrategy={aggregationStrategy}
+          setAggregationStrategy={setAggregationStrategy}
+          joinKey={joinKey}
+          setJoinKey={setJoinKey}
+          conflictResolution={conflictResolution as any}
+          setConflictResolution={setConflictResolution as any}
+          importHistory={importHistory}
+          setImportHistory={setImportHistory}
+          rawRows={rawRows}
+          setActiveStep={(val) => setActiveStep(val as Step)}
+          demoOptions={[
+            { id: "automotivo", label: "Concessionárias", icon: Car },
+            { id: "agro", label: "Agronegócio", icon: Tractor },
+            { id: "servicos", label: "Serviços B2B", icon: Briefcase },
+            { id: "industria", label: "Indústria", icon: Factory },
+          ]}
+        />
+      )}
 
         {/* STEP 2: ABAS ENCONTRADAS (Multi-sheet explorer / rename / ignore features) */}
         {activeStep === "abas" && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex justify-between items-center flex-wrap gap-2">
-              <div>
-                <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350">Passo 2: Mapeamento de Abas Detectadas</h2>
-                <p className="text-xs text-slate-400 mt-1">Identificamos as seguintes divisões lógicas (abas). Selecione quais faturar e defina aliases.</p>
-              </div>
-              <button 
-                onClick={() => setActiveStep("mapeamento")}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer"
-              >
-                Confirmar Configuração <ArrowRight size={12} />
-              </button>
-            </div>
-
-            {/* List with Rename and Category controls */}
-            {rawSheets.length === 0 ? (
-              <div className="p-8 text-center text-slate-400">Nenhum arquivo de planilha foi selecionado. <button className="text-blue-500 font-bold underline" onClick={()=>setActiveStep("upload")}>Volte ao Passo 1</button></div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3">
-                {rawSheets.map(sheet => (
-                  <div 
-                    key={sheet.id}
-                    className={`p-4 rounded-xl border transition-all ${
-                      sheet.selected 
-                        ? "border-blue-200 dark:border-blue-900/50 bg-blue-50/10 dark:bg-blue-950/5" 
-                        : "border-slate-150 dark:border-slate-805 bg-slate-50/20 dark:bg-slate-900/10 opacity-60"
-                    }`}
-                  >
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
-                      <div className="flex items-start gap-2.5">
-                        <input 
-                          type="checkbox" 
-                          checked={sheet.selected} 
-                          onChange={() => toggleSheetSelection(sheet.id)}
-                          className="mt-1 h-4.5 w-4.5 cursor-pointer rounded text-blue-600 border-slate-300 focus:ring-blue-500" 
-                        />
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400">Arquivo: {sheet.fileName}</span>
-                            <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded font-mono font-bold">{sheet.rowCount} linhas brute-force</span>
-                          </div>
-                          <p className="text-xs font-black text-slate-850 dark:text-slate-150">{sheet.sheetName}</p>
-                        </div>
-                      </div>
-
-                      {/* Custom Alias & Classification inputs */}
-                      <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
-                        <div className="flex-1 lg:flex-initial">
-                          <label className="text-[9px] text-slate-400 uppercase font-bold block mb-1">Apelido (Sauron OS)</label>
-                          <input 
-                            type="text" 
-                            value={sheet.customName} 
-                            onChange={(e) => handleSheetRename(sheet.id, e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs w-full lg:w-48 font-bold text-slate-800 dark:text-slate-100" 
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[9px] text-slate-400 uppercase font-bold block mb-1">Classificar Tipo</label>
-                          <select 
-                            value={sheet.classification} 
-                            onChange={(e) => handleSheetClassification(sheet.id, e.target.value)}
-                            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-100"
-                          >
-                            <option value="Receitas">Operação Receitas</option>
-                            <option value="Despesas">Operação Despesas</option>
-                            <option value="DRE">Modelo Contas DRE</option>
-                            <option value="Estoque">Estoque / Suprimentos</option>
-                            <option value="Vendedores">Comercial Vendedores</option>
-                            <option value="Outros">Outras Tabelas de Apoio</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Live Raw Grid View */}
-            {rawRows.length > 0 && (
-              <div className="w-full space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Visualização Rápida dos Dados Brutos (Sem Mapeamento/Normalização)</span>
-                <SpreadsheetExcelViewer
-                  sheets={viewerSheets}
-                  activeSheet={activePreviewSheet || rawSheets[0]?.sheetName || ""}
-                  onSelectSheet={(sheetName) => setActivePreviewSheet(sheetName)}
-                  columnProfiles={viewerColumnProfiles}
-                  onSelectColumn={() => {}} // Read-only view in step 2
-                  onRenameColumn={() => {}}
-                  onToggleColumnUsage={() => {}}
-                  onToggleFilter={() => {}}
-                />
-              </div>
-            )}
-
-            <div className="flex justify-between items-center pt-4 border-t border-slate-150 dark:border-slate-800">
-              <button 
-                onClick={() => setActiveStep("upload")}
-                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-all"
-              >
-                Voltar para Importar Arquivo
-              </button>
-              <button 
-                onClick={() => setActiveStep("mapeamento")}
-                className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all"
-              >
-                Continuar para Configurar Colunas <ArrowRight size={12} />
-              </button>
-            </div>
-          </div>
+          <SpreadsheetPreviewStep
+            rawSheets={rawSheets}
+            setRawSheets={setRawSheets}
+            rawRows={rawRows}
+            selectedFileId={selectedFileId}
+            setSelectedFileId={setSelectedFileId}
+            rawFiles={rawFiles}
+            activeSheetName={activePreviewSheet || (rawFiles[0]?.name || "")}
+            setActiveSheetName={setActivePreviewSheet}
+            setActiveStep={(val) => setActiveStep(val as Step)}
+            viewerSheets={viewerSheets}
+            viewerColumnProfiles={viewerColumnProfiles}
+          />
         )}
 
         {/* STEP 3: PLANILHA INTELIGENTE - EXCEL-LIKE SPREADSHEET GRID VIEWER & COLUMN CONFIG */}
         {activeStep === "mapeamento" && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm space-y-5">
-            <div className="border-b border-slate-105 dark:border-slate-800 pb-3 flex justify-between items-center flex-wrap gap-2">
-              <div>
-                <h2 className="text-sm font-black uppercase text-slate-705 dark:text-slate-350 flex items-center gap-2">
-                  <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded">Excel-like</span>
-                  Passo 3: Planilha Inteligente — Visualizador e Configuração de Campos
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  A planilha foi importada exatamente como veio. Clique em uma coluna para abrir o painel lateral de configuração livre do consultor.
-                </p>
-              </div>
-
-              {/* View options / Search bar & Suggestions button */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  id="btn-suggest-mapping"
-                  data-testid="btn-suggest-mapping"
-                  onClick={handleSuggestMapping}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-black uppercase transition-colors cursor-pointer"
-                >
-                  <Sparkles size={13} /> Sugerir Mapeamento
-                </button>
-
-                <button
-                  id="btn-save-import-profile"
-                  data-testid="btn-save-import-profile"
-                  onClick={handleSaveProfile}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black uppercase transition-colors cursor-pointer"
-                >
-                  <Save size={13} /> Salvar Perfil
-                </button>
-
-                <button
-                  id="btn-finalize-active-spreadsheet"
-                  data-testid="btn-finalize-active-spreadsheet"
-                  onClick={handleFinalizarEAtivarPlanilha}
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black uppercase tracking-wider shadow transition-colors cursor-pointer"
-                >
-                  <CheckCircle2 size={14} /> Finalizar e ativar planilha
-                </button>
-              </div>
-            </div>
-
-            {/* Main Interactive Spreadsheet Grid */}
-            <div className="w-full">
-              <SpreadsheetExcelViewer
-                sheets={viewerSheets}
-                activeSheet={activePreviewSheet || rawSheets[0]?.sheetName || ""}
-                onSelectSheet={(sheetName) => setActivePreviewSheet(sheetName)}
-                columnProfiles={viewerColumnProfiles}
-                onSelectColumn={handleSelectColumnForConfig}
-                onRenameColumn={handleRenameColumnInViewer}
-                onToggleColumnUsage={handleToggleColumnUsageInViewer}
-                onToggleFilter={handleToggleFilterInViewer}
-                onSaveProfile={handleSaveProfile}
-              />
-            </div>
-
-            {/* Config Drawer Render when column selected */}
-            <ColumnConfigDrawer
-              isOpen={isColumnConfigDrawerOpen}
-              column={configDrawerColumn}
-              onClose={() => setIsColumnConfigDrawerOpen(false)}
-              onSave={handleSaveColumnConfig}
+          <div className="space-y-6">
+            <SpreadsheetColumnConfigStep
+              columnMappings={fieldMappings}
+              handleMappingChange={(targetField, spreadsheetCol) => {
+                setFieldMappings(prev => ({ ...prev, [targetField]: spreadsheetCol }));
+              }}
+              availableColumns={Object.keys(rawRows[0] || {}).filter(k => k !== "id" && !k.startsWith("__"))}
+              activeTemplateName={selectedSegment === "automotivo" ? "Concessionárias" : "Padrão"}
+              isCustomizingMappings={false}
+              setIsCustomizingMappings={() => {}}
+              importProfileName={activeProfileId}
+              setImportProfileName={setActiveProfileId}
+              activeSegment={selectedSegment}
+              setActiveSegment={setSelectedSegment}
+              setActiveStep={(val) => setActiveStep(val as Step)}
+              isMappingValid={true}
             />
 
-            <div className="flex justify-between items-center pt-4 border-t border-slate-150 dark:border-slate-800">
-              <button 
-                onClick={() => setActiveStep("abas")}
-                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-all"
-              >
-                Voltar para Visualizar Planilha
-              </button>
-              <button 
-                onClick={() => setActiveStep("ativacao")}
-                className="flex items-center gap-1 px-4 py-2 bg-slate-900 hover:bg-slate-850 text-white rounded-lg text-xs font-bold cursor-pointer transition-all"
-              >
-                Ir para Ativar Fonte <ArrowRight size={12} />
-              </button>
-            </div>
+            <SpreadsheetDiagnosticsStep
+              rawRows={rawRows}
+              columnMappings={fieldMappings}
+              onShowNextStep={() => setActiveStep("ativacao")}
+            />
           </div>
         )}
 
         {/* STEP 4: ATIVAR FONTE */}
         {activeStep === "ativacao" && (
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm text-center space-y-6">
-            <div className="max-w-md mx-auto space-y-6">
-              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 size={36} className="animate-bounce" />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-lg font-black uppercase text-slate-800 dark:text-slate-100">Pronto para Ativar Fonte de Dados</h2>
-                <p className="text-xs text-slate-400">
-                  Sua planilha de dados brutos foi lida e processada com sucesso.
-                </p>
-              </div>
-
-              {/* Data Summary Card */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-2xl text-left text-xs space-y-2">
-                <span className="text-[10px] uppercase font-bold text-slate-450 block tracking-wider">Resumo do Dataset</span>
-                <div className="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-300 font-bold">
-                  <div>Nome do Arquivo:</div>
-                  <div className="text-right truncate font-mono text-blue-500">{rawFiles[0]?.name || "Planilha Real"}</div>
-                  <div>Registros Totais:</div>
-                  <div className="text-right font-mono text-emerald-500">{rawRows.length} linhas</div>
-                  <div>Colunas Mapeadas:</div>
-                  <div className="text-right font-mono">{activeSheetColumns.length} campos</div>
-                  <div>Abas Selecionadas:</div>
-                  <div className="text-right font-mono truncate">{rawSheets.filter(s => s.selected).map(s => s.customName || s.sheetName).join(", ") || "Nenhuma aba"}</div>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  id="btn-finalize-active-spreadsheet-step"
-                  data-testid="btn-finalize-active-spreadsheet"
-                  onClick={handleFinalizarEAtivarPlanilha}
-                  className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black uppercase tracking-wider shadow-lg hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
-                >
-                  <CheckCircle2 size={16} /> Finalizar e Ativar Fonte
-                </button>
-              </div>
-
-              <div className="text-[11px] text-slate-400">
-                Após ativação, a fonte estará marcada como SPREADSHEET_DATA e disponível no ambiente do cliente.
-              </div>
-            </div>
-          </div>
+          <SpreadsheetActivationStep
+            customFilters={customFilters}
+            setCustomFilters={setCustomFilters}
+            calculatedFields={calculatedFields}
+            setCalculatedFields={setCalculatedFields}
+            isSavingConfig={isSavingConfig}
+            handleFinalizarEAtivar={handleFinalizarEAtivarPlanilha}
+            rawRows={rawRows}
+            columnMappings={fieldMappings}
+            setActiveStep={(val) => setActiveStep(val as Step)}
+          />
         )}
 
       </div>
