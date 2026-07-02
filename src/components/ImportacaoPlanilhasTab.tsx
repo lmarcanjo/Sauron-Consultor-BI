@@ -1802,6 +1802,10 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
             setActiveStep={(val) => setActiveStep(val as Step)}
             viewerSheets={viewerSheets}
             viewerColumnProfiles={viewerColumnProfiles}
+            onSelectColumn={handleSelectColumnForConfig}
+            onRenameColumn={handleRenameColumnInViewer}
+            onToggleColumnUsage={handleToggleColumnUsageInViewer}
+            onToggleFilter={handleToggleFilterInViewer}
           />
         )}
 
@@ -1847,6 +1851,13 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
             setActiveStep={(val) => setActiveStep(val as Step)}
           />
         )}
+
+        <ColumnConfigDrawer
+          isOpen={isColumnConfigDrawerOpen}
+          column={configDrawerColumn}
+          onClose={() => setIsColumnConfigDrawerOpen(false)}
+          onSave={handleSaveColumnConfig}
+        />
 
       </div>
   );

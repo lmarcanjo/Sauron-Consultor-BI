@@ -238,6 +238,10 @@ interface SpreadsheetPreviewStepProps {
   setActiveStep: (val: "upload" | "abas" | "mapeamento" | "ativacao") => void;
   viewerSheets: SpreadsheetSheet[];
   viewerColumnProfiles?: Record<string, SpreadsheetColumn>;
+  onSelectColumn: (columnName: string) => void;
+  onRenameColumn: (columnName: string, newAlias: string) => void;
+  onToggleColumnUsage: (columnName: string, ignored: boolean) => void;
+  onToggleFilter: (columnName: string, isFilter: boolean) => void;
 }
 
 export const SpreadsheetPreviewStep: React.FC<SpreadsheetPreviewStepProps> = ({
@@ -251,7 +255,11 @@ export const SpreadsheetPreviewStep: React.FC<SpreadsheetPreviewStepProps> = ({
   setActiveSheetName,
   setActiveStep,
   viewerSheets,
-  viewerColumnProfiles = {}
+  viewerColumnProfiles = {},
+  onSelectColumn,
+  onRenameColumn,
+  onToggleColumnUsage,
+  onToggleFilter
 }) => {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm space-y-6">
@@ -354,10 +362,10 @@ export const SpreadsheetPreviewStep: React.FC<SpreadsheetPreviewStepProps> = ({
               activeSheet={activeSheetName}
               onSelectSheet={setActiveSheetName}
               columnProfiles={viewerColumnProfiles}
-              onSelectColumn={() => {}}
-              onRenameColumn={() => {}}
-              onToggleColumnUsage={() => {}}
-              onToggleFilter={() => {}}
+              onSelectColumn={onSelectColumn}
+              onRenameColumn={onRenameColumn}
+              onToggleColumnUsage={onToggleColumnUsage}
+              onToggleFilter={onToggleFilter}
             />
           </div>
         </div>

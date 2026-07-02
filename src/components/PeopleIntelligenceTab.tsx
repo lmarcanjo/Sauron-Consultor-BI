@@ -228,10 +228,61 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
     });
   }
 
+  if (isPendingConfiguration) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
+        <Users className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
+        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
+        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
+          Esta fonte de dados (planilha) não possui nenhuma coluna mapeada para "Vendedor", "Consultor" ou "Colaborador". 
+          Configure no Assistente de Importação ou verifique suas colunas de classificação.
+        </p>
+      </div>
+    );
+  }
+
   // Active Selected Dossier details
+  const emptyDossier: CollaboratorDossier = {
+    id: "empty",
+    name: "Nenhum colaborador",
+    role: "N/A",
+    team: "N/A",
+    department: "N/A",
+    store: "N/A",
+    manager: "N/A",
+    email: "N/A",
+    status: "Ativo",
+    hireDate: "N/A",
+    experience: "N/A",
+    achievements: "N/A",
+    strengths: "N/A",
+    weaknesses: "N/A",
+    feedback: "N/A",
+    performance: {
+      collaboratorId: "empty",
+      totalSales: 0,
+      accessoriesSales: 0,
+      partsSales: 0,
+      csat: 5.0,
+      cancellationRate: 0,
+      campaignParticipated: [],
+      lineage: {
+        totalSalesCell: "N/A",
+        accessoriesSalesCell: "N/A",
+        partsSalesCell: "N/A",
+        csatCell: "N/A",
+        cancellationRateCell: "N/A"
+      }
+    },
+    timeline: [],
+    pdi: [],
+    documents: []
+  };
+
   const activeDossier = isRealSpreadsheet
-    ? (allDossiers.find(d => d.id === selectedColabId) || allDossiers[0])
-    : (executivePeopleService.getCollaboratorDossier(selectedColabId) || allDossiers[0]);
+    ? (allDossiers.find(d => d.id === selectedColabId) || allDossiers[0] || emptyDossier)
+    : (executivePeopleService.getCollaboratorDossier(selectedColabId) || allDossiers[0] || emptyDossier);
+
   const activeCompensation: CompensationResult = compensationEngine.calculate(
     activeDossier.performance,
     activePolicyId
@@ -245,19 +296,6 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
     { id: "dossies", label: "Dossiê Executivo", icon: <FileText size={12} /> },
     { id: "impressoes", label: "Impressões de Consultoria", icon: <Lightbulb size={12} /> },
   ];
-
-  if (isPendingConfiguration) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
-        <Users className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
-        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
-        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
-          Esta fonte de dados (planilha) não possui nenhuma coluna mapeada para "Vendedor", "Consultor" ou "Colaborador". 
-          Configure no Assistente de Importação ou verifique suas colunas de classificação.
-        </p>
-      </div>
-    );
-  }
 
   // Table columns definition for Hub
   const columns = [
