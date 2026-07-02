@@ -1,6 +1,7 @@
 import React from "react";
-import { Coins, TrendingUp, Users, Award, ChevronRight } from "lucide-react";
+import { Coins, TrendingUp, Users, Award, ChevronRight, Calculator } from "lucide-react";
 import { MetricasConsolidadas } from "../types";
+import { dataSourceManager } from "../services/dataSourceManager";
 
 interface ComercialTabProps {
   metrics: MetricasConsolidadas;
@@ -8,6 +9,29 @@ interface ComercialTabProps {
 }
 
 export const ComercialTab: React.FC<ComercialTabProps> = ({ metrics, formatCurrency }) => {
+  const activeDataset = dataSourceManager.getActiveDataset();
+  const isPendingConfiguration = React.useMemo(() => {
+    if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
+    if (activeDataset && activeDataset.columnProfiles) {
+      // For Commercial, we expect KPIs, DRE, or Commission columns
+      const hasComercialCol = activeDataset.columnProfiles.some((p: any) => p.isKPI || p.isDRE || p.isComissao || p.isPessoas);
+      return !hasComercialCol;
+    }
+    return true; // if no profiles, pending
+  }, [activeDataset]);
+
+  if (isPendingConfiguration) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
+        <Coins className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
+        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
+        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
+          Esta fonte de dados não possui marcações suficientes (KPI, DRE, Vendas) para gerar os painéis de Faturamento Comercial.
+        </p>
+      </div>
+    );
+  }
+
   // Derive robust values from current dashboard metrics
   const totalReceitaComercial = metrics.receitaTotal * 0.72;
   const novosReceita = totalReceitaComercial * 0.62;

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { BookOpen, Search, AlertTriangle, FileSpreadsheet, Play, ArrowRight } from "lucide-react";
+import { BookOpen, Search, AlertTriangle, FileSpreadsheet, Play, ArrowRight, Database } from "lucide-react";
 import { LancamentoFinanceiro, MetricasConsolidadas } from "../types";
+import { dataSourceManager } from "../services/dataSourceManager";
 
 interface ContabilTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -18,6 +19,29 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
   const [selectedDepartamento, setSelectedDepartamento] = useState<string>("");
   const [selectedConta, setSelectedConta] = useState<string>("");
   const [clickedAccount, setClickedAccount] = useState<string>("");
+
+  const activeDataset = dataSourceManager.getActiveDataset();
+  const isPendingConfiguration = useMemo(() => {
+    if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
+    if (activeDataset && activeDataset.columnProfiles) {
+      // For Contabil, we expect DRE or financial KPIs
+      const hasContabilCol = activeDataset.columnProfiles.some((p: any) => p.isDRE || p.isKPI);
+      return !hasContabilCol;
+    }
+    return true;
+  }, [activeDataset]);
+
+  if (isPendingConfiguration) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
+        <Database className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
+        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
+        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
+          Esta fonte de dados (planilha) não possui colunas financeiras (DRE) para alimentar as visões de auditoria contábil.
+        </p>
+      </div>
+    );
+  }
 
   // Extract unique values for filter selects
   const availableDepartamentos = useMemo(() => {

@@ -83,6 +83,8 @@ interface PeopleIntelligenceTabProps {
   setTaxaComissaoPecas: (v: number) => void;
   triggerSystemBackup: () => void;
   userRole?: string;
+  peopleView?: any[];
+  activeDataset?: any;
 }
 
 export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (props) => {
@@ -102,26 +104,39 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
   // Get all dossiers
   const isRealSpreadsheet = dataSourceManager.getActiveSource() === "SPREADSHEET_DATA";
   
+  const isPendingConfiguration = useMemo(() => {
+    if (!isRealSpreadsheet) return false;
+    if (props.activeDataset && props.activeDataset.columnProfiles) {
+      const hasPeopleCol = props.activeDataset.columnProfiles.some((p: any) => p.isPessoas);
+      return !hasPeopleCol;
+    }
+    return true; // if no profiles, it's pending
+  }, [isRealSpreadsheet, props.activeDataset]);
+
   const realSellers = useMemo(() => {
-    if (!isRealSpreadsheet) return [];
-    const records = dataSourceManager.getActiveRecords();
+    if (!isRealSpreadsheet || isPendingConfiguration) return [];
+    
+    // Use peopleView if available, otherwise activeRecords fallback
+    const records = props.peopleView && props.peopleView.length > 0 ? props.peopleView : dataSourceManager.getActiveRecords();
+    
     const uniqueNames = new Set<string>();
     records.forEach(r => {
-      const name = r.Vendedor || r.vendedor || r.Consultor || r.consultor || r.Colaborador || r.colaborador;
+      // Look for the normalized 'Pessoa' key first, then fallback
+      const name = r.Pessoa || r.Vendedor || r.vendedor || r.Consultor || r.consultor || r.Colaborador || r.colaborador;
       if (name && String(name).trim() !== "" && !String(name).toLowerCase().includes("demonstrativo")) {
         uniqueNames.add(String(name).trim());
       }
     });
 
     if (uniqueNames.size === 0) {
-      uniqueNames.add("Colaborador não mapeado");
+      return [];
     }
 
     return Array.from(uniqueNames).map((name, idx) => {
       let totalSales = 0;
       let accessoriesSales = 0;
       records.forEach(r => {
-        const rName = r.Vendedor || r.vendedor || r.Consultor || r.consultor || r.Colaborador || r.colaborador;
+        const rName = r.Pessoa || r.Vendedor || r.vendedor || r.Consultor || r.consultor || r.Colaborador || r.colaborador;
         if (rName && String(rName).trim() === name) {
           const val = parseFloat(String(r.Receita || r.receita || r.Venda || r.venda || r.Receitas || r.receitas || 0).replace(/[^\d.-]/g, ""));
           if (!isNaN(val)) totalSales += val;
@@ -131,25 +146,25 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
       return {
         id: `seller_${idx}`,
         name: name,
-        email: "Informação não disponível na planilha importada.",
-        role: "Campo não mapeado.",
-        team: "Campo não mapeado.",
-        store: "Campo não mapeado.",
-        department: "Campo não mapeado.",
-        manager: "Campo não mapeado.",
+        email: "Informação não disponível.",
+        role: "Regra de comissão não configurada",
+        team: "N/A",
+        store: "N/A",
+        department: "N/A",
+        manager: "N/A",
         status: "Ativo" as const,
-        hireDate: "Informação não disponível na planilha importada.",
-        experience: "Informação não disponível na planilha importada.",
-        achievements: "Informação não disponível na planilha importada.",
-        strengths: "Informação não disponível na planilha importada.",
-        weaknesses: "Informação não disponível na planilha importada.",
-        feedback: "Informação não disponível na planilha importada.",
+        hireDate: "N/A",
+        experience: "N/A",
+        achievements: "N/A",
+        strengths: "N/A",
+        weaknesses: "N/A",
+        feedback: "N/A",
         performance: {
           collaboratorId: `seller_${idx}`,
           totalSales,
           accessoriesSales,
           partsSales: 0,
-          csat: 4.5,
+          csat: 0,
           cancellationRate: 0,
           campaignParticipated: [],
           lineage: {
@@ -230,6 +245,19 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
     { id: "dossies", label: "Dossiê Executivo", icon: <FileText size={12} /> },
     { id: "impressoes", label: "Impressões de Consultoria", icon: <Lightbulb size={12} /> },
   ];
+
+  if (isPendingConfiguration) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
+        <Users className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
+        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
+        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
+          Esta fonte de dados (planilha) não possui nenhuma coluna mapeada para "Vendedor", "Consultor" ou "Colaborador". 
+          Configure no Assistente de Importação ou verifique suas colunas de classificação.
+        </p>
+      </div>
+    );
+  }
 
   // Table columns definition for Hub
   const columns = [

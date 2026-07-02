@@ -12,7 +12,10 @@ import {
   ClientFilterConfig, 
   ConsultantAdjustment, 
   DataVersion, 
-  ImportProfile 
+  ImportProfile,
+  ActiveDataset,
+  ActiveDatasetRow,
+  ColumnProfile
 } from "../../types/dataSource";
 import { gerarDadosSimulados, generateDemoSpreadsheetRows } from "../../data/demoData";
 import { AuditEngine } from "../audit/AuditEngine";
@@ -40,13 +43,23 @@ export function assertNoMockDataWhenRealSource(
 
   const isMock = (r: LancamentoFinanceiro) => {
     const record = r as any;
-    return (
+    const isMockRecord = (
       record.__isDemo === true ||
       record.sourceType === "DEMO_DATA" ||
       r.Grupo === "Ficticio" ||
       r.Origem === "Simulado" ||
       (r.id && String(r.id).startsWith("sim_"))
     );
+    if (isMockRecord) {
+      console.log("DETECTED MOCK RECORD!", {
+        __isDemo: record.__isDemo,
+        sourceType: record.sourceType,
+        Grupo: r.Grupo,
+        Origem: r.Origem,
+        id: r.id
+      });
+    }
+    return isMockRecord;
   };
 
   const mockRecords = records.filter(isMock);
@@ -90,6 +103,7 @@ export class DataSourceManager {
   private currentImportProfile: ImportProfile | null = null;
   private cachedActiveRecords: LancamentoFinanceiro[] | null = null;
   private fileRowsMap: Record<string, any[]> = {};
+  private activeDataset: ActiveDataset | null = null;
 
   constructor() {
     const hasLocalStorage = typeof localStorage !== "undefined";
@@ -128,6 +142,9 @@ export class DataSourceManager {
     
     const savedDbData = hasLocalStorage ? localStorage.getItem("sauron_ds_db_data") : null;
     this.databaseRecords = savedDbData ? JSON.parse(savedDbData) : [];
+
+    const savedDataset = hasLocalStorage ? localStorage.getItem("sauron_ds_active_dataset") : null;
+    this.activeDataset = savedDataset ? JSON.parse(savedDataset) : null;
 
     this.loadFullRowsFromIndexedDB();
   }
@@ -199,6 +216,21 @@ export class DataSourceManager {
           localStorage.setItem("sauron_ds_filters", JSON.stringify(this.filterConfigs));
         } catch (e) {
           console.error("[Sauron Storage] Erro ao salvar sauron_ds_filters:", e);
+        }
+
+        try {
+          if (this.activeDataset) {
+            // save truncated active dataset (prevent quota issues)
+            const truncatedDataset = {
+              ...this.activeDataset,
+              previewRows: this.activeDataset.previewRows.slice(0, 50)
+            };
+            localStorage.setItem("sauron_ds_active_dataset", JSON.stringify(truncatedDataset));
+          } else {
+            localStorage.removeItem("sauron_ds_active_dataset");
+          }
+        } catch (e) {
+          console.error("[Sauron Storage] Erro ao salvar sauron_ds_active_dataset:", e);
         }
 
         // Safe progressive saving for versions
@@ -307,6 +339,99 @@ export class DataSourceManager {
         console.error("[Sauron Storage] Erro global ao salvar dados:", globalError);
       }
     }
+  }
+
+  public getActiveDataset(): ActiveDataset | null {
+    return this.activeDataset;
+  }
+
+  public setActiveDataset(dataset: ActiveDataset | null) {
+    this.activeDataset = dataset;
+    if (dataset && dataset.sourceType === "SPREADSHEET_DATA") {
+      this.setActiveSource("SPREADSHEET_DATA");
+    }
+    this.saveToStorage();
+    if (typeof window !== "undefined") {
+      const event = new CustomEvent("DATASET_ACTIVATED", {
+        detail: dataset
+      });
+      window.dispatchEvent(event);
+    }
+    this.triggerUpdateEvent();
+  }
+
+  public getActiveRows(options?: { page?: number; limit?: number }): any[] {
+    if (this.state.activeDataSource === "DEMO_DATA") {
+      return this.getDemoSpreadsheetRows("automotivo");
+    }
+
+    if (this.state.activeDataSource === "SPREADSHEET_DATA" && this.activeDataset) {
+      // In a real app we'd query IndexedDB. For now, fetch from fileRowsMap
+      // since the dataset might refer to a consolidated view, but for simple use cases
+      // we'll just return what's in memory or cached.
+      const rawRecords = this.getActiveRecordsForSource("SPREADSHEET_DATA");
+      if (options?.page && options?.limit) {
+        const start = (options.page - 1) * options.limit;
+        return rawRecords.slice(start, start + options.limit);
+      }
+      return rawRecords;
+    }
+    
+    return this.getActiveRecords();
+  }
+
+  public getActivePreview(): any[] {
+    if (this.activeDataset && this.activeDataset.previewRows.length > 0) {
+      return this.activeDataset.previewRows.map(r => r.raw);
+    }
+    return this.getActiveRows({ page: 1, limit: 100 });
+  }
+
+  public getColumnProfiles(): ColumnProfile[] {
+    if (this.activeDataset) {
+      return this.activeDataset.columnProfiles || [];
+    }
+    return [];
+  }
+
+  public getAvailableFilters(): ColumnProfile[] {
+    if (this.activeDataset && this.activeDataset.columnProfiles) {
+      return this.activeDataset.columnProfiles.filter(p => p.isFilter);
+    }
+    return [];
+  }
+
+  public getNormalizedView(moduleName: "FinancialView" | "CommercialView" | "PeopleView" | "CommissionView" | "PresentationView"): any[] {
+    if (this.state.activeDataSource === "DEMO_DATA") {
+      return this.getActiveRecords();
+    }
+    
+    if (this.activeDataset && this.activeDataset.columnProfiles) {
+      const profiles = this.activeDataset.columnProfiles;
+      const rawRows = this.getActiveRows();
+      
+      const mappedRows = rawRows.map(row => {
+        const normalized: any = { ...row };
+        
+        // Very basic mapping based on flags
+        profiles.forEach(p => {
+          if (p.isPessoas && moduleName === "PeopleView") {
+            normalized["Pessoa"] = row[p.name];
+          }
+          if (p.isComissao && moduleName === "CommissionView") {
+            normalized["Comissao"] = row[p.name];
+          }
+          if (p.isKPI && moduleName === "FinancialView") {
+             // Example
+          }
+        });
+        
+        return normalized;
+      });
+      return mappedRows;
+    }
+    
+    return []; // No fallback to mock
   }
 
   public getActiveSource(): ActiveDataSource {

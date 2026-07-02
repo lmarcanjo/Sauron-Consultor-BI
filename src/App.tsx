@@ -97,6 +97,7 @@ import { ExecutiveWorkspace } from "./components/ExecutiveWorkspace";
 import { CommandPalette } from "./components/CommandPalette";
 import { SDLStudio } from "./components/SDLStudio";
 import { ProductQAConsole } from "./components/ProductQAConsole";
+import { DataFlowDebugPanel } from "./components/DataFlowDebugPanel";
 
 import { AppSidebar } from "./components/AppSidebar";
 import { availableTemplates } from "./utils/industryTemplates";
@@ -124,6 +125,9 @@ export default function App() {
     activeSourceLabel,
     activeFiles,
     approvedByConsultant,
+    activeDataset,
+    getNormalizedView,
+    getAvailableFilters,
     setActiveSource,
     approveSource,
     rejectSource,
@@ -148,6 +152,17 @@ export default function App() {
     colCount: number;
     importedAt: string;
   } | null>(null);
+
+  const derivedSpreadsheetMetadata = activeFiles.length > 0
+    ? {
+        fileName: activeFiles.map(f => f.fileName).join(", "),
+        sheetNames: activeFiles.flatMap(f => f.sheets.map(s => s.sheetName)),
+        rowCount: activeFiles.reduce((acc, f) => acc + (f.totalRows || 0), 0),
+        colCount: activeFiles.reduce((acc, f) => Math.max(acc, f.totalColumns || 0), 0),
+        importedAt: activeFiles[0].importedAt || new Date().toISOString()
+      }
+    : spreadsheetMetadata;
+
   const [fieldMappings, setFieldMappings] = useState<Record<string, string>>({
     Grupo: "Grupo",
     CNPJ: "CNPJ",
@@ -497,57 +512,81 @@ export default function App() {
   }, [darkMode]);
 
   // Set default filters whenever original data changes - automatically detecting standard & custom columns (Requirement 7)
+  const availableColumnProfiles = getAvailableFilters();
+  const availableColumnProfilesString = JSON.stringify(availableColumnProfiles);
+
   useEffect(() => {
     if (dataOrigem.length > 0) {
-      const uniqueGrupos = Array.from(new Set(dataOrigem.map(d => d.Grupo))).sort();
-      const uniqueCnpjs = Array.from(new Set(dataOrigem.map(d => d.CNPJ))).sort();
-      const uniqueMarcas = Array.from(new Set(dataOrigem.map(d => d.Marca))).sort();
-      const uniqueMeses = Array.from(new Set(dataOrigem.map(d => d.Mês)));
-      const uniqueRazoes = Array.from(new Set(dataOrigem.map(d => d.Razão))).sort();
-
-      const hasKey = (key: string) => {
-        if (activeDataSource === "DEMO_DATA") return true;
-        return actualKeys.some(k => k.toLowerCase() === key.toLowerCase());
-      };
-
       const nextFilters: FiltrosDashboard = {};
-      if (hasKey("Grupo")) nextFilters.grupos = uniqueGrupos;
-      if (hasKey("CNPJ")) nextFilters.cnpjs = uniqueCnpjs;
-      if (hasKey("Marca")) nextFilters.marcas = uniqueMarcas;
-      if (hasKey("Mês")) nextFilters.meses = uniqueMeses;
-      if (hasKey("Razão")) nextFilters.razoes = uniqueRazoes;
-
-      // Detect any custom extra columns dynamically (e.g. from uploaded spreadsheets or created custom filters)
-      const extraFilters: Record<string, string[]> = {};
-      const standardKeys = ["id", "Grupo", "CNPJ", "Marca", "Empresa", "Filial", "Mês", "Razão", "Categoria", "Receita", "Custo", "Despesa", "Lucro", "Margem", "Vendedor"];
       
-      // Examine rows to find non-standard string properties that are viable filter keys
-      dataOrigem.forEach(item => {
-        Object.keys(item).forEach(key => {
-          if (!standardKeys.includes(key) && !key.startsWith("c_") && typeof item[key] === "string" && item[key].trim() !== "") {
-            if (!extraFilters[key]) {
-              extraFilters[key] = [];
+      // If we are using ActiveDataset (spreadsheet), populate dynamically based on availableColumnProfiles
+      if (activeDataset && availableColumnProfiles.length > 0) {
+        availableColumnProfiles.forEach(profile => {
+          const uniqueValues = Array.from(new Set(dataOrigem.map(d => d[profile.name] !== undefined && d[profile.name] !== null ? String(d[profile.name]) : "").filter(v => v !== ""))).sort();
+          nextFilters[profile.name] = uniqueValues;
+        });
+      } else {
+        // Fallback for demo data or database data
+        const uniqueGrupos = Array.from(new Set(dataOrigem.map(d => d.Grupo))).sort();
+        const uniqueCnpjs = Array.from(new Set(dataOrigem.map(d => d.CNPJ))).sort();
+        const uniqueMarcas = Array.from(new Set(dataOrigem.map(d => d.Marca))).sort();
+        const uniqueMeses = Array.from(new Set(dataOrigem.map(d => d.Mês)));
+        const uniqueRazoes = Array.from(new Set(dataOrigem.map(d => d.Razão))).sort();
+
+        const hasKey = (key: string) => {
+          if (activeDataSource === "DEMO_DATA") return true;
+          return actualKeys.some(k => k.toLowerCase() === key.toLowerCase());
+        };
+
+        if (hasKey("Grupo")) nextFilters.grupos = uniqueGrupos;
+        if (hasKey("CNPJ")) nextFilters.cnpjs = uniqueCnpjs;
+        if (hasKey("Marca")) nextFilters.marcas = uniqueMarcas;
+        if (hasKey("Mês")) nextFilters.meses = uniqueMeses;
+        if (hasKey("Razão")) nextFilters.razoes = uniqueRazoes;
+
+        // Detect any custom extra columns dynamically
+        const extraFilters: Record<string, string[]> = {};
+        const standardKeys = ["id", "Grupo", "CNPJ", "Marca", "Empresa", "Filial", "Mês", "Razão", "Categoria", "Receita", "Custo", "Despesa", "Lucro", "Margem", "Vendedor"];
+        
+        dataOrigem.forEach(item => {
+          Object.keys(item).forEach(key => {
+            if (!standardKeys.includes(key) && !key.startsWith("c_") && typeof item[key] === "string" && item[key].trim() !== "") {
+              if (!extraFilters[key]) {
+                extraFilters[key] = [];
+              }
             }
+          });
+        });
+
+        Object.keys(extraFilters).forEach(key => {
+          if (hasKey(key)) {
+            const uniqueValues = Array.from(new Set(dataOrigem.map(d => d[key] !== undefined && d[key] !== null ? String(d[key]) : "").filter(v => v !== ""))).sort();
+            nextFilters[key] = uniqueValues;
           }
         });
-      });
+      }
 
-      // Populate unique values for each detected custom key if present in actual keys/headers
-      Object.keys(extraFilters).forEach(key => {
-        if (hasKey(key)) {
-          const uniqueValues = Array.from(new Set(dataOrigem.map(d => d[key] !== undefined && d[key] !== null ? String(d[key]) : "").filter(v => v !== ""))).sort();
-          nextFilters[key] = uniqueValues;
-        }
+      // Only update if filters actually changed to avoid infinite loop
+      setFiltros(prev => {
+        if (JSON.stringify(prev) === JSON.stringify(nextFilters)) return prev;
+        return nextFilters;
       });
-
-      setFiltros(nextFilters);
     }
-  }, [dataOrigem, actualKeys, activeDataSource]);
+  }, [dataOrigem, actualKeys, activeDataSource, activeDataset, availableColumnProfilesString]);
 
   // Unique elements for Sidebar choice indicators with standard contextual filtering (Requirement 7)
   const availableFilters = useMemo<FiltrosDashboard>(() => {
     if (dataOrigem.length === 0) {
       return { grupos: [], cnpjs: [], marcas: [], meses: [], razoes: [] };
+    }
+
+    if (activeDataset && availableColumnProfiles.length > 0) {
+      const filtersDict: FiltrosDashboard = {};
+      availableColumnProfiles.forEach(profile => {
+        // We could implement cascading filters here too if needed, but for now simple extraction
+        filtersDict[profile.name] = Array.from(new Set(dataOrigem.map(d => d[profile.name] !== undefined && d[profile.name] !== null ? String(d[profile.name]) : "").filter(v => v !== ""))).sort();
+      });
+      return filtersDict;
     }
 
     const activeConfigs = ClientFilterManager.getActiveFilters();
@@ -1044,7 +1083,9 @@ export default function App() {
 
     const isSpreadsheet = sourceName.toLowerCase().includes(".xls") || sourceName.toLowerCase().includes(".csv") || sourceName.toLowerCase().includes("planilha") || sourceName.toLowerCase().includes("combinada");
     
-    if (isSpreadsheet) {
+    if (sourceName.includes("[SKIP_PERSISTENCE]")) {
+      // Data was already persisted to SpreadsheetWorkspaceManager or similar.
+    } else if (isSpreadsheet) {
       const fileId = `up_file_${Date.now()}`;
       const virtualFile = {
         id: fileId,
@@ -1633,7 +1674,7 @@ export default function App() {
               
               <span className="text-slate-350 dark:text-slate-700 select-none">•</span>
               <span className="text-slate-500 font-semibold font-mono text-[10px]">
-                Filtros Ativos ({Object.keys(filtros).reduce((acc,k)=>filtros[k as keyof FiltrosDashboard]?acc+1:acc,0)}) • Fonte: {activeDataSource === "DEMO_DATA" ? "Demonstração" : activeDataSource === "DATABASE_DATA" ? `Banco de Dados (${nomeFonte})` : `Planilha (${spreadsheetMetadata?.fileName || "Carregada"})`}
+                Filtros Ativos ({Object.keys(filtros).reduce((acc,k)=>filtros[k as keyof FiltrosDashboard]?acc+1:acc,0)}) • Fonte: {activeDataSource === "DEMO_DATA" ? "Demonstração" : activeDataSource === "DATABASE_DATA" ? `Banco de Dados (${nomeFonte})` : `Planilha (${derivedSpreadsheetMetadata?.fileName || "Carregada"})`}
               </span>
             </div>
 
@@ -1828,6 +1869,8 @@ export default function App() {
           {activeTab === "comissoes" && (
             <PeopleIntelligenceTab
               dataOrigem={filteredData}
+              peopleView={getNormalizedView('PeopleView')}
+              activeDataset={activeDataset}
               metrics={metrics}
               formatCurrency={formatCurrencyValue}
               calculatedCommissions={{
@@ -2045,7 +2088,7 @@ export default function App() {
         isSyncing={isSyncing}
         onSyncDatabase={handleSyncDatabaseData}
         isVpnSimulated={isVpnSimulated}
-        spreadsheetMetadata={spreadsheetMetadata}
+        spreadsheetMetadata={derivedSpreadsheetMetadata}
         currentUser={currentUser}
         dbValidationMsg={dbValidationMsg}
         onDatabaseDataLoaded={handleDatabaseDataLoaded}
@@ -2054,6 +2097,10 @@ export default function App() {
       <CommandPalette onSelectTab={setActiveTab} />
 
       <LgpdConsent />
+      
+      {typeof window !== "undefined" && window.location.search.includes("qa=true") && (
+        <DataFlowDebugPanel />
+      )}
     </div>
   );
 }

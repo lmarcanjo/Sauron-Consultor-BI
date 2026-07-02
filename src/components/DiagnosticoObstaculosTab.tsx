@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { AlertCircle, ArrowRight, ShieldAlert, Sparkles, TrendingDown, HelpCircle, CheckCircle, Calendar, MapPin, DollarSign, RefreshCw } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
+import { dataSourceManager } from "../services/dataSourceManager";
 
 interface DiagnosticoObstaculosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -12,6 +13,29 @@ export const DiagnosticoObstaculosTab: React.FC<DiagnosticoObstaculosTabProps> =
   formatCurrency
 }) => {
   const [selectedImpactLevel, setSelectedImpactLevel] = useState<"alto" | "critico" | "todos">("todos");
+
+  const activeDataset = dataSourceManager.getActiveDataset();
+  const isPendingConfiguration = useMemo(() => {
+    if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
+    if (activeDataset && activeDataset.columnProfiles) {
+      // Diagnostico requires KPIs or DREs to detect anomalies
+      const hasDiagnosticoCol = activeDataset.columnProfiles.some((p: any) => p.isKPI || p.isDRE);
+      return !hasDiagnosticoCol;
+    }
+    return true; // if no profiles, pending
+  }, [activeDataset]);
+
+  if (isPendingConfiguration) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
+        <ShieldAlert className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
+        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
+        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
+          Esta fonte de dados (planilha) não possui métricas quantitativas marcadas (KPI ou DRE) para que o motor de diagnóstico identifique anomalias e desvios reais.
+        </p>
+      </div>
+    );
+  }
 
   // Dynamically analyze the records array to create 6 highly relevant, real-time diagnostic folders representing potential business obstacles
   const obstaculos = useMemo(() => {

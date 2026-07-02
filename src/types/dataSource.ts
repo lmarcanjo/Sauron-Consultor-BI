@@ -118,6 +118,46 @@ export interface DataVersion {
   data: LancamentoFinanceiro[];
 }
 
+export interface ColumnProfile {
+  name: string;
+  type: string;
+  originalName: string;
+  isFilter?: boolean;
+  isKPI?: boolean;
+  isDRE?: boolean;
+  isPessoas?: boolean;
+  isComissao?: boolean;
+  isApresentacao?: boolean;
+  description?: string;
+  hasEmptyValues?: boolean;
+}
+
+export interface ActiveDatasetRow {
+  raw: Record<string, any>;
+  normalized?: Record<string, any>;
+  metadata: {
+    rowIndex: number;
+    sheetName: string;
+    fileName: string;
+  };
+}
+
+export interface ActiveDataset {
+  datasetId: string;
+  sourceType: ActiveDataSource;
+  sourceName: string;
+  importedAt: string;
+  rowCount: number;
+  columnCount: number;
+  sheets: string[];
+  activeSheet: string;
+  previewRows: ActiveDatasetRow[];
+  columnProfiles: ColumnProfile[];
+  importProfile: ImportProfile | null;
+  rawStorageRef: string;
+  status: "ACTIVE" | "PENDING";
+}
+
 // 18. Import Profile
 export interface ImportProfile {
   id: string;

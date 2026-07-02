@@ -2,12 +2,38 @@ import React from "react";
 import { Database, TrendingUp, AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react";
 import { MetricasConsolidadas } from "../types";
 
+import { dataSourceManager } from "../services/dataSourceManager";
+
 interface FinanceiroTabProps {
   metrics: MetricasConsolidadas;
   formatCurrency: (v: number) => string;
 }
 
 export const FinanceiroTab: React.FC<FinanceiroTabProps> = ({ metrics, formatCurrency }) => {
+  const activeDataset = dataSourceManager.getActiveDataset();
+  const isPendingConfiguration = React.useMemo(() => {
+    if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
+    if (activeDataset && activeDataset.columnProfiles) {
+      // If we don't have enough mapped columns to generate financial metrics
+      const hasFinancialCol = activeDataset.columnProfiles.some((p: any) => p.isKPI || p.isDRE);
+      return !hasFinancialCol;
+    }
+    return true; // if no profiles, pending
+  }, [activeDataset]);
+
+  if (isPendingConfiguration) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
+        <Database className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
+        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
+        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
+          Esta fonte de dados (planilha) não possui colunas marcadas como KPI ou DRE. 
+          Sem esses mapeamentos não é possível gerar o acompanhamento de carteira.
+        </p>
+      </div>
+    );
+  }
+
   const totalReceivables = metrics.receitaTotal * 0.28;
   const overdueUnpaid = totalReceivables * 0.082; // 8.2% delinquency rate
   const automakerCredits = metrics.receitaTotal * 0.052; // manufacturer bonuses pending reimbursement

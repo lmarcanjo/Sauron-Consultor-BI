@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { User, Sparkles, Plus, Trash2, CheckCircle2, Save, FileText, Target, HelpCircle, Eye, Sliders } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
+import { dataSourceManager } from "../services/dataSourceManager";
 
 interface ConsultorAreaTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -23,20 +24,17 @@ export const ConsultorAreaTab: React.FC<ConsultorAreaTabProps> = ({ dataOrigem }
 
   // Populate actual list of available items for options
   const listValues = useMemo(() => {
+    const records = dataSourceManager.getActiveSource() === "SPREADSHEET_DATA" ? dataSourceManager.getActiveRecords() : dataOrigem;
+
     if (selectedEntity === "empresa") {
-      return Array.from(new Set(dataOrigem.map((d) => d.Empresa))).sort();
+      return Array.from(new Set(records.map((d: any) => d.Empresa))).filter(Boolean).sort();
     } else if (selectedEntity === "loja") {
-      return Array.from(new Set(dataOrigem.map((d) => d.Filial))).sort();
+      return Array.from(new Set(records.map((d: any) => d.Filial || d.Loja))).filter(Boolean).sort();
     } else if (selectedEntity === "razao") {
-      return Array.from(new Set(dataOrigem.map((d) => d.Razão))).sort();
+      return Array.from(new Set(records.map((d: any) => d.Razão || d.razao))).filter(Boolean).sort();
     } else {
-      // Sellers: return a pre-defined set of 20 sellers
-      return [
-        "João Silva", "Maria Santos", "Pedro Oliveira", "Lucas Souza", "Ana Costa",
-        "Carlos Rodrigues", "Bruna Pereira", "Gabriel Alves", "Mariana Lima", "Ricardo Santos",
-        "Juliana Gomes", "Vitor Fernandes", "Renata Ribeiro", "Thiago Martins", "Amanda Barbosa",
-        "Felipe Castro", "Camila Azevedo", "Guilherme Cardoso", "Larissa Melo", "Paula Carvalho"
-      ].sort();
+      // Sellers: real from dataset
+      return Array.from(new Set(records.map((d: any) => d.Pessoa || d.Vendedor || d.vendedor || d.Consultor || d.consultor || d.Colaborador || d.colaborador))).filter(Boolean).sort();
     }
   }, [dataOrigem, selectedEntity]);
 

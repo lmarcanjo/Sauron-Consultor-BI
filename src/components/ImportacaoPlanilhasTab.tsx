@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { 
   Upload, FileSpreadsheet, Eye, Shuffle, Plus, Play, Trash2, HelpCircle, ArrowRight, 
   Download, BarChart2, Presentation, ShieldAlert, Sparkles, Folder, Check, AlertCircle, 
-  RefreshCw, FileText, FileDown, BookMarked, Layers, Tractor, Car, LayoutGrid, Filter, 
+  RefreshCw, FileText, FileDown, BookMarked, Layers, Tractor, Car, Briefcase, Factory, LayoutGrid, Filter, 
   CheckCircle2, Sliders, Info, Server, Copy, Volume2, Save, Send, ClipboardCheck
 } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
@@ -13,6 +13,7 @@ import { SpreadsheetExcelViewer } from "./spreadsheet/SpreadsheetExcelViewer";
 import { ColumnConfigDrawer } from "./spreadsheet/ColumnConfigDrawer";
 import { SpreadsheetColumn, SpreadsheetSheet } from "../types/dataSource";
 import { SpreadsheetStructureDiagnostics } from "./spreadsheet/SpreadsheetStructureDiagnostics";
+import { generateDemoSpreadsheetRows } from "../data/demoData";
 
 interface ImportacaoPlanilhasProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -700,7 +701,11 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     ];
 
     // Formulate realistic rows according to the selected segment
-    const calculatedRows = dataSourceManager.getDemoSpreadsheetRows(segment);
+    const calculatedRows = generateDemoSpreadsheetRows(segment).map(row => {
+      const cleanRow: any = { ...row, origem: "Planilha Importada" };
+      delete cleanRow.__isDemo;
+      return cleanRow;
+    });
 
     // Register into the global SpreadsheetWorkspaceManager
     const fileId = `demo_f_${segment}`;
@@ -754,7 +759,6 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
       { id: "f_vendedor", columnName: "Vendedor", label: "Consultores Ativos", type: "list", appearDashboard: true, appearReports: true, appearSlides: true }
     ]);
 
-    onDataLoaded(calculatedRows as LancamentoFinanceiro[], `Planilhas Combinadas (${demoSheets.filter(s=>s.selected).length} abas de dados)`);
     setActiveStep("abas");
   };
 
@@ -856,7 +860,6 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
           // Set file rows directly in DataSourceManager so they are globally loaded/cached
           dataSourceManager.setFileRows(fileId, fullRows);
 
-          onDataLoaded(fullRows as LancamentoFinanceiro[], `Planilhas Combinadas (${newSheetsList.filter(s => s.selected).length} abas de dados reais)`);
           setActiveStep("abas");
           
           worker.terminate();
@@ -997,7 +1000,6 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
 
         dataSourceManager.setFileRows(newFilesList[0].id, newRowsList);
 
-        onDataLoaded(newRowsList as LancamentoFinanceiro[], `Planilhas Combinadas (${newSheetsList.filter(s => s.selected).length} abas de dados reais)`);
         setActiveStep("abas");
         alert(`Planilha carregada com sucesso (Fallback): ${newRowsList.length} registros identificados.`);
       } else {
@@ -1199,12 +1201,56 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     SpreadsheetWorkspaceManager.aprovarPlanilha(fileId);
     SpreadsheetWorkspaceManager.ativarPlanilha(fileId);
 
+    // Create ActiveDataset object
+    const activeDatasetRowArray = finalRows.map((row, idx) => ({
+      raw: row,
+      normalized: row, // We already normalized it above, but keeping here just in case
+      metadata: {
+        rowIndex: idx + 1,
+        sheetName: row.aba || "",
+        fileName: row.arquivo || ""
+      }
+    }));
+
+    const currentProfiles = activeSheetColumns.map(col => ({
+      name: columnAliases[col] || col,
+      type: colDataType[col] || "text",
+      originalName: col,
+      isFilter: colIsFilter[col] || false,
+      isKPI: colIsKpi[col] || false,
+      isDRE: colDre[col] || false,
+      isPessoas: colPeopleIntel[col] || false,
+      isComissao: colCommission[col] || false,
+      isApresentacao: colPresentation[col] || false,
+      description: colDescription[col] || "",
+      hasEmptyValues: false
+    }));
+
+    const datasetId = `ds_${Date.now()}`;
+    const newActiveDataset = {
+      datasetId: datasetId,
+      sourceType: "SPREADSHEET_DATA" as const,
+      sourceName: newSpreadsheetFile.fileName,
+      importedAt: new Date().toISOString(),
+      rowCount: finalRows.length,
+      columnCount: activeSheetColumns.length,
+      sheets: selectedSheetNames,
+      activeSheet: selectedSheetNames[0] || "",
+      previewRows: activeDatasetRowArray.slice(0, 100), // store up to 100 preview rows
+      columnProfiles: currentProfiles,
+      importProfile: null,
+      rawStorageRef: fileId,
+      status: "ACTIVE" as const
+    };
+
+    dataSourceManager.setActiveDataset(newActiveDataset);
+
     // Set Active Source globally
     dataSourceManager.setActiveSource("SPREADSHEET_DATA");
     dataSourceManager.saveToStorage();
 
     // Rerender/notify parent
-    onDataLoaded(finalRows as LancamentoFinanceiro[], `Planilhas Combinadas (${selectedSheets.length} abas de dados reais)`);
+    onDataLoaded(finalRows as LancamentoFinanceiro[], `[SKIP_PERSISTENCE] Planilhas Combinadas (${selectedSheets.length} abas de dados reais)`);
     
     alert(`Planilha finalizada e ativada com sucesso! ${finalRows.length} registros reais ativos.`);
     
@@ -1325,7 +1371,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     dataSourceManager.saveToStorage();
 
     // Rerender/notify parent
-    onDataLoaded(finalRows as LancamentoFinanceiro[], `Planilhas Combinadas (${selectedSheets.length} abas de dados reais)`);
+    onDataLoaded(finalRows as LancamentoFinanceiro[], `[SKIP_PERSISTENCE] Planilhas Combinadas (${selectedSheets.length} abas de dados reais)`);
     
     const targets = Object.keys(flexibleChoices)
       .filter(k => flexibleChoices[k] === true)
@@ -1408,7 +1454,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     dataSourceManager.saveToStorage();
 
     // Rerender/notify parent
-    onDataLoaded(finalRows as LancamentoFinanceiro[], `Planilhas Combinadas (${selectedSheets.length} abas de dados reais)`);
+    onDataLoaded(finalRows as LancamentoFinanceiro[], `[SKIP_PERSISTENCE] Planilhas Combinadas (${selectedSheets.length} abas de dados reais)`);
     
     alert(`Importação confirmada com sucesso! ${finalRows.length} registros reais ativos.`);
     
@@ -1490,7 +1536,7 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
     });
 
     setRawRows(updatedRows);
-    onDataLoaded(updatedRows as LancamentoFinanceiro[], `Planilhas Combinadas (+ Campo Calculado: ${newFieldName})`);
+    onDataLoaded(updatedRows as LancamentoFinanceiro[], `[SKIP_PERSISTENCE] Planilhas Combinadas (+ Campo Calculado: ${newFieldName})`);
 
     setNewFieldName("");
     setNewFieldFormula("");
@@ -1751,6 +1797,29 @@ export const ImportacaoPlanilhasTab: React.FC<ImportacaoPlanilhasProps> = ({
               <p className="text-xs font-bold text-slate-705 dark:text-slate-250">Arraste seus arquivos de planilhas ou dê um clique para navegar</p>
               <p className="text-[10.5px] text-slate-405">Suporte: .XLSX, .XLS, .CSV ou .TSV de qualquer layout e número de abas</p>
             </div>
+
+            {/* Configurações de Demonstração */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Aceleração: Carregar Estrutura Fictícia</span>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { id: "automotivo", label: "Concessionárias", icon: Car },
+                  { id: "agro", label: "Agronegócio", icon: Tractor },
+                  { id: "servicos", label: "Serviços B2B", icon: Briefcase },
+                  { id: "industria", label: "Indústria", icon: Factory },
+                ].map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => carregarDemonstrativoFicticio(item.id as "automotivo" | "agro" | "servicos" | "industria")}
+                    className="flex flex-col items-center justify-center p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-900/50 hover:bg-blue-50 hover:border-blue-300 transition-colors gap-2 cursor-pointer"
+                  >
+                    <item.icon className="text-blue-500" size={24} />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {rawFiles.length > 0 && (
               <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Planilhas Ativas Registradas ({rawFiles.length})</span>

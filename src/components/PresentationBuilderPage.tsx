@@ -10,6 +10,7 @@ import {
   Tooltip, Legend, LineChart, Line, AreaChart, Area, PieChart, Pie, Cell 
 } from 'recharts';
 import { LancamentoFinanceiro } from '../types';
+import { dataSourceManager } from "../services/dataSourceManager";
 
 interface PresentationBuilderPageProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -35,7 +36,16 @@ export const PresentationBuilderPage: React.FC<PresentationBuilderPageProps> = (
   metrics,
   formatCurrency = (v: number) => "R$ " + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }) => {
-  
+  const activeDataset = dataSourceManager.getActiveDataset();
+  const isPendingConfiguration = useMemo(() => {
+    if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
+    if (activeDataset && activeDataset.columnProfiles) {
+      const hasPresentationCol = activeDataset.columnProfiles.some((p: any) => p.isApresentacao || p.isKPI || p.isDRE);
+      return !hasPresentationCol;
+    }
+    return true; // if no profiles, pending
+  }, [activeDataset]);
+
   // 1. Initial Slide deck config (Start empty and generate dynamically from active metrics)
   const [slides, setSlides] = useState<SlideConfig[]>([]);
 
@@ -247,6 +257,19 @@ Sauron OS - Inteligência BI de Alta Performance
   }, [dataOrigem, filteredData]);
 
   const currentMeetingSlide = slides.filter(s => s.visible)[currentMeetingIndex];
+
+  if (isPendingConfiguration) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
+        <Presentation className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
+        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
+        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
+          Esta fonte de dados não possui colunas marcadas como Apresentação, KPI ou DRE. 
+          Sem esses mapeamentos não é possível gerar slides automaticamente.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] font-sans animate-fade-in text-slate-850 dark:text-slate-100" id="presentations-master-page">

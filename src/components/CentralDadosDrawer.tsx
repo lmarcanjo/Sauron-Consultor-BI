@@ -162,13 +162,14 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
 
             <div className="grid grid-cols-2 gap-2.5">
               {/* Import Spreadsheet Button */}
-              {["Super Admin", "Consultant Admin", "Consultant"].includes(currentUser?.role || "") ? (
+              {["Super Admin", "Consultant Admin", "Consultant", "consultor"].includes(currentUser?.role || "") ? (
                 <button
                   onClick={onTriggerFileSelect}
+                  data-testid="btn-drawer-import"
                   className="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-750 hover:border-blue-500 hover:dark:border-blue-400 hover:bg-white dark:hover:bg-slate-900 rounded-xl transition-all cursor-pointer space-y-2 text-center h-24"
                 >
                   <Upload size={18} className="text-blue-500" />
-                  <span className="font-extrabold text-[10px] uppercase tracking-wide">Importar Planilhas</span>
+                  <span className="font-extrabold text-[10px] uppercase tracking-wide">Importar Planilha</span>
                 </button>
               ) : (
                 <div className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl text-center space-y-2 text-slate-400 h-24 opacity-60">

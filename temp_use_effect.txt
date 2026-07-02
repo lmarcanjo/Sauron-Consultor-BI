@@ -1,0 +1,289 @@
+src/components/pages/ReportsPage.tsx:  React.useEffect(() => {
+src/components/pages/ReportsPage.tsx-    if (columnsInfo.categorical.length > 0 && !selectedDimension) {
+src/components/pages/ReportsPage.tsx-      // Prefer standard names first, fallback to first category
+--
+src/components/CommandPalette.tsx:import React, { useState, useEffect, useRef } from "react";
+src/components/CommandPalette.tsx-import { Search, Terminal, FileText, ArrowRight, User, FolderOpen, Calendar, HelpCircle, X, Plus, Activity, Users, ClipboardList, Target, Database, Sparkles, SlidersHorizontal } from "lucide-react";
+src/components/CommandPalette.tsx-import { searchEngine, SearchResultItem } from "../core/search/SearchEngine";
+--
+src/components/CommandPalette.tsx:  useEffect(() => {
+src/components/CommandPalette.tsx-    const handleKeyDown = (e: KeyboardEvent) => {
+src/components/CommandPalette.tsx-      if ((e.key === "k" || e.key === "K") && (e.ctrlKey || e.metaKey)) {
+--
+src/components/CommandPalette.tsx:  useEffect(() => {
+src/components/CommandPalette.tsx-    if (isOpen) {
+src/components/CommandPalette.tsx-      setTimeout(() => {
+--
+src/components/spreadsheet/ColumnConfigDrawer.tsx:import React, { useState, useEffect } from "react";
+src/components/spreadsheet/ColumnConfigDrawer.tsx-import { X, Tag, Eye, EyeOff, Save, ListFilter, PieChart, FileText, Users, Percent, Presentation, BookOpen, Sparkles } from "lucide-react";
+src/components/spreadsheet/ColumnConfigDrawer.tsx-
+--
+src/components/spreadsheet/ColumnConfigDrawer.tsx:  useEffect(() => {
+src/components/spreadsheet/ColumnConfigDrawer.tsx-    if (column) {
+src/components/spreadsheet/ColumnConfigDrawer.tsx-      setAlias(column.alias || column.name);
+--
+src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx:import React, { useState, useEffect } from "react";
+src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx-import { dataSourceManager } from "../../core/data/DataSourceManager";
+src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx-import { IndexedSpreadsheetStorage } from "../../core/storage/IndexedSpreadsheetStorage";
+--
+src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx:  useEffect(() => {
+src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx-    const handleUpdate = () => {
+src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx-      const ws = dataSourceManager.getWorkspace();
+--
+src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx:  useEffect(() => {
+src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx-    const activeFile = workspace.files.find((f) => f.id === activeFileId);
+src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx-    if (activeFile && activeFile.sheets.length > 0) {
+--
+src/components/spreadsheet/SpreadsheetExcelViewer.tsx:import React, { useState, useMemo, useRef, useEffect } from "react";
+src/components/spreadsheet/SpreadsheetExcelViewer.tsx-import { Search, FileSpreadsheet, Settings, Filter, Check, ShieldAlert, ChevronLeft, ChevronRight } from "lucide-react";
+src/components/spreadsheet/SpreadsheetExcelViewer.tsx-
+--
+src/components/spreadsheet/SpreadsheetExcelViewer.tsx:  useEffect(() => {
+src/components/spreadsheet/SpreadsheetExcelViewer.tsx-    setCurrentPage(0);
+src/components/spreadsheet/SpreadsheetExcelViewer.tsx-  }, [searchTerm, activeSheet, pageSize]);
+--
+src/components/DatabaseConnector.tsx:import React, { useState, useEffect } from "react";
+src/components/DatabaseConnector.tsx-import {
+src/components/DatabaseConnector.tsx-  Database,
+--
+src/components/DatabaseConnector.tsx:  useEffect(() => {
+src/components/DatabaseConnector.tsx-    const fetchServerAndLocalConfig = async () => {
+src/components/DatabaseConnector.tsx-      let configLoaded = false;
+--
+src/components/StreamlitExporter.tsx:import React, { useState, useEffect } from "react";
+src/components/StreamlitExporter.tsx-import { Terminal, Copy, Check, Download, FileText, Settings, PlayCircle, BookOpen } from "lucide-react";
+src/components/StreamlitExporter.tsx-
+--
+src/components/StreamlitExporter.tsx:  useEffect(() => {
+src/components/StreamlitExporter.tsx-    async function fetchData() {
+src/components/StreamlitExporter.tsx-      try {
+--
+src/components/ExecutiveStoryTab.tsx:import React, { useState, useEffect, useRef } from "react";
+src/components/ExecutiveStoryTab.tsx-import {
+src/components/ExecutiveStoryTab.tsx-  Presentation,
+--
+src/components/ExecutiveStoryTab.tsx:  useEffect(() => {
+src/components/ExecutiveStoryTab.tsx-    let interval: any = null;
+src/components/ExecutiveStoryTab.tsx-    if (isPresenting && presentationSession) {
+--
+src/components/ApresentacoesTab.tsx:  React.useEffect(() => {
+src/components/ApresentacoesTab.tsx-    if (slides.length === 0) {
+src/components/ApresentacoesTab.tsx-      const dynamicSlides: SlideConfig[] = [
+--
+src/components/useExecutiveSessionState.ts:import { useState, useEffect, useMemo } from "react";
+src/components/useExecutiveSessionState.ts-import { WorkspaceProject, ActionPlan, Meeting } from "../modules/consultant-workspace/types";
+src/components/useExecutiveSessionState.ts-import { AgendaItem } from "./ExecutiveSessionAgenda";
+--
+src/components/useExecutiveSessionState.ts:  useEffect(() => {
+src/components/useExecutiveSessionState.ts-    const interval = setInterval(() => {
+src/components/useExecutiveSessionState.ts-      setTimerSeconds((s) => s + 1);
+--
+src/components/PresentationBuilderPage.tsx:  React.useEffect(() => {
+src/components/PresentationBuilderPage.tsx-    if (slides.length === 0) {
+src/components/PresentationBuilderPage.tsx-      setSlides([
+--
+src/components/FechamentoMensalTab.tsx:import React, { useState, useEffect, useMemo } from "react";
+src/components/FechamentoMensalTab.tsx-import { 
+src/components/FechamentoMensalTab.tsx-  Presentation, 
+--
+src/components/FechamentoMensalTab.tsx:  useEffect(() => {
+src/components/FechamentoMensalTab.tsx-    // 1. Load context details
+src/components/FechamentoMensalTab.tsx-    const savedTopics = localStorage.getItem("sauron_consultant_topics");
+--
+src/components/IdentitySimulationBar.tsx:import React, { useState, useEffect } from "react";
+src/components/IdentitySimulationBar.tsx-import { 
+src/components/IdentitySimulationBar.tsx-  Briefcase, 
+--
+src/components/IdentitySimulationBar.tsx:  useEffect(() => {
+src/components/IdentitySimulationBar.tsx-    // Initial load
+src/components/IdentitySimulationBar.tsx-    const current = workspaceIntelligenceEngine.contextManager.getContext();
+--
+src/components/ModoReuniaoTab.tsx:import React, { useState, useEffect } from 'react';
+src/components/ModoReuniaoTab.tsx-import { MonitorPlay, ChevronLeft, ChevronRight, Clock, Maximize, Target, HelpCircle, CheckSquare, Save, X, Presentation, FileText } from 'lucide-react';
+src/components/ModoReuniaoTab.tsx-
+--
+src/components/ModoReuniaoTab.tsx:  useEffect(() => {
+src/components/ModoReuniaoTab.tsx-    const it = setInterval(() => setTimerSeconds(s => s + 1), 1000);
+src/components/ModoReuniaoTab.tsx-    return () => clearInterval(it);
+--
+src/components/ConsultorAreaTab.tsx:import React, { useState, useEffect, useMemo } from "react";
+src/components/ConsultorAreaTab.tsx-import { User, Sparkles, Plus, Trash2, CheckCircle2, Save, FileText, Target, HelpCircle, Eye, Sliders } from "lucide-react";
+src/components/ConsultorAreaTab.tsx-import { LancamentoFinanceiro } from "../types";
+--
+src/components/ConsultorAreaTab.tsx:  useEffect(() => {
+src/components/ConsultorAreaTab.tsx-    // Sync with default options
+src/components/ConsultorAreaTab.tsx-    if (listValues.length > 0) {
+--
+src/components/ConsultorAreaTab.tsx:  useEffect(() => {
+src/components/ConsultorAreaTab.tsx-    const savedNotes = localStorage.getItem("sauron_consultant_notes");
+src/components/ConsultorAreaTab.tsx-    if (savedNotes) {
+--
+src/components/ConsultorIaTab.tsx:import React, { useState, useRef, useEffect } from "react";
+src/components/ConsultorIaTab.tsx-import { Sparkles, Send, BrainCircuit, RefreshCw, Layers, Terminal, AlertTriangle, Lightbulb } from "lucide-react";
+src/components/ConsultorIaTab.tsx-import { LancamentoFinanceiro, MetricasConsolidadas } from "../types";
+--
+src/components/ConsultorIaTab.tsx:  useEffect(() => {
+src/components/ConsultorIaTab.tsx-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+src/components/ConsultorIaTab.tsx-  }, [messages, isThinking]);
+--
+src/components/CentralDadosTab.tsx:import React, { useState, useEffect, useMemo } from "react";
+src/components/CentralDadosTab.tsx-import { 
+src/components/CentralDadosTab.tsx-  Database, Shield, Network, FileSpreadsheet, Shuffle, Filter, Lock, 
+--
+src/components/CentralDadosTab.tsx:  useEffect(() => {
+src/components/CentralDadosTab.tsx-    if (visibleFilesList.length > 0) {
+src/components/CentralDadosTab.tsx-      const exists = visibleFilesList.some(f => f.id === selectedFileId);
+--
+src/components/CentralDadosTab.tsx:  useEffect(() => {
+src/components/CentralDadosTab.tsx-    // Load Client Profile from LocalStorage
+src/components/CentralDadosTab.tsx-    const savedProfile = localStorage.getItem("sauron_client_profile");
+--
+src/components/ImportacaoPlanilhasTab.tsx:import React, { useState, useRef, useEffect, useMemo } from "react";
+src/components/ImportacaoPlanilhasTab.tsx-import { 
+src/components/ImportacaoPlanilhasTab.tsx-  Upload, FileSpreadsheet, Eye, Shuffle, Plus, Play, Trash2, HelpCircle, ArrowRight, 
+--
+src/components/ImportacaoPlanilhasTab.tsx:  useEffect(() => {
+src/components/ImportacaoPlanilhasTab.tsx-    if (typeof localStorage !== "undefined") {
+src/components/ImportacaoPlanilhasTab.tsx-      localStorage.setItem("sauron_ds_import_profile", JSON.stringify(importProfileList));
+--
+src/components/ImportacaoPlanilhasTab.tsx:  useEffect(() => {
+src/components/ImportacaoPlanilhasTab.tsx-    const totalRows = rawRows.length;
+src/components/ImportacaoPlanilhasTab.tsx-    if (totalRows === 0) {
+--
+src/components/ImportacaoPlanilhasTab.tsx:  useEffect(() => {
+src/components/ImportacaoPlanilhasTab.tsx-    const stored = localStorage.getItem("sauron_ds_import_profile");
+src/components/ImportacaoPlanilhasTab.tsx-    if (stored) {
+--
+src/components/ImportacaoPlanilhasTab.tsx:  useEffect(() => {
+src/components/ImportacaoPlanilhasTab.tsx-    const plugin = pluginEngine.getPlugin(selectedSegment);
+src/components/ImportacaoPlanilhasTab.tsx-    if (plugin && typeof plugin.getSuggestedMappings === "function") {
+--
+src/components/ImportacaoPlanilhasTab.tsx:  useEffect(() => {
+src/components/ImportacaoPlanilhasTab.tsx-    const workspace = dataSourceManager.getWorkspace();
+src/components/ImportacaoPlanilhasTab.tsx-    const activeFiles = workspace.files.filter(f => workspace.activeFileIds.includes(f.id));
+--
+src/components/ImportacaoPlanilhasTab.tsx:  useEffect(() => {
+src/components/ImportacaoPlanilhasTab.tsx-    if (rawSheets && rawSheets.length > 0) {
+src/components/ImportacaoPlanilhasTab.tsx-      setSlideDeck(prev => prev.map((slide, idx) => {
+--
+src/components/PerfisConfigTab.tsx:import React, { useState, useEffect } from "react";
+src/components/PerfisConfigTab.tsx-import { Shield, BarChart3, Sliders, BookOpen, Save, RotateCcw, Plus, Trash2, ShieldCheck, Eye, EyeOff } from "lucide-react";
+src/components/PerfisConfigTab.tsx-import { getStoredProfiles, saveStoredProfiles, CorporateProfile, DEFAULT_PRESETS, auditLog } from "../utils/profileManager";
+--
+src/components/PerfisConfigTab.tsx:  useEffect(() => {
+src/components/PerfisConfigTab.tsx-    setProfiles(getStoredProfiles());
+src/components/PerfisConfigTab.tsx-    
+--
+src/components/VpnGatewayTab.tsx:import React, { useState, useEffect } from 'react';
+src/components/VpnGatewayTab.tsx-import { Network, Server, Shield, Key, AlertTriangle, Play, Square, Activity, Database, Terminal } from 'lucide-react';
+src/components/VpnGatewayTab.tsx-
+--
+src/components/VpnGatewayTab.tsx:  useEffect(() => {
+src/components/VpnGatewayTab.tsx-    fetchConfigs();
+src/components/VpnGatewayTab.tsx-  }, []);
+--
+src/components/SidebarFilters.tsx:  React.useEffect(() => {
+src/components/SidebarFilters.tsx-    const handleUpdate = () => setTick(t => t + 1);
+src/components/SidebarFilters.tsx-    window.addEventListener("sauron_filters_updated", handleUpdate);
+--
+src/components/ProductQAConsole.tsx:import React, { useState, useEffect } from "react";
+src/components/ProductQAConsole.tsx-import { 
+src/components/ProductQAConsole.tsx-  ShieldAlert, CheckCircle2, AlertTriangle, Play, RefreshCw, ArrowRight, ClipboardCheck 
+--
+src/components/ProductQAConsole.tsx:  useEffect(() => {
+src/components/ProductQAConsole.tsx-    setTestTime(new Date().toLocaleTimeString("pt-BR") + " " + new Date().toLocaleDateString("pt-BR"));
+src/components/ProductQAConsole.tsx-  }, []);
+--
+src/components/LgpdConsent.tsx:import React, { useState, useEffect } from "react";
+src/components/LgpdConsent.tsx-import { ShieldAlert, Check, X, FileText, Trash2, ShieldCheck, Heart } from "lucide-react";
+src/components/LgpdConsent.tsx-
+--
+src/components/LgpdConsent.tsx:  useEffect(() => {
+src/components/LgpdConsent.tsx-    const accepted = localStorage.getItem("sauron_lgpd_accepted");
+src/components/LgpdConsent.tsx-    if (!accepted) {
+--
+src/components/CaseHub.tsx:import React, { useState, useEffect, useMemo } from "react";
+src/components/CaseHub.tsx-import { CaseHubHeader } from "./CaseHubHeader";
+src/components/CaseHub.tsx-import { CaseContextTabs } from "./CaseContextTabs";
+--
+src/components/CaseHub.tsx:  useEffect(() => {
+src/components/CaseHub.tsx-    const unsub = workspaceIntelligenceEngine.contextManager.subscribe(setContext);
+src/components/CaseHub.tsx-    const handleSwitchTab = (e: Event) => {
+--
+src/components/CaseHub.tsx:  useEffect(() => { loadWorkspace(); }, []);
+src/components/CaseHub.tsx-
+src/components/CaseHub.tsx:  useEffect(() => {
+src/components/CaseHub.tsx-    if (activeProject) {
+src/components/CaseHub.tsx-      setDossierLog(caseDossierEngine.generateDossier(activeProject));
+--
+src/components/DataFlowDebugPanel.tsx:import React, { useState, useEffect } from 'react';
+src/components/DataFlowDebugPanel.tsx-import { dataSourceManager } from '../services/dataSourceManager';
+src/components/DataFlowDebugPanel.tsx-
+--
+src/components/DataFlowDebugPanel.tsx:  useEffect(() => {
+src/components/DataFlowDebugPanel.tsx-    const handler = () => {
+src/components/DataFlowDebugPanel.tsx-      setLastEvent(new Date().toLocaleTimeString('pt-BR') + ' - DATASET_ACTIVATED');
+--
+src/hooks/useDataSourceManager.ts:import { useState, useEffect } from "react";
+src/hooks/useDataSourceManager.ts-import { dataSourceManager } from "../services/dataSourceManager";
+src/hooks/useDataSourceManager.ts-import { LancamentoFinanceiro } from "../types";
+--
+src/hooks/useDataSourceManager.ts:  useEffect(() => {
+src/hooks/useDataSourceManager.ts-    const handleUpdate = () => {
+src/hooks/useDataSourceManager.ts-      setActiveDataSourceState(dataSourceManager.getActiveSource());
+--
+src/sauron-sdk/ui/SauronDialog.tsx:import React, { useEffect } from "react";
+src/sauron-sdk/ui/SauronDialog.tsx-import { X } from "lucide-react";
+src/sauron-sdk/ui/SauronDialog.tsx-import { motion, AnimatePresence } from "motion/react";
+--
+src/sauron-sdk/ui/SauronDialog.tsx:  useEffect(() => {
+src/sauron-sdk/ui/SauronDialog.tsx-    const handleKeyDown = (e: KeyboardEvent) => {
+src/sauron-sdk/ui/SauronDialog.tsx-      if (e.key === "Escape" && isOpen) {
+--
+src/sauron-sdk/ui/SauronDrawer.tsx:import React, { useEffect } from "react";
+src/sauron-sdk/ui/SauronDrawer.tsx-import { X } from "lucide-react";
+src/sauron-sdk/ui/SauronDrawer.tsx-import { motion, AnimatePresence } from "motion/react";
+--
+src/sauron-sdk/ui/SauronDrawer.tsx:  useEffect(() => {
+src/sauron-sdk/ui/SauronDrawer.tsx-    const handleKeyDown = (e: KeyboardEvent) => {
+src/sauron-sdk/ui/SauronDrawer.tsx-      if (e.key === "Escape" && isOpen) {
+--
+src/App.tsx:import React, { useState, useEffect, useMemo, useRef } from "react";
+src/App.tsx-import ReactMarkdown from "react-markdown";
+src/App.tsx-import {
+--
+src/App.tsx:  useEffect(() => {
+src/App.tsx-    if (activeSimUser) {
+src/App.tsx-      setCurrentUser({
+--
+src/App.tsx:  useEffect(() => {
+src/App.tsx-    const handleOpenCentralDados = () => setIsCentralDadosOpen(true);
+src/App.tsx-    const handleOpenFilters = () => setIsFilterDrawerOpen(true);
+--
+src/App.tsx:  useEffect(() => {
+src/App.tsx-    // Load metadata, system database configs and check for cloud database sync
+src/App.tsx-    loadReportHistoryMetadata();
+--
+src/App.tsx:  useEffect(() => {
+src/App.tsx-    if (darkMode) {
+src/App.tsx-      document.documentElement.classList.add("dark");
+--
+src/App.tsx:  useEffect(() => {
+src/App.tsx-    if (dataOrigem.length > 0) {
+src/App.tsx-      const nextFilters: FiltrosDashboard = {};
+--
+src/App.tsx:  useEffect(() => {
+src/App.tsx-    if (narrarFeedback && aiAnalysis && !aiLoading) {
+src/App.tsx-      window.speechSynthesis?.cancel(); // Cancel any current narration queue
+--
+src/App.tsx:  useEffect(() => {
+src/App.tsx-    const metricsKey = `${metrics.receitaTotal}-${metrics.lucroTotal}-${metrics.porMarca?.length || 0}`;
+src/App.tsx-    if (
+--
+src/design-system/theme/ThemeProvider.tsx:import React, { createContext, useContext, useState, useEffect } from "react";
+src/design-system/theme/ThemeProvider.tsx-import { ThemeType, Theme } from "./themeTypes";
+src/design-system/theme/ThemeProvider.tsx-import { ThemeEngine } from "./ThemeEngine";
+--
+src/design-system/theme/ThemeProvider.tsx:  useEffect(() => {
+src/design-system/theme/ThemeProvider.tsx-    // Detect dark mode from html element or storage if needed
+src/design-system/theme/ThemeProvider.tsx-    if (typeof document !== "undefined") {

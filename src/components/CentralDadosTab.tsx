@@ -8,6 +8,7 @@ import {
 import { LancamentoFinanceiro, FiltrosDashboard } from "../types";
 import { DatabaseConnector } from "./DatabaseConnector";
 import { useDataSourceManager } from "../hooks/useDataSourceManager";
+import { dataSourceManager } from "../services/dataSourceManager";
 import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
 import { ImportacaoPlanilhasTab } from "./ImportacaoPlanilhasTab";
 
@@ -510,9 +511,23 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                         <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase">Ativo</span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-450 leading-relaxed mb-3">
-                      Lê lançamentos gerenciais importados via Excel ou CSV no workspace de planilhas.
-                    </p>
+                    
+                    {/* Active Dataset Status Box */}
+                    {dataSourceManager.getActiveDataset() && activeDataSource === "SPREADSHEET_DATA" ? (
+                      <div className="mb-3 p-2 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900 rounded-lg">
+                        <div className="text-[9px] font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wider mb-1">Dataset Homologado</div>
+                        <div className="text-[10px] text-slate-700 dark:text-slate-300">
+                          <p><span className="font-medium text-slate-500">Origem:</span> {dataSourceManager.getActiveDataset()?.sourceName}</p>
+                          <p><span className="font-medium text-slate-500">Linhas:</span> {dataSourceManager.getActiveDataset()?.rowCount}</p>
+                          <p><span className="font-medium text-slate-500">Filtros:</span> {dataSourceManager.getAvailableFilters().length}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-450 leading-relaxed mb-3">
+                        Lê lançamentos gerenciais importados via Excel ou CSV no workspace de planilhas.
+                      </p>
+                    )}
+
                     <button
                       onClick={() => setActiveSource("SPREADSHEET_DATA")}
                       disabled={activeDataSource === "SPREADSHEET_DATA"}

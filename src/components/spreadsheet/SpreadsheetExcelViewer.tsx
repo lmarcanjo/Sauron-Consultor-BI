@@ -78,17 +78,11 @@ export const SpreadsheetExcelViewer: React.FC<SpreadsheetExcelViewerProps> = ({
 
   // Virtualization Setup
   const [scrollTop, setScrollTop] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(400);
+  const containerHeight = 450;
   const containerRef = useRef<HTMLDivElement>(null);
   
   const rowHeight = 36; // px
   const buffer = 8;
-
-  useEffect(() => {
-    if (containerRef.current) {
-      setContainerHeight(containerRef.current.clientHeight || 400);
-    }
-  }, [containerRef.current?.clientHeight]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);

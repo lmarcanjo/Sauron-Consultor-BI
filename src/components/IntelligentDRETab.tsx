@@ -14,6 +14,7 @@ import {
 import { LancamentoFinanceiro } from "../types";
 import { availableTemplates } from "../utils/industryTemplates";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, ComposedChart, Line, Cell } from 'recharts';
+import { dataSourceManager } from "../services/dataSourceManager";
 
 interface IntelligentDRETabProps {
   filteredData: LancamentoFinanceiro[];
@@ -38,6 +39,29 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
       availableTemplates[0]
     );
   }, [activeIndustryTemplateId]);
+
+  const activeDataset = dataSourceManager.getActiveDataset();
+  const isPendingConfiguration = useMemo(() => {
+    if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
+    if (activeDataset && activeDataset.columnProfiles) {
+      const hasDRECol = activeDataset.columnProfiles.some((p: any) => p.isDRE || p.isKPI);
+      return !hasDRECol;
+    }
+    return true; // if no profiles, pending
+  }, [activeDataset]);
+
+  if (isPendingConfiguration) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl">
+        <Calculator className="text-slate-300 dark:text-slate-700 w-16 h-16 mb-4" />
+        <h2 className="text-lg font-black text-slate-800 dark:text-slate-200 mb-2 uppercase tracking-wider">Configuração Pendente</h2>
+        <p className="text-xs text-slate-500 text-center max-w-sm mb-6">
+          Esta fonte de dados (planilha) não possui nenhuma coluna mapeada para "DRE" ou financeira (Receita, Custo, Despesa). 
+          Configure no Assistente de Importação ou verifique suas colunas.
+        </p>
+      </div>
+    );
+  }
 
   // Motor Inteligente DRE - Automatically trying to categorize Receitas, Despesas, Custos based on standard names
   const dreData = useMemo(() => {
