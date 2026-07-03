@@ -21,7 +21,16 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
   const [selectedConta, setSelectedConta] = useState<string>("");
   const [clickedAccount, setClickedAccount] = useState<string>("");
 
-  const activeDataset = activeDatasetStore.getActiveDataset();
+  const [activeDataset, setActiveDataset] = React.useState(activeDatasetStore.getActiveDataset());
+
+  useEffect(() => {
+    const unsub = activeDatasetStore.subscribe((event) => {
+        if (event.type === "DATASET_ACTIVATED" || event.type === "DATASET_REHYDRATED" || event.type === "DATASET_REMOVED") {
+            setActiveDataset(activeDatasetStore.getActiveDataset());
+        }
+    });
+    return unsub;
+  }, []);
   
   useEffect(() => {
     if (activeDataset) {
