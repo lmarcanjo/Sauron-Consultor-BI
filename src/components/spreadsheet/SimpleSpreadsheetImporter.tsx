@@ -22,20 +22,12 @@ import {
 import { dataSourceManager } from "../../services/dataSourceManager";
 import { SpreadsheetWorkspaceManager } from "../../services/spreadsheetWorkspaceManager";
 import { IndexedSpreadsheetStorage } from "../../core/storage/IndexedSpreadsheetStorage";
-import { ActiveDataset, ActiveDatasetRow, ColumnProfile } from "../../types/dataSource";
+import { ActiveDataset, ActiveDatasetRow, ColumnProfile, SheetMetadata, ActiveWorkbookDataset } from "../../types/dataSource";
 import { activeDatasetStore } from "../../core/data/ActiveDatasetStore";
 
 interface SimpleSpreadsheetImporterProps {
   onImported: (dataset: ActiveDataset) => void;
   onCancel: () => void;
-}
-
-interface ParsedSheet {
-  sheetName: string;
-  rowCount: number;
-  colCount: number;
-  columns: string[];
-  rows: any[];
 }
 
 export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps> = ({
@@ -47,94 +39,74 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
   const [activeTab, setActiveTab] = useState<"preview" | "columns">("preview");
   
   // Parsed workbook structures
-  const [sheets, setSheets] = useState<ParsedSheet[]>([]);
+  const [sheetMetadata, setSheetMetadata] = useState<SheetMetadata[]>([]);
   const [activeSheetName, setActiveSheetName] = useState<string>("");
+  const [activeSheetPreviewRows, setActiveSheetPreviewRows] = useState<any[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedSheets, setSelectedSheets] = useState<Set<string>>(new Set());
 
   // Column configuration state
   const [columnProfiles, setColumnProfiles] = useState<ColumnProfile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Active sheet computed values
-  const activeSheet = sheets.find(s => s.sheetName === activeSheetName) || sheets[0];
+  const activeSheetMeta = sheetMetadata.find(s => s.sheetName === activeSheetName) || sheetMetadata[0];
 
-  // Initialize and parse files
+  useEffect(() => {
+    if (activeSheetMeta && file) {
+      // Fetch preview rows for the selected sheet
+      IndexedSpreadsheetStorage.getRowsPaged(`workbook_${file.name.replace(/\s+/g, '_')}`, activeSheetMeta.sheetName, 0, 100)
+        .then(rows => setActiveSheetPreviewRows(rows))
+        .catch(console.error);
+    }
+  }, [activeSheetName, file]);
   const handleFileSelect = async (selectedFile: File) => {
-    console.log("[Sauron Instrumentation] IMPORT_START - Iniciando o parse do arquivo bruto: " + selectedFile.name);
+    console.log("[Sauron Instrumentation] IMPORT_START - Iniciando o parse do arquivo bruto (metadata): " + selectedFile.name);
     setFile(selectedFile);
     setIsLoading(true);
     try {
       const XLSX = await import("xlsx");
       let arrayBuffer = await selectedFile.arrayBuffer();
 
-      // Handle semicolon delimited CSVs (common in European and Brazilian locales)
-      if (selectedFile.name.toLowerCase().endsWith(".csv")) {
-        const text = new TextDecoder("utf-8").decode(arrayBuffer);
-        if (text.includes(";") && !text.includes(",")) {
-          const replaced = text.replace(/;/g, ",");
-          arrayBuffer = new TextEncoder().encode(replaced).buffer;
-        }
-      }
-
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
-      const parsedSheets: ParsedSheet[] = [];
+      const workbook = XLSX.read(arrayBuffer, { type: "array", cellFormula: true, sheetRows: 1 });
+      const parsedSheetMetadata: SheetMetadata[] = [];
 
       workbook.SheetNames.forEach((sheetName) => {
         const worksheet = workbook.Sheets[sheetName];
-        const rawJson: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-        console.log(`[Sauron Instrumentation] ROWS_PARSED - Sheet Name: ${sheetName}, Linhas: ${rawJson.length}`);
+        
+        // Count formulas roughly
+        let formulaCount = 0;
+        Object.keys(worksheet).forEach(key => {
+          if (worksheet[key].f) formulaCount++;
+        });
 
-        if (rawJson.length > 0) {
-          const keys = new Set<string>();
-          rawJson.forEach(row => {
-            Object.keys(row).forEach(k => {
-              if (k && k.trim() !== "") {
-                keys.add(k);
-              }
-            });
-          });
-          const columns = Array.from(keys);
-          
-          parsedSheets.push({
-            sheetName,
-            rowCount: rawJson.length,
-            colCount: columns.length,
-            columns,
-            rows: rawJson
-          });
-        }
+        // Dimensions
+        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+        const rowCount = range.e.r + 1;
+        const colCount = range.e.c + 1;
+
+        // Heuristic
+        let classification: SheetMetadata["classification"] = "Não classificada";
+        if (rowCount === 0) classification = "Vazia";
+        else if (formulaCount > rowCount * 2) classification = "Cálculo/Fórmulas";
+        else if (colCount < 5 && rowCount > 100) classification = "Cadastro";
+        else if (rowCount > 1000) classification = "Base de dados";
+        else if (formulaCount > 0) classification = "Relatório";
+
+        parsedSheetMetadata.push({
+          sheetName,
+          rowCount,
+          columnCount: colCount,
+          formulaCount,
+          storageRef: `ref_${selectedFile.name}_${sheetName}`,
+          classification,
+          selectedForImport: false
+        });
       });
 
-      if (parsedSheets.length === 0) {
-        alert("Nenhum dado legível ou tabela estruturada foi encontrada neste arquivo.");
-        setFile(null);
-        setIsLoading(false);
-        return;
-      }
-
-      const totalRowsParsed = parsedSheets.reduce((sum, s) => sum + s.rowCount, 0);
-      const mainColCount = parsedSheets[0]?.colCount || 0;
-      console.log(`[Sauron Instrumentation] SIMPLE_IMPORTER_FILE_PARSED - datasetId: PENDING, sourceName: ${selectedFile.name}, rowCount: ${totalRowsParsed}, columnCount: ${mainColCount}, sourceType: SPREADSHEET_DATA`);
-
-      setSheets(parsedSheets);
-      const defaultSheetName = parsedSheets[0].sheetName;
-      setActiveSheetName(defaultSheetName);
-
-      // Initialize Column Profiles based on first sheet's columns
-      const initialProfiles = parsedSheets[0].columns.map(col => ({
-        name: col,
-        originalName: col,
-        type: "string",
-        isFilter: false,
-        isKPI: false,
-        isDRE: false,
-        isPessoas: false,
-        isComissao: false,
-        isApresentacao: false,
-        hasEmptyValues: false
-      }));
-      setColumnProfiles(initialProfiles);
+      setSheetMetadata(parsedSheetMetadata);
+      setActiveSheetName(parsedSheetMetadata[0]?.sheetName || "");
     } catch (err: any) {
       console.error(err);
       alert("Falha ao ler o arquivo de planilha: " + err.message);
@@ -146,24 +118,12 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
 
   // Sync column profiles if active sheet changes
   useEffect(() => {
-    if (activeSheet) {
-      const initialProfiles = activeSheet.columns.map(col => {
-        const existing = columnProfiles.find(p => p.originalName === col);
-        if (existing) return existing;
-        return {
-          name: col,
-          originalName: col,
-          type: "string",
-          isFilter: false,
-          isKPI: false,
-          isDRE: false,
-          isPessoas: false,
-          isComissao: false,
-          isApresentacao: false,
-          hasEmptyValues: false
-        };
-      });
-      setColumnProfiles(initialProfiles);
+    if (activeSheetMeta) {
+      // For metadata-only mode, we can't get columns easily without parsing the sheet rows, 
+      // which we are trying to avoid.
+      // We will need to re-parse just this sheet when it's selected.
+      // For now, let's keep column profiles simple or load them on demand.
+      setColumnProfiles([]);
     }
   }, [activeSheetName]);
 
@@ -186,7 +146,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
 
   const handleRemoveFile = () => {
     setFile(null);
-    setSheets([]);
+    setSheetMetadata([]);
     setActiveSheetName("");
     setColumnProfiles([]);
   };
@@ -199,146 +159,112 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
 
   // Activates the spreadsheet, registers the active dataset and files
   const handleActivateDataset = async () => {
-    if (!file || !activeSheet || activeSheet.rows.length === 0 || activeSheet.columns.length === 0) {
+    if (!file || selectedSheets.size === 0) {
+      alert("Selecione ao menos uma aba.");
       return;
     }
 
     setIsSaving(true);
     try {
-      const fileId = `spreadsheet_file_${Date.now()}`;
-      const datasetId = `ds_${Date.now()}`;
-
-      // Build consolidated rows from all selected or single sheet
-      // Ensure row has required attributes for sauron downstream models: 'aba', 'arquivo', 'linha', 'dataImportacao'
-      const finalRows: any[] = [];
-      sheets.forEach(sh => {
-        sh.rows.forEach((row, idx) => {
-          finalRows.push({
-            ...row,
-            aba: sh.sheetName,
-            linha: idx + 2,
-            arquivo: file.name,
-            dataImportacao: new Date().toISOString(),
-            id: `row_${datasetId}_${sh.sheetName}_${idx}`
-          });
+      const fileId = `workbook_${file.name.replace(/\s+/g, '_')}`;
+      const XLSX = await import("xlsx");
+      let arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array", cellFormula: true });
+      
+      const selectedMetadata: SheetMetadata[] = [];
+      
+      for (const sheetName of selectedSheets) {
+        const worksheet = workbook.Sheets[sheetName];
+        const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+        
+        // Save in chunks to IndexedDB
+        await IndexedSpreadsheetStorage.saveSheetRows(fileId, sheetName, rows);
+        
+        // Metadata for this sheet
+        const formulaCount = Object.keys(worksheet).filter(k => worksheet[k].f).length;
+        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+        
+        selectedMetadata.push({
+          sheetName,
+          rowCount: rows.length,
+          columnCount: range.e.c + 1,
+          formulaCount,
+          storageRef: `ref_${fileId}_${sheetName}`,
+          classification: "Base de dados", // Simple heuristic
+          selectedForImport: true
         });
-      });
+      }
 
-      // Prepare active sheet columns
-      const activeSheetColumns = activeSheet.columns;
-
-      // Create new SpreadsheetFile for the workspace
-      const newSpreadsheetFile = {
-        id: fileId,
-        fileName: file.name,
-        nome: file.name,
-        importedAt: new Date().toISOString(),
-        dataImportacao: new Date().toISOString(),
-        importedBy: "Lennon Marcanjo",
-        usuario: "Lennon Marcanjo",
-        status: "ACTIVE" as const,
-        approvedByConsultant: true,
-        totalRows: finalRows.length,
-        totalColumns: activeSheetColumns.length,
-        totalAbas: sheets.length,
-        version: "v1",
-        versao: "v1",
-        sheets: sheets.map(sh => {
-          const sheetColumns = sh.columns.map(col => {
-            const prof = columnProfiles.find(p => p.originalName === col);
-            return {
-              name: col,
-              type: prof?.type || "text",
-              hasEmptyValues: false,
-              alias: prof?.name || col,
-              ignored: false,
-              dataType: prof?.type || "text"
-            };
-          });
-
-          return {
-            id: `sheet_${fileId}_${sh.sheetName}`,
-            fileId: fileId,
-            sheetName: sh.sheetName,
-            rows: finalRows.filter(r => r.aba === sh.sheetName),
-            columns: sheetColumns
-          };
-        })
-      };
-
-      // 1. Register in Spreadsheet Workspace Manager & approve
-      SpreadsheetWorkspaceManager.importarPlanilha(newSpreadsheetFile, "REPLACE");
-      SpreadsheetWorkspaceManager.aprovarPlanilha(fileId);
-      SpreadsheetWorkspaceManager.ativarPlanilha(fileId);
-
-      // 2. Prepare metadata and 100 preview rows
-      const previewDatasetRows: ActiveDatasetRow[] = finalRows.slice(0, 100).map((row, idx) => ({
+      // Prepare metadata and 100 preview rows from the first sheet
+      const firstSheet = selectedMetadata[0];
+      const previewDatasetRows: ActiveDatasetRow[] = (await IndexedSpreadsheetStorage.getRowsPaged(fileId, firstSheet.sheetName, 0, 100)).map((row, idx) => ({
         raw: row,
         normalized: row,
         metadata: {
           rowIndex: idx + 1,
-          sheetName: row.aba || activeSheetName,
+          sheetName: firstSheet.sheetName,
           fileName: file.name
         }
       }));
 
-      // Create column profiles with exact configurations selected or original names
-      const finalProfiles = columnProfiles.map(p => ({
-        ...p,
-        name: p.name || p.originalName // ensure there is always a name
-      }));
-
-      const activeDataset: ActiveDataset = {
-        datasetId: datasetId,
+      const activeWorkbook: ActiveWorkbookDataset = {
+        datasetId: fileId,
+        workbookId: fileId,
         sourceType: "SPREADSHEET_DATA",
         sourceName: file.name,
         importedAt: new Date().toISOString(),
-        rowCount: finalRows.length,
-        columnCount: activeSheetColumns.length,
-        sheets: sheets.map(s => s.sheetName),
-        activeSheet: activeSheetName,
+        rowCount: selectedMetadata.reduce((sum, s) => sum + s.rowCount, 0),
+        columnCount: firstSheet.columnCount,
+        sheets: selectedMetadata,
+        activeSheet: firstSheet.sheetName,
         previewRows: previewDatasetRows,
-        columnProfiles: finalProfiles,
+        columnProfiles: [], // Need to handle column profiles per sheet or per workbook
         importProfile: null,
         rawStorageRef: fileId,
+        formulaCount: selectedMetadata.reduce((sum, s) => sum + s.formulaCount, 0),
         status: "ACTIVE"
       };
 
-      console.log(`[Sauron Instrumentation] SIMPLE_IMPORTER_DATASET_CREATED - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+      // Save workbook metadata
+      await IndexedSpreadsheetStorage.saveMetadata(fileId, {
+        id: fileId,
+        fileName: file.name,
+        sheets: selectedMetadata.map(s => ({
+            sheetName: s.sheetName,
+            rowCount: s.rowCount,
+            columns: [],
+            previewRows: []
+        })),
+        uploadedAt: new Date().toISOString()
+      });
 
-      // 3. Save full raw dataset to IndexedDB
-      await IndexedSpreadsheetStorage.saveRows(fileId, finalRows);
+      // Set Active Dataset on ActiveDatasetStore
+      activeDatasetStore.setActiveDataset(activeWorkbook, []); // Rows are in IndexedDB now
 
-      // 4. Set Active Dataset & Source on ActiveDatasetStore
-      activeDatasetStore.setActiveDataset(activeDataset, finalRows);
-
-      // 5. Emit DATASET_IMPORTED event
       activeDatasetStore.notify({
-        type: "DATASET_IMPORTED",
+        type: "DATASET_ACTIVATED",
         payload: {
-          datasetId: activeDataset.datasetId,
-          sourceType: activeDataset.sourceType,
-          sourceName: activeDataset.sourceName,
-          rowCount: activeDataset.rowCount,
-          columnCount: activeDataset.columnCount,
+          datasetId: activeWorkbook.datasetId,
+          sourceType: activeWorkbook.sourceType,
+          sourceName: activeWorkbook.sourceName,
+          rowCount: activeWorkbook.rowCount,
+          columnCount: activeWorkbook.columnCount,
           timestamp: new Date().toISOString(),
-          metadata: { ...activeDataset }
+          metadata: { ...activeWorkbook }
         }
       });
 
-      console.log("[Sauron Instrumentation] DISPATCH_EVENT - Sinalizando o envio de DATASET_ACTIVATED via ActiveDatasetStore para " + activeDataset.sourceName);
-
-      alert("Planilha ativada com sucesso.");
-      onImported(activeDataset);
+      alert("Workbook ativado com sucesso.");
+      onImported(activeWorkbook);
     } catch (err: any) {
       console.error(err);
-      alert("Erro ao salvar planilha no projeto: " + err.message);
+      alert("Erro ao salvar workbook: " + err.message);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const isFormValid = file !== null && sheets.length > 0 && activeSheet && activeSheet.rows.length > 0 && activeSheet.columns.length > 0;
+  const isFormValid = file !== null && sheetMetadata.length > 0 && activeSheetMeta !== undefined;
 
   return (
     <div id="simple-spreadsheet-importer" className="w-full bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-6">
@@ -446,9 +372,9 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                 <div className="flex items-center gap-2.5 text-[10px] font-semibold text-slate-400 mt-1">
                   <span>{(file.size / 1024).toFixed(1)} KB</span>
                   <span>•</span>
-                  <span>{activeSheet ? activeSheet.rowCount : 0} linhas de dados</span>
+                  <span>{activeSheetMeta ? activeSheetMeta.rowCount : 0} linhas de dados</span>
                   <span>•</span>
-                  <span>{activeSheet ? activeSheet.colCount : 0} colunas</span>
+                  <span>{activeSheetMeta ? activeSheetMeta.columnCount : 0} colunas</span>
                 </div>
               </div>
             </div>
@@ -463,26 +389,51 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
             </div>
           </div>
 
-          {/* Sheets Selector Tabs */}
-          {sheets.length > 1 && (
-            <div className="space-y-1.5">
+          {/* Sheets Selector Table */}
+          {sheetMetadata.length > 0 && (
+            <div className="space-y-2">
               <span className="text-[10px] font-black uppercase text-slate-400 block tracking-widest">
-                Selecione a Aba Ativa
+                Abas encontradas
               </span>
-              <div className="flex flex-wrap gap-1">
-                {sheets.map(sh => (
-                  <button
-                    key={sh.sheetName}
-                    onClick={() => setActiveSheetName(sh.sheetName)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
-                      activeSheetName === sh.sheetName
-                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white"
-                        : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-350"
-                    }`}
-                  >
-                    {sh.sheetName} ({sh.rowCount} lin)
-                  </button>
-                ))}
+              <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                    <tr>
+                      <th className="p-2">Aba</th>
+                      <th className="p-2">Dimensões</th>
+                      <th className="p-2">Fórmulas</th>
+                      <th className="p-2">Classificação</th>
+                      <th className="p-2">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sheetMetadata.map(sh => (
+                      <tr key={sh.sheetName} className="border-b last:border-0 border-slate-100 dark:border-slate-800">
+                        <td className="p-2 font-bold">{sh.sheetName}</td>
+                        <td className="p-2">{sh.rowCount} lin x {sh.columnCount} col</td>
+                        <td className="p-2">{sh.formulaCount > 0 ? "Sim" : "Não"}</td>
+                        <td className="p-2">{sh.classification}</td>
+                        <td className="p-2">
+                          <button
+                            onClick={() => {
+                              const newSelected = new Set(selectedSheets);
+                              if (newSelected.has(sh.sheetName)) newSelected.delete(sh.sheetName);
+                              else newSelected.add(sh.sheetName);
+                              setSelectedSheets(newSelected);
+                            }}
+                            className={`px-2 py-1 rounded text-[10px] font-bold ${
+                              selectedSheets.has(sh.sheetName) 
+                              ? "bg-emerald-100 text-emerald-800" 
+                              : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {selectedSheets.has(sh.sheetName) ? "Selecionada" : "Selecionar"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -514,7 +465,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
           </div>
 
           {/* TAB CONTENT: Preview */}
-          {activeTab === "preview" && activeSheet && (
+          {activeTab === "preview" && activeSheetMeta && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
               <div className="max-h-[350px] overflow-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -523,25 +474,15 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                       <th className="p-3 font-extrabold text-slate-400 text-center w-12 border-r border-slate-200 dark:border-slate-800">
                         #
                       </th>
-                      {activeSheet.columns.map((col, idx) => {
-                        const config = columnProfiles.find(p => p.originalName === col);
-                        return (
-                          <th key={idx} className="p-3 font-extrabold text-slate-800 dark:text-slate-200 min-w-[120px]">
-                            <div className="flex flex-col">
-                              <span>{col}</span>
-                              {config && config.name !== col && (
-                                <span className="text-[9px] text-emerald-500 font-bold mt-0.5">
-                                  ↳ {config.name}
-                                </span>
-                              )}
-                            </div>
-                          </th>
-                        );
-                      })}
+                      {activeSheetPreviewRows.length > 0 && Object.keys(activeSheetPreviewRows[0]).map((col, idx) => (
+                        <th key={idx} className="p-3 font-extrabold text-slate-800 dark:text-slate-200 min-w-[120px]">
+                          {col}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {activeSheet.rows.slice(0, 100).map((row, rIdx) => (
+                    {activeSheetPreviewRows.map((row, rIdx) => (
                       <tr
                         key={rIdx}
                         className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/50 dark:hover:bg-slate-800/20"
@@ -549,9 +490,9 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                         <td className="p-3 text-center text-slate-400 font-mono font-bold bg-slate-50/30 dark:bg-slate-950/10 border-r border-slate-200 dark:border-slate-800">
                           {rIdx + 1}
                         </td>
-                        {activeSheet.columns.map((col, cIdx) => (
+                        {Object.values(row).map((val: any, cIdx) => (
                           <td key={cIdx} className="p-3 text-slate-700 dark:text-slate-300 font-medium">
-                            {row[col] !== undefined && row[col] !== null ? String(row[col]) : (
+                            {val !== undefined && val !== null ? String(val) : (
                               <span className="text-slate-350 dark:text-slate-600 italic">vazio</span>
                             )}
                           </td>
@@ -562,7 +503,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                 </table>
               </div>
               <div className="p-3 bg-slate-50 dark:bg-slate-950/20 border-t border-slate-100 dark:border-slate-850 flex items-center justify-between text-[10px] text-slate-400 font-semibold">
-                <span>Total de linhas mostradas: {Math.min(100, activeSheet.rows.length)} de {activeSheet.rows.length}</span>
+                <span>Total de linhas mostradas: {activeSheetPreviewRows.length} de {activeSheetMeta.rowCount}</span>
                 <span>Dados brutos originais do faturamento</span>
               </div>
             </div>

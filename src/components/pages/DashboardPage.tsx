@@ -2,6 +2,7 @@ import React, { useMemo, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Building, Users } from 'lucide-react';
 import { LancamentoFinanceiro } from '../../types';
 import { activeDatasetStore } from '../../core/data/ActiveDatasetStore';
+import { ActiveDatasetRawPreview } from '../ActiveDatasetRawPreview';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LineChart, Line, Cell, PieChart, Pie
 } from 'recharts';
@@ -81,6 +82,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ filteredData, form
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in bg-white dark:bg-slate-950">
+      <ActiveDatasetRawPreview />
       
       {/* Header section handled globally by App, but local greeting or contextual info here */}
       <div className="flex flex-col gap-1">

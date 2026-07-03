@@ -142,6 +142,16 @@ export interface ActiveDatasetRow {
   };
 }
 
+export interface SheetMetadata {
+  sheetName: string;
+  rowCount: number;
+  columnCount: number;
+  formulaCount: number;
+  storageRef: string;
+  classification: "Base de dados" | "Cadastro" | "Relatório" | "Cálculo/Fórmulas" | "Configuração" | "Vazia" | "Não classificada";
+  selectedForImport: boolean;
+}
+
 export interface ActiveDataset {
   datasetId: string;
   sourceType: ActiveDataSource;
@@ -149,13 +159,19 @@ export interface ActiveDataset {
   importedAt: string;
   rowCount: number;
   columnCount: number;
-  sheets: string[];
+  sheets: (string | SheetMetadata)[]; // Support both old and new
   activeSheet: string;
   previewRows: ActiveDatasetRow[];
   columnProfiles: ColumnProfile[];
   importProfile: ImportProfile | null;
   rawStorageRef: string;
   status: "ACTIVE" | "PENDING";
+}
+
+export interface ActiveWorkbookDataset extends ActiveDataset {
+  workbookId: string;
+  sheets: SheetMetadata[];
+  formulaCount: number;
 }
 
 // 18. Import Profile
