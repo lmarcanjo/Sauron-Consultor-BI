@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { BookOpen, Search, AlertTriangle, FileSpreadsheet, Play, ArrowRight, Database } from "lucide-react";
 import { LancamentoFinanceiro, MetricasConsolidadas } from "../types";
 import { dataSourceManager } from "../services/dataSourceManager";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 
 interface ContabilTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -20,7 +21,16 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
   const [selectedConta, setSelectedConta] = useState<string>("");
   const [clickedAccount, setClickedAccount] = useState<string>("");
 
-  const activeDataset = dataSourceManager.getActiveDataset();
+  const activeDataset = activeDatasetStore.getActiveDataset();
+  
+  useEffect(() => {
+    if (activeDataset) {
+      console.log(`[Sauron Instrumentation] CONTABIL_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+    } else {
+      console.log(`[Sauron Instrumentation] CONTABIL_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+    }
+  }, [activeDataset]);
+
   const isPendingConfiguration = useMemo(() => {
     if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
     if (activeDataset && activeDataset.columnProfiles) {

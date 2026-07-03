@@ -50,6 +50,7 @@ import {
 
 import { LancamentoFinanceiro, FiltrosDashboard, MetricasConsolidadas, ActiveDataSourceType } from "./types";
 import { useDataSourceManager } from "./hooks/useDataSourceManager";
+import { activeDatasetStore } from "./core/data/ActiveDatasetStore";
 import { ClientFilterManager } from "./services/clientFilterManager";
 import { exportToCSV } from "./utils/dataGenerator";
 import { parseCSV } from "./utils/csvParser";
@@ -140,6 +141,12 @@ export default function App() {
   const visualizacaoEmpresas = activeDataSource === "DEMO_DATA" ? "ficticias" : "reais";
   const dataOrigemReal = activeDataSource !== "DEMO_DATA" ? activeRecords : [];
   const dataOrigemFicticio = activeDataSource === "DEMO_DATA" ? activeRecords : [];
+
+  useEffect(() => {
+    if (activeRecords && activeRecords.length > 0) {
+      console.log(`[Sauron Instrumentation] DRE_REFRESHED - O dashboard DRE / BI recebeu os dados reais: ${activeRecords.length} linhas.`);
+    }
+  }, [activeRecords]);
 
   const [camposAusentes, setCamposAusentes] = useState<string[]>([]);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
@@ -249,23 +256,46 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handleDatasetActivated = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      console.log("[Sauron OS] DATASET_ACTIVATED received:", customEvent.detail);
-      setActiveSource("SPREADSHEET_DATA");
-      setHistoricalData(null);
-      refreshDataSource();
-    };
+    // 1. Subscribe to official ActiveDatasetStore events
+    const unsubscribe = activeDatasetStore.subscribe((event) => {
+      console.log(`[App] Received ActiveDatasetStore event: ${event.type}`, event.payload);
+      
+      console.log(`[Sauron Instrumentation] APP_DATASET_EVENT_RECEIVED - datasetId: ${event.payload.datasetId || "null"}, sourceName: ${event.payload.sourceName || "null"}, rowCount: ${event.payload.rowCount || 0}, columnCount: ${event.payload.columnCount || 0}, sourceType: ${event.payload.sourceType || "null"}`);
 
-    if (typeof window !== "undefined") {
-      window.addEventListener("DATASET_ACTIVATED", handleDatasetActivated);
-    }
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("DATASET_ACTIVATED", handleDatasetActivated);
+      if (event.type === "DATASET_ACTIVATED" || event.type === "DATASET_REHYDRATED" || event.type === "DATASET_UPDATED") {
+        if (event.payload.datasetId) {
+          setActiveSource("SPREADSHEET_DATA");
+          setHistoricalData(null);
+          refreshDataSource();
+        }
+      } else if (event.type === "DATASET_REMOVED") {
+        setActiveSource("DEMO_DATA"); // fallback or clear
+        setHistoricalData(null);
+        refreshDataSource();
       }
+    });
+
+    // 2. Rehydrate on reload
+    activeDatasetStore.rehydrateFromStorage().then((dataset) => {
+      if (dataset) {
+        console.log(`[App] Rehydrated active dataset on mount: ${dataset.sourceName}`);
+        setActiveSource("SPREADSHEET_DATA");
+        refreshDataSource();
+      }
+    });
+
+    return () => {
+      unsubscribe();
     };
   }, [setActiveSource, refreshDataSource]);
+
+  useEffect(() => {
+    if (activeDataset) {
+      console.log(`[Sauron Instrumentation] APP_ACTIVE_DATASET_UPDATED - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+    } else {
+      console.log(`[Sauron Instrumentation] APP_ACTIVE_DATASET_UPDATED - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+    }
+  }, [activeDataset]);
 
   // COMPARATIVE RAPORTS SNAPSHOT CONTROL
   const [reportHistory, setReportHistory] = useState<any[]>([]);
@@ -1086,6 +1116,15 @@ export default function App() {
   };
 
   const handleDatabaseDataLoaded = (data: LancamentoFinanceiro[], sourceName: string, isVpn?: boolean) => {
+    // F6 double ingestion protection
+    const currentActiveDataset = activeDatasetStore.getActiveDataset();
+    if (currentActiveDataset && currentActiveDataset.datasetId && currentActiveDataset.rawStorageRef) {
+      if (sourceName.toLowerCase().includes(".xls") || sourceName.toLowerCase().includes(".csv") || sourceName.toLowerCase().includes("planilha") || sourceName.toLowerCase().includes("combinada")) {
+        console.warn("[Sauron Protection] Tentativa de dupla ingestão de planilha bloqueada. O dataset ativo já está estruturado e aprovado:", currentActiveDataset.datasetId);
+        return;
+      }
+    }
+
     setCamposAusentes([]);
 
     const keys = new Set<string>();

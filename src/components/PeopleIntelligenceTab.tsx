@@ -33,6 +33,7 @@ import {
 import { LancamentoFinanceiro, MetricasConsolidadas } from "../types";
 import { VendedoresTab } from "./VendedoresTab";
 import { ComissoesTab } from "./ComissoesTab";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 
 // SDK Components
 import { SauronTabs, TabItem } from "../sauron-sdk/ui/SauronTabs";
@@ -104,14 +105,24 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
   // Get all dossiers
   const isRealSpreadsheet = dataSourceManager.getActiveSource() === "SPREADSHEET_DATA";
   
+  const activeDataset = props.activeDataset || activeDatasetStore.getActiveDataset();
+
+  React.useEffect(() => {
+    if (activeDataset) {
+      console.log(`[Sauron Instrumentation] PEOPLE_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+    } else {
+      console.log(`[Sauron Instrumentation] PEOPLE_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+    }
+  }, [activeDataset]);
+
   const isPendingConfiguration = useMemo(() => {
     if (!isRealSpreadsheet) return false;
-    if (props.activeDataset && props.activeDataset.columnProfiles) {
-      const hasPeopleCol = props.activeDataset.columnProfiles.some((p: any) => p.isPessoas);
+    if (activeDataset && activeDataset.columnProfiles) {
+      const hasPeopleCol = activeDataset.columnProfiles.some((p: any) => p.isPessoas);
       return !hasPeopleCol;
     }
     return true; // if no profiles, it's pending
-  }, [isRealSpreadsheet, props.activeDataset]);
+  }, [isRealSpreadsheet, activeDataset]);
 
   const realSellers = useMemo(() => {
     if (!isRealSpreadsheet || isPendingConfiguration) return [];
@@ -234,7 +245,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
         <Users className="text-emerald-500 w-12 h-12 animate-pulse" />
         <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Configuração Pendente</h3>
         <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
-          Fonte de dados ativa. Configure os campos deste módulo para gerar análises.
+          Configure uma coluna como Pessoas/Vendedor para habilitar este módulo.
         </p>
       </div>
     );

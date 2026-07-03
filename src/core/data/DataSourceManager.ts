@@ -20,6 +20,7 @@ import {
 import { gerarDadosSimulados, generateDemoSpreadsheetRows } from "../../data/demoData";
 import { AuditEngine } from "../audit/AuditEngine";
 import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
+import { activeDatasetStore } from "./ActiveDatasetStore";
 
 // --- GLOBAL QUERY SECURITY / PROTECTIONS ---
 export function assertNoMockDataWhenRealSource(
@@ -153,6 +154,49 @@ export class DataSourceManager {
 
     const savedDataset = hasLocalStorage ? localStorage.getItem("sauron_ds_active_dataset") : null;
     this.activeDataset = savedDataset ? JSON.parse(savedDataset) : null;
+
+    // Synchronize and subscribe to ActiveDatasetStore
+    activeDatasetStore.subscribe((event) => {
+      if (event.type === "DATASET_ACTIVATED" || event.type === "DATASET_REHYDRATED" || event.type === "DATASET_UPDATED") {
+        const metadata = event.payload.metadata;
+        if (event.payload.datasetId) {
+          this.activeDataset = {
+            datasetId: event.payload.datasetId,
+            sourceType: event.payload.sourceType as any,
+            sourceName: event.payload.sourceName,
+            rowCount: event.payload.rowCount,
+            columnCount: event.payload.columnCount,
+            importedAt: metadata.importedAt || new Date().toISOString(),
+            sheets: metadata.sheets || [],
+            activeSheet: metadata.activeSheet || "",
+            previewRows: metadata.previewRows || [],
+            columnProfiles: metadata.columnProfiles || [],
+            importProfile: metadata.importProfile || null,
+            rawStorageRef: metadata.rawStorageRef || "",
+            status: metadata.status || "ACTIVE"
+          };
+          this.state.activeDataSource = "SPREADSHEET_DATA";
+          this.state.approvedByConsultant = true;
+
+          console.log(`[Sauron Instrumentation] DATASOURCE_MANAGER_ACTIVE_DATASET_UPDATED - datasetId: ${this.activeDataset.datasetId}, sourceName: ${this.activeDataset.sourceName}, rowCount: ${this.activeDataset.rowCount}, columnCount: ${this.activeDataset.columnCount}, sourceType: ${this.activeDataset.sourceType}`);
+
+          // Re-hydrate the memory map for compatibility
+          if (metadata.rawStorageRef) {
+            IndexedSpreadsheetStorage.getRows(metadata.rawStorageRef).then(rows => {
+              if (rows && rows.length > 0) {
+                this.fileRowsMap[metadata.rawStorageRef] = rows;
+                this.cachedActiveRecords = null;
+                this.triggerUpdateEvent();
+              }
+            });
+          }
+        }
+      } else if (event.type === "DATASET_REMOVED") {
+        this.activeDataset = null;
+        this.cachedActiveRecords = null;
+        this.triggerUpdateEvent();
+      }
+    });
 
     this.loadFullRowsFromIndexedDB();
   }
@@ -350,23 +394,23 @@ export class DataSourceManager {
   }
 
   public getActiveDataset(): ActiveDataset | null {
+    const storeDataset = activeDatasetStore.getActiveDataset();
+    if (storeDataset) {
+      return storeDataset;
+    }
     return this.activeDataset;
   }
 
   public setActiveDataset(dataset: ActiveDataset | null) {
-    this.activeDataset = dataset;
-    if (dataset && dataset.sourceType === "SPREADSHEET_DATA") {
-      this.state.approvedByConsultant = true;
-      this.setActiveSource("SPREADSHEET_DATA");
-    }
-    this.saveToStorage();
-    if (typeof window !== "undefined") {
-      const event = new CustomEvent("DATASET_ACTIVATED", {
-        detail: dataset
+    if (dataset) {
+      IndexedSpreadsheetStorage.getRows(dataset.rawStorageRef).then(rows => {
+        activeDatasetStore.setActiveDataset(dataset, rows && rows.length > 0 ? rows : undefined);
+      }).catch(() => {
+        activeDatasetStore.setActiveDataset(dataset);
       });
-      window.dispatchEvent(event);
+    } else {
+      activeDatasetStore.setActiveDataset(null);
     }
-    this.triggerUpdateEvent();
   }
 
   public getActiveRows(options?: { page?: number; limit?: number }): any[] {
@@ -444,6 +488,10 @@ export class DataSourceManager {
   }
 
   public getActiveSource(): ActiveDataSource {
+    const storeActive = activeDatasetStore.getActiveDataset();
+    if (storeActive) {
+      return "SPREADSHEET_DATA";
+    }
     return this.state.activeDataSource;
   }
 
@@ -518,6 +566,11 @@ export class DataSourceManager {
   }
 
   public getActiveRecords(): LancamentoFinanceiro[] {
+    const storeActive = activeDatasetStore.getActiveDataset();
+    if (storeActive) {
+      this.state.activeDataSource = "SPREADSHEET_DATA";
+    }
+
     if (this.state.activeDataSource === "DEMO_DATA") {
       const isTest = typeof process !== "undefined" && (process.env.NODE_ENV === "test" || !!process.env.VITEST);
       const isDemoAllowed = isTest || (typeof window !== "undefined" && 
@@ -539,6 +592,11 @@ export class DataSourceManager {
         break;
 
       case "SPREADSHEET_DATA":
+        const storeActive = activeDatasetStore.getActiveDataset();
+        if (storeActive) {
+          rawRecords = activeDatasetStore.getActiveRows() as LancamentoFinanceiro[];
+          break;
+        }
         const activeFiles = this.workspace.files.filter((f) => 
           this.workspace.activeFileIds.includes(f.id) && 
           f.status === "ACTIVE" && 
@@ -579,6 +637,10 @@ export class DataSourceManager {
   private getActiveRecordsForSource(source: "SPREADSHEET_DATA" | "DATABASE_DATA"): LancamentoFinanceiro[] {
     const raw: LancamentoFinanceiro[] = [];
     if (source === "SPREADSHEET_DATA") {
+       const storeActive = activeDatasetStore.getActiveDataset();
+       if (storeActive) {
+         return activeDatasetStore.getActiveRows() as LancamentoFinanceiro[];
+       }
        const activeFiles = this.workspace.files.filter((f) => 
          this.workspace.activeFileIds.includes(f.id) && 
          f.status === "ACTIVE" && 
@@ -609,6 +671,13 @@ export class DataSourceManager {
   }
 
   public addSpreadsheetFile(file: SpreadsheetFile, mode: "APPEND" | "REPLACE" | "SEPARATE" | "PENDING") {
+    // F6 Protective Assertion
+    const storeDataset = activeDatasetStore.getActiveDataset();
+    if (storeDataset && storeDataset.datasetId && storeDataset.rawStorageRef) {
+      console.warn(`[Sauron Protection] Bloqueado addSpreadsheetFile: Um dataset ativo estruturado (${storeDataset.datasetId}) já está em uso.`);
+      return;
+    }
+
     const sameNameFiles = this.workspace.files.filter(f => f.fileName === file.fileName);
     const verNum = sameNameFiles.length + 1;
     const currentVersion = `v${verNum}`;
@@ -673,7 +742,9 @@ export class DataSourceManager {
 
     this.workspace.updatedAt = new Date().toISOString();
     this.state.activeDataSource = "SPREADSHEET_DATA";
-    this.state.approvedByConsultant = false;
+    this.state.approvedByConsultant = this.workspace.files.some(f => 
+      this.workspace.activeFileIds.includes(f.id) && f.approvedByConsultant === true
+    );
 
     this.fileRowsMap[enhancedFile.id] = allRows;
     if (typeof window !== "undefined") {

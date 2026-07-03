@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: app.spec.ts >> App should load
-- Location: tests/e2e/app.spec.ts:3:1
+- Name: active-dataset-reflection.spec.ts >> Active Dataset Reflection Hotfix Verification Suite >> verifies that imported datasets reflect correctly in all modules and persist on reload
+- Location: tests/e2e/active-dataset-reflection.spec.ts:4:3
 
 # Error details
 

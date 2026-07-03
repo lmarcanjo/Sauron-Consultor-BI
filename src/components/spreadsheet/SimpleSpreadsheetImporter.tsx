@@ -23,6 +23,7 @@ import { dataSourceManager } from "../../services/dataSourceManager";
 import { SpreadsheetWorkspaceManager } from "../../services/spreadsheetWorkspaceManager";
 import { IndexedSpreadsheetStorage } from "../../core/storage/IndexedSpreadsheetStorage";
 import { ActiveDataset, ActiveDatasetRow, ColumnProfile } from "../../types/dataSource";
+import { activeDatasetStore } from "../../core/data/ActiveDatasetStore";
 
 interface SimpleSpreadsheetImporterProps {
   onImported: (dataset: ActiveDataset) => void;
@@ -60,6 +61,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
 
   // Initialize and parse files
   const handleFileSelect = async (selectedFile: File) => {
+    console.log("[Sauron Instrumentation] IMPORT_START - Iniciando o parse do arquivo bruto: " + selectedFile.name);
     setFile(selectedFile);
     setIsLoading(true);
     try {
@@ -81,6 +83,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
       workbook.SheetNames.forEach((sheetName) => {
         const worksheet = workbook.Sheets[sheetName];
         const rawJson: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+        console.log(`[Sauron Instrumentation] ROWS_PARSED - Sheet Name: ${sheetName}, Linhas: ${rawJson.length}`);
 
         if (rawJson.length > 0) {
           const keys = new Set<string>();
@@ -109,6 +112,10 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
         setIsLoading(false);
         return;
       }
+
+      const totalRowsParsed = parsedSheets.reduce((sum, s) => sum + s.rowCount, 0);
+      const mainColCount = parsedSheets[0]?.colCount || 0;
+      console.log(`[Sauron Instrumentation] SIMPLE_IMPORTER_FILE_PARSED - datasetId: PENDING, sourceName: ${selectedFile.name}, rowCount: ${totalRowsParsed}, columnCount: ${mainColCount}, sourceType: SPREADSHEET_DATA`);
 
       setSheets(parsedSheets);
       const defaultSheetName = parsedSheets[0].sheetName;
@@ -297,20 +304,29 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
         status: "ACTIVE"
       };
 
+      console.log(`[Sauron Instrumentation] SIMPLE_IMPORTER_DATASET_CREATED - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+
       // 3. Save full raw dataset to IndexedDB
       await IndexedSpreadsheetStorage.saveRows(fileId, finalRows);
 
-      // 4. Set Active Dataset & Source on the singleton manager
-      dataSourceManager.setActiveDataset(activeDataset);
-      dataSourceManager.setActiveSource("SPREADSHEET_DATA");
-      
-      // Forces persistence of dataset metadata and preview on localStorage
-      dataSourceManager.saveToStorage();
+      // 4. Set Active Dataset & Source on ActiveDatasetStore
+      activeDatasetStore.setActiveDataset(activeDataset, finalRows);
 
-      // 5. Emit DATASET_ACTIVATED
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("DATASET_ACTIVATED", { detail: activeDataset }));
-      }
+      // 5. Emit DATASET_IMPORTED event
+      activeDatasetStore.notify({
+        type: "DATASET_IMPORTED",
+        payload: {
+          datasetId: activeDataset.datasetId,
+          sourceType: activeDataset.sourceType,
+          sourceName: activeDataset.sourceName,
+          rowCount: activeDataset.rowCount,
+          columnCount: activeDataset.columnCount,
+          timestamp: new Date().toISOString(),
+          metadata: { ...activeDataset }
+        }
+      });
+
+      console.log("[Sauron Instrumentation] DISPATCH_EVENT - Sinalizando o envio de DATASET_ACTIVATED via ActiveDatasetStore para " + activeDataset.sourceName);
 
       alert("Planilha ativada com sucesso.");
       onImported(activeDataset);

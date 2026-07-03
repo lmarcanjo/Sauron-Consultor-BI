@@ -15,6 +15,7 @@ import { LancamentoFinanceiro } from "../types";
 import { availableTemplates } from "../utils/industryTemplates";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, ComposedChart, Line, Cell } from 'recharts';
 import { dataSourceManager } from "../services/dataSourceManager";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 
 interface IntelligentDRETabProps {
   filteredData: LancamentoFinanceiro[];
@@ -40,7 +41,16 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
     );
   }, [activeIndustryTemplateId]);
 
-  const activeDataset = dataSourceManager.getActiveDataset();
+  const activeDataset = activeDatasetStore.getActiveDataset();
+  
+  React.useEffect(() => {
+    if (activeDataset) {
+      console.log(`[Sauron Instrumentation] DRE_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+    } else {
+      console.log(`[Sauron Instrumentation] DRE_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+    }
+  }, [activeDataset]);
+
   const isPendingConfiguration = useMemo(() => {
     if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
     if (activeDataset && activeDataset.columnProfiles) {

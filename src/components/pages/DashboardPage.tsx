@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Building, Users } from 'lucide-react';
 import { LancamentoFinanceiro } from '../../types';
+import { activeDatasetStore } from '../../core/data/ActiveDatasetStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer, LineChart, Line, Cell, PieChart, Pie
 } from 'recharts';
@@ -11,6 +12,16 @@ interface DashboardPageProps {
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ filteredData, formatCurrency }) => {
+  const activeDataset = activeDatasetStore.getActiveDataset();
+
+  useEffect(() => {
+    if (activeDataset) {
+      console.log(`[Sauron Instrumentation] DASHBOARD_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+    } else {
+      console.log(`[Sauron Instrumentation] DASHBOARD_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+    }
+  }, [activeDataset]);
+
   // Check if dataset contains readable numerical values
   const hasValues = useMemo(() => {
     if (filteredData.length === 0) return false;

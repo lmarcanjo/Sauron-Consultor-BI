@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Coins, TrendingUp, Users, Award, ChevronRight, Calculator } from "lucide-react";
 import { MetricasConsolidadas } from "../types";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { dataSourceManager } from "../services/dataSourceManager";
 
 interface ComercialTabProps {
@@ -9,7 +10,16 @@ interface ComercialTabProps {
 }
 
 export const ComercialTab: React.FC<ComercialTabProps> = ({ metrics, formatCurrency }) => {
-  const activeDataset = dataSourceManager.getActiveDataset();
+  const activeDataset = activeDatasetStore.getActiveDataset();
+
+  useEffect(() => {
+    if (activeDataset) {
+      console.log(`[Sauron Instrumentation] COMERCIAL_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+    } else {
+      console.log(`[Sauron Instrumentation] COMERCIAL_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+    }
+  }, [activeDataset]);
+
   const isPendingConfiguration = React.useMemo(() => {
     if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
     if (activeDataset && activeDataset.columnProfiles) {

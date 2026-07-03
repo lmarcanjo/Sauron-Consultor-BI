@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { AlertCircle, ArrowRight, ShieldAlert, Sparkles, TrendingDown, HelpCircle, CheckCircle, Calendar, MapPin, DollarSign, RefreshCw } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
 import { dataSourceManager } from "../services/dataSourceManager";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 
 interface DiagnosticoObstaculosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -14,7 +15,16 @@ export const DiagnosticoObstaculosTab: React.FC<DiagnosticoObstaculosTabProps> =
 }) => {
   const [selectedImpactLevel, setSelectedImpactLevel] = useState<"alto" | "critico" | "todos">("todos");
 
-  const activeDataset = dataSourceManager.getActiveDataset();
+  const activeDataset = activeDatasetStore.getActiveDataset();
+  
+  useEffect(() => {
+    if (activeDataset) {
+      console.log(`[Sauron Instrumentation] DIAGNOSTICO_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+    } else {
+      console.log(`[Sauron Instrumentation] DIAGNOSTICO_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+    }
+  }, [activeDataset]);
+
   const isPendingConfiguration = useMemo(() => {
     if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
     if (activeDataset && activeDataset.columnProfiles) {

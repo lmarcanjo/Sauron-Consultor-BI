@@ -28,11 +28,17 @@ export function useDataSourceManager() {
     if (typeof window !== "undefined") {
       window.addEventListener("sauron_datasource_updated", handleUpdate);
       window.addEventListener("DATASET_ACTIVATED", handleUpdate);
+      window.addEventListener("DATASET_REHYDRATED", handleUpdate);
+      window.addEventListener("DATASET_REMOVED", handleUpdate);
+      window.addEventListener("DATASET_UPDATED", handleUpdate);
     }
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("sauron_datasource_updated", handleUpdate);
         window.removeEventListener("DATASET_ACTIVATED", handleUpdate);
+        window.removeEventListener("DATASET_REHYDRATED", handleUpdate);
+        window.removeEventListener("DATASET_REMOVED", handleUpdate);
+        window.removeEventListener("DATASET_UPDATED", handleUpdate);
       }
     };
   }, []);

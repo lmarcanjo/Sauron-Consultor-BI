@@ -9,6 +9,7 @@ import { LancamentoFinanceiro, FiltrosDashboard } from "../types";
 import { DatabaseConnector } from "./DatabaseConnector";
 import { useDataSourceManager } from "../hooks/useDataSourceManager";
 import { dataSourceManager } from "../services/dataSourceManager";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { SpreadsheetWorkspaceManager } from "../services/spreadsheetWorkspaceManager";
 import { SimpleSpreadsheetImporter } from "./spreadsheet/SimpleSpreadsheetImporter";
 
@@ -515,12 +516,12 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                     </div>
                     
                     {/* Active Dataset Status Box */}
-                    {dataSourceManager.getActiveDataset() && activeDataSource === "SPREADSHEET_DATA" ? (
+                    {activeDatasetStore.getActiveDataset() && activeDataSource === "SPREADSHEET_DATA" ? (
                       <div className="mb-3 p-2 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900 rounded-lg">
                         <div className="text-[9px] font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-wider mb-1">Dataset Homologado</div>
                         <div className="text-[10px] text-slate-700 dark:text-slate-300">
-                          <p><span className="font-medium text-slate-500">Origem:</span> {dataSourceManager.getActiveDataset()?.sourceName}</p>
-                          <p><span className="font-medium text-slate-500">Linhas:</span> {dataSourceManager.getActiveDataset()?.rowCount}</p>
+                          <p><span className="font-medium text-slate-500">Origem:</span> {activeDatasetStore.getActiveDataset()?.sourceName}</p>
+                          <p><span className="font-medium text-slate-500">Linhas:</span> {activeDatasetStore.getActiveDataset()?.rowCount}</p>
                           <p><span className="font-medium text-slate-500">Filtros:</span> {dataSourceManager.getAvailableFilters().length}</p>
                         </div>
                       </div>
@@ -1125,8 +1126,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
             <div className="space-y-4">
               <SimpleSpreadsheetImporter
                 onImported={async (dataset) => {
-                  const records = await dataSourceManager.getActiveRecords();
-                  onDataLoaded(records, dataset.sourceName);
+                  console.log("[Sauron Instrumentation] CALLBACK_TRIGGERED - Callback do parent tab acionado com payload:", dataset);
                   setActiveTab(0); // Redirect to Fontes de Dados
                   refreshDataSource();
                 }}

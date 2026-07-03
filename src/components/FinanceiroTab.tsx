@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Database, TrendingUp, AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react";
 import { MetricasConsolidadas } from "../types";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 
 import { dataSourceManager } from "../services/dataSourceManager";
 
@@ -10,7 +11,16 @@ interface FinanceiroTabProps {
 }
 
 export const FinanceiroTab: React.FC<FinanceiroTabProps> = ({ metrics, formatCurrency }) => {
-  const activeDataset = dataSourceManager.getActiveDataset();
+  const activeDataset = activeDatasetStore.getActiveDataset();
+
+  useEffect(() => {
+    if (activeDataset) {
+      console.log(`[Sauron Instrumentation] FINANCEIRO_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+    } else {
+      console.log(`[Sauron Instrumentation] FINANCEIRO_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+    }
+  }, [activeDataset]);
+
   const isPendingConfiguration = React.useMemo(() => {
     if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
     if (activeDataset && activeDataset.columnProfiles) {
