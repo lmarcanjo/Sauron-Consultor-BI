@@ -1,0 +1,18 @@
+# @license
+# SPDX-License-Identifier: Apache-2.0
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy root configurations and package manifests
+COPY package*.json tsconfig.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy all source files
+COPY . .
+
+# Command to run the background worker
+CMD ["npx", "tsx", "apps/worker/src/main.ts"]

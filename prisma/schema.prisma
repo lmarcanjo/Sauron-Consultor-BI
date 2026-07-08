@@ -1,0 +1,140 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id            String         @id @default(uuid())
+  name          String
+  tier          String         @default("basic") // basic, professional, enterprise
+  status        String         @default("active") // active, suspended, inactive
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  createdBy     String?
+  updatedBy     String?
+
+  organizations Organization[]
+  users         User[]
+  workspaces    Workspace[]
+  cases         ConsultingCase[]
+  auditLogs     AuditLog[]
+}
+
+model Organization {
+  id         String      @id @default(uuid())
+  name       String
+  tenantId   String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+  createdBy  String?
+  updatedBy  String?
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  users      User[]
+  workspaces Workspace[]
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  
+  users       User[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  createdAt   DateTime         @default(now())
+  
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model User {
+  id             String        @id @default(uuid())
+  email          String        @unique
+  passwordHash   String
+  roleId         String
+  organizationId String?
+  tenantId       String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+
+  role         Role          @relation(fields: [roleId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  auditLogs    AuditLog[]
+}
+
+model Workspace {
+  id             String           @id @default(uuid())
+  name           String
+  tenantId       String
+  organizationId String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+  createdBy      String?
+  updatedBy      String?
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  cases        ConsultingCase[]
+}
+
+model ConsultingCase {
+  id          String    @id @default(uuid())
+  title       String
+  workspaceId String
+  tenantId    String
+  status      String    @default("open") // open, analyzing, resolved, archived
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdBy   String?
+  updatedBy   String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  action        String
+  details       String
+  userId        String?
+  tenantId      String?
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+  correlationId String?
+  metadata      String?  // JSON serialized payload
+
+  user   User?   @relation(fields: [userId], references: [id])
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+}

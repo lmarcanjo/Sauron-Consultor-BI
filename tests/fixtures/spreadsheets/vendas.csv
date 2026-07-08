@@ -1,0 +1,7 @@
+Grupo,CNPJ,Marca,Empresa,Mês,Razão,Categoria,Receita,Custo,Despesa,Lucro,Margem,Vendedor
+Grupo Topázio,11.111.111/0001-11,Topázio Nissan,Topázio Nissan S/A,Janeiro,Venda de Veículos,Receitas,150000.00,0.00,0.00,150000.00,1.00,Alvo Dumbledore
+Grupo Topázio,11.111.111/0001-11,Topázio Nissan,Topázio Nissan S/A,Fevereiro,Serviços Oficina,Receitas,45000.00,0.00,0.00,45000.00,1.00,Minerva McGonagall
+Grupo Topázio,11.111.111/0001-11,Topázio Nissan,Topázio Nissan S/A,Março,Marketing,Despesas,0.00,0.00,12000.00,-12000.00,0.00,Alvo Dumbledore
+Grupo Topázio,22.222.222/0001-22,Topázio Fiat,Topázio Fiat S/A,Janeiro,Venda de Veículos,Receitas,210000.00,0.00,0.00,210000.00,1.00,Severus Snape
+Grupo Topázio,22.222.222/0001-22,Topázio Fiat,Topázio Fiat S/A,Fevereiro,Imóveis,Despesas,0.00,0.00,22000.00,-22000.00,0.00,Severus Snape
+Grupo Topázio,33.333.333/0001-33,Topázio Jeep,Topázio Jeep S/A,Janeiro,Venda de Veículos,Receitas,340000.00,0.00,0.00,340000.00,1.00,Rubeus Hagrid

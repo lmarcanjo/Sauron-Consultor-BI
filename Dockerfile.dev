@@ -1,0 +1,21 @@
+# @license
+# SPDX-License-Identifier: Apache-2.0
+
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy root configurations and package manifests
+COPY package*.json tsconfig.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy all source files
+COPY . .
+
+# Expose port 3000
+EXPOSE 3000
+
+# Command to run the Vite dev server with custom Express middleware
+CMD ["npm", "run", "dev"]
