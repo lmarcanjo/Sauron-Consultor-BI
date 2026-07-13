@@ -13,6 +13,7 @@ import {
   DashboardTableData,
 } from "./DashboardTypes";
 import { buildBlockLineageFromMetrics, emptyDashboardLineage } from "./DashboardLineage";
+import { businessDomainEngine } from "../business-domains/BusinessDomainEngine";
 
 const CURRENCY_METRICS = new Set<BusinessMetric["name"]>([
   "totalVendido",
@@ -24,7 +25,9 @@ const CURRENCY_METRICS = new Set<BusinessMetric["name"]>([
 ]);
 
 function statusFromMetric(metric: BusinessMetric): DashboardBlockStatus {
-  return metric.status;
+  if (metric.status === "ready") return "ready";
+  if (metric.status === "pending") return "pending";
+  return "empty";
 }
 
 function formatNumber(value: number | null, unit: DashboardMetricCardData["unit"]): string {
@@ -49,14 +52,16 @@ export function buildMetricCardBlock(metric: BusinessMetric, context: DashboardE
       ? "integer"
       : "number";
 
+  const translatedLabel = businessDomainEngine.translateToDomain(metric.label);
+
   return {
     id: `dashboard-block:${metric.id}`,
-    title: metric.label,
+    title: translatedLabel,
     type: "MetricCard",
     status: statusFromMetric(metric),
     data: {
       metricName: metric.name,
-      label: metric.label,
+      label: translatedLabel,
       value: metric.value,
       formattedValue: formatNumber(metric.value, unit),
       unit,
@@ -83,7 +88,7 @@ export function buildPendingConfigBlock(params: {
 
   return {
     id: params.id,
-    title: params.title,
+    title: businessDomainEngine.translateToDomain(params.title),
     type: "PendingConfigBlock",
     status: "pending",
     data: {
@@ -115,7 +120,7 @@ export function buildInsightBlock(params: {
 
   return {
     id: params.id,
-    title: params.title,
+    title: businessDomainEngine.translateToDomain(params.title),
     type: "InsightBlock",
     status: params.data.severity === "critical" ? "error" : "ready",
     data: params.data,
@@ -141,7 +146,7 @@ export function buildRankingBlock(params: {
 }): DashboardBlock<{ items: DashboardRankingItem[] }> {
   return {
     id: params.id,
-    title: params.title,
+    title: businessDomainEngine.translateToDomain(params.title),
     type: "RankingBlock",
     status: params.status,
     data: { items: params.items },
@@ -167,7 +172,7 @@ export function buildTableBlock(params: {
 }): DashboardBlock<DashboardTableData> {
   return {
     id: params.id,
-    title: params.title,
+    title: businessDomainEngine.translateToDomain(params.title),
     type: "TableBlock",
     status: params.status || (params.data.rows.length > 0 ? "ready" : "empty"),
     data: params.data,

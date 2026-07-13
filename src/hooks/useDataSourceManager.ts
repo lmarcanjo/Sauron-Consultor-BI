@@ -79,5 +79,6 @@ export function useDataSourceManager() {
     rejectSource,
     refreshDataSource,
     workspace,
+    tick,
   };
 }

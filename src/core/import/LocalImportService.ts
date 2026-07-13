@@ -1,4 +1,4 @@
-import { ActiveDataset, ActiveDatasetRow, ActiveWorkbookDataset, SheetMetadata } from "../../types/dataSource";
+import { ActiveDataset, ActiveDatasetRow, ActiveWorkbookDataset, SheetMetadata, SourceIdentity } from "../../types/dataSource";
 import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
 import type { ImportService } from "./ImportService";
 import { ImportJob, ImportJobProgress, ImportPreviewPage, UploadedSheetMetadata } from "./ImportJobTypes";
@@ -15,6 +15,7 @@ interface LocalJobState {
 }
 
 const localJobs = new Map<string, LocalJobState>();
+let fallbackJobIdCounter = 0;
 
 const progress = (
   status: ImportJob["status"],
@@ -104,7 +105,11 @@ export function choosePrimaryDataSheet<T extends { sheetName: string; rowCount: 
 }
 
 function createJobId(file: File) {
-  return `workbook_${file.name.replace(/\s+/g, "_")}`;
+  const safeName = file.name.replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "") || "workbook";
+  const unique = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}_${fallbackJobIdCounter++}`;
+  return `workbook_${safeName}_${unique}`;
 }
 
 function classifySheet(rowCount: number, colCount: number, formulaCount: number): UploadedSheetMetadata["classification"] {
@@ -285,6 +290,28 @@ export class LocalImportService implements ImportService {
       },
     }));
 
+    let workspaceId = "workspace_default";
+    if (typeof localStorage !== "undefined") {
+      try {
+        const raw = localStorage.getItem("sauron_workspace_registry");
+        if (raw) {
+          const registry = JSON.parse(raw);
+          if (registry.currentWorkspaceId) {
+            workspaceId = registry.currentWorkspaceId;
+          }
+        }
+      } catch {}
+    }
+
+    const sourceIdentity: SourceIdentity = {
+      sourceId: jobId,
+      workbookId: jobId,
+      datasetId: jobId,
+      storageKey: jobId,
+      workspaceId,
+      originalFileName: state.file.name
+    };
+
     const activeWorkbook: ActiveWorkbookDataset = {
       datasetId: jobId,
       workbookId: jobId,
@@ -301,6 +328,7 @@ export class LocalImportService implements ImportService {
       rawStorageRef: jobId,
       formulaCount: selectedMetadata.reduce((sum, sheet) => sum + sheet.formulaCount, 0),
       status: "ACTIVE",
+      sourceIdentity,
     };
 
     await IndexedSpreadsheetStorage.saveMetadata(jobId, {

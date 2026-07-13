@@ -22,6 +22,7 @@ import {
   Key
 } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
+import { showToast } from "./Toast";
 
 interface DatabaseConnectorProps {
   onDataLoaded: (data: LancamentoFinanceiro[], sourceName: string) => void;
@@ -354,8 +355,8 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
       for (const keyword of blockedKeywords) {
         const regex = new RegExp(`\\b${keyword}\\b`, "i");
         if (regex.test(q)) {
-          setStatusMessage(`Erro de Segurança: A palavra '${keyword}' está bloqueada. Apenas comandos SELECT são permitidos.`);
-          alert(`Tentativa de alteração bloqueada! O comando '${keyword}' não é permitido por diretivas de segurança de leitura (Read-Only).`);
+          setStatusMessage(`Bloqueado: o comando '${keyword}' viola a política de leitura.`);
+          showToast("error", `Comando '${keyword}' não permitido. Somente SELECT é aceito.`);
           return;
         }
       }

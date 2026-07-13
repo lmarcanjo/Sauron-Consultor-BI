@@ -165,7 +165,18 @@ export interface ActiveDataset {
   columnProfiles: ColumnProfile[];
   importProfile: ImportProfile | null;
   rawStorageRef: string;
-  status: "ACTIVE" | "PENDING";
+  status:
+    | "PENDING"
+    | "PARSING"
+    | "PERSISTING"
+    | "READY"
+    | "ACTIVE"
+    | "PENDING_CONFIGURATION"
+    | "STORAGE_INCOMPLETE"
+    | "FAILED"
+    | "ARCHIVED"
+    | "DELETED";
+  sourceIdentity?: SourceIdentity;
 }
 
 export interface ActiveWorkbookDataset extends ActiveDataset {
@@ -183,4 +194,24 @@ export interface ImportProfile {
   selectedFilters: ClientFilterConfig[];
   expectedFiles: string[];
   lastApplied: string;
+}
+
+// 19. Source Identity Canonical Definition
+export interface SourceIdentity {
+  sourceId: string;
+  workbookId: string;
+  datasetId: string;
+  storageKey: string;
+  enterpriseId?: string;
+  companyId?: string;
+  unitId?: string;
+  workspaceId: string;
+  originalFileName: string;
+}
+
+// 20. Explicit ActiveSourceSelection Entity
+export interface ActiveSourceSelection {
+  contextId: string;
+  sourceIds: string[];
+  updatedAt: string;
 }

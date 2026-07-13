@@ -40,7 +40,10 @@ export class OrganizationManager {
         console.error("[OrganizationManager] Error loading organization details:", e);
       }
     }
-    this.seedDefaultStructure();
+    this.organizations = [];
+    this.workspaces = [];
+    this.teams = [];
+    this.saveToStorage();
   }
 
   public saveToStorage() {
@@ -53,148 +56,6 @@ export class OrganizationManager {
         console.error("[OrganizationManager] Error saving organization details:", e);
       }
     }
-  }
-
-  private seedDefaultStructure() {
-    const now = new Date().toISOString();
-
-    // 1. Teams
-    this.teams = [
-      {
-        id: "team_consultores",
-        organizationId: "org_arcanjo",
-        name: "Consultores Juniores & Seniores",
-        members: ["user_super_admin", "user_consultant_admin", "user_consultant"],
-        createdAt: now
-      },
-      {
-        id: "team_diretores",
-        organizationId: "org_client_topazio",
-        name: "Conselho Diretor",
-        members: ["user_super_admin", "user_client_director", "user_controller"],
-        createdAt: now
-      },
-      {
-        id: "team_operacao",
-        organizationId: "org_client_topazio",
-        name: "Time de Finanças & Operações",
-        members: ["user_client_manager", "user_financial"],
-        createdAt: now
-      }
-    ];
-
-    // 2. Default Access Policies for Workspace (seeded defaults)
-    const defaultPolicies: AccessPolicy[] = [
-      { id: "p1", role: "Super Admin", permission: "workspace.view", scope: "global" },
-      { id: "p2", role: "Super Admin", permission: "workspace.manage", scope: "global" },
-      { id: "p3", role: "Consultant Admin", permission: "workspace.view", scope: "organization" },
-      { id: "p4", role: "Consultant Admin", permission: "workspace.manage", scope: "organization" },
-      { id: "p5", role: "Consultant", permission: "workspace.view", scope: "workspace" },
-      { id: "p6", role: "Consultant", permission: "data.view", scope: "workspace" },
-      { id: "p7", role: "Consultant", permission: "data.import", scope: "workspace" },
-      { id: "p8", role: "Consultant", permission: "analytics.view", scope: "workspace" },
-      { id: "p9", role: "Client Director", permission: "workspace.view", scope: "group" },
-      { id: "p10", role: "Client Director", permission: "analytics.view", scope: "group" },
-      { id: "p11", role: "Client Manager", permission: "workspace.view", scope: "store", resourceId: "Loja Nissan Feira" },
-      { id: "p12", role: "Client Manager", permission: "data.view", scope: "store", resourceId: "Loja Nissan Feira" },
-      { id: "p13", role: "Financial User", permission: "data.view", scope: "costCenter", resourceId: "Administração" },
-      { id: "p14", role: "Financial User", permission: "data.import", scope: "costCenter", resourceId: "Administração" },
-      { id: "p15", role: "Auditor", permission: "audit.view", scope: "workspace" },
-      { id: "p16", role: "Viewer", permission: "workspace.view", scope: "workspace" },
-      { id: "p17", role: "Guest", permission: "presentation.view", scope: "presentation" }
-    ];
-
-    // 3. Workspaces
-    this.workspaces = [
-      {
-        id: "ws_cliente_real",
-        name: "Workspace Cliente Real",
-        organizationId: "org_client_real",
-        clientId: "client_1",
-        groupId: "group_cliente_real",
-        companies: ["Empresa Real", "Loja Real"],
-        brands: ["Nissan", "Fiat"],
-        stores: ["Loja Nissan Feira", "Loja Fiat Centro"],
-        costCenters: ["Veículos Novos", "Peças", "Oficina", "F&I/FNA", "Acessórios", "Administração"],
-        allowedUsers: [
-          "user_super_admin",
-          "user_consultant_admin",
-          "user_consultant",
-          "user_client_director",
-          "user_client_manager",
-          "user_financial",
-          "user_controller",
-          "user_auditor",
-          "user_viewer"
-        ],
-        allowedTeams: ["team_consultores", "team_diretores", "team_operacao"],
-        accessPolicies: defaultPolicies,
-        dataSources: ["ERP_PROD_SQL", "Planilha_Sincronizada.xlsx"],
-        presentations: ["pres_test_deck"],
-        meetings: [],
-        actionPlans: [],
-        auditTrail: [],
-        createdAt: now,
-        updatedAt: now
-      },
-      {
-        id: "ws_arcanjo_internal",
-        name: "Planejamento Arcanjo S/A",
-        organizationId: "org_arcanjo",
-        clientId: "client_arcanjo",
-        companies: ["Arcanjo Holding"],
-        brands: ["Arcanjo"],
-        stores: ["Matriz Salvador"],
-        costCenters: ["Marketing", "Tech", "Consultoria Geral"],
-        allowedUsers: ["user_super_admin", "user_consultant_admin", "user_consultant"],
-        allowedTeams: ["team_consultores"],
-        accessPolicies: defaultPolicies.filter(p => p.role.includes("Admin") || p.role === "Consultant" || p.role === "Super Admin"),
-        dataSources: ["Internal_Billing_Sheets"],
-        presentations: [],
-        meetings: [],
-        actionPlans: [],
-        auditTrail: [],
-        createdAt: now,
-        updatedAt: now
-      }
-    ];
-
-    // 4. Organizations
-    this.organizations = [
-      {
-        id: "org_arcanjo",
-        name: "Consultoria Arcanjo",
-        type: "consulting_firm",
-        ownerUserId: "user_consultant_admin",
-        members: ["user_super_admin", "user_consultant_admin", "user_consultant"],
-        teams: ["team_consultores"],
-        workspaces: ["ws_arcanjo_internal", "ws_cliente_real"],
-        createdAt: now,
-        updatedAt: now
-      },
-      {
-        id: "org_client_real",
-        name: "Cliente Real",
-        type: "client_group",
-        ownerUserId: "user_client_director",
-        members: [
-          "user_super_admin",
-          "user_client_director",
-          "user_client_manager",
-          "user_financial",
-          "user_controller",
-          "user_auditor",
-          "user_viewer",
-          "user_guest"
-        ],
-        teams: ["team_diretores", "team_operacao"],
-        workspaces: ["ws_topazio"],
-        createdAt: now,
-        updatedAt: now
-      }
-    ];
-
-    this.saveToStorage();
   }
 
   public getOrganizations(): Organization[] {
@@ -302,6 +163,15 @@ export class OrganizationManager {
       });
     }
   }
+
+  // Helper method for test environment to inject seeds dynamically
+  public injectTestStructure(orgs: Organization[], ws: Workspace[], teams: Team[]): void {
+    this.organizations = [...orgs];
+    this.workspaces = [...ws];
+    this.teams = [...teams];
+    this.saveToStorage();
+  }
 }
 
 export const organizationManager = OrganizationManager.getInstance();
+export default organizationManager;

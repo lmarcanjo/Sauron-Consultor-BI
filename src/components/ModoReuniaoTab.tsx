@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MonitorPlay, ChevronLeft, ChevronRight, Clock, Maximize, Target, HelpCircle, CheckSquare, Save, X, Presentation, FileText } from 'lucide-react';
+import { showToast } from './Toast';
 
 interface ModoReuniaoTabProps {
   slides?: any[];
@@ -178,7 +179,10 @@ export const ModoReuniaoTab: React.FC<ModoReuniaoTabProps> = ({ onExit }) => {
                 <FileText size={12} /> Exportar Ata Reunião
              </button>
              <button 
-                onClick={() => alert("Histórico de reunião salvo na base corporativa com sucesso.")}
+                onClick={() => {
+                  try { localStorage.setItem('sauron_ata_created', Date.now().toString()); } catch(e) {}
+                  showToast('success', 'Resumo da reunião salvo com sucesso.');
+                }}
                 className="w-full py-2 bg-white/5 hover:bg-white/10 text-white/70 text-[10px] font-black uppercase tracking-widest rounded transition-colors flex items-center justify-center gap-2 border border-white/10"
              >
                 <Save size={12} /> Salvar Histórico

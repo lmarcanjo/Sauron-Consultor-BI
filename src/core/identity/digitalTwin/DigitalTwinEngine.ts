@@ -50,104 +50,122 @@ export class DigitalTwinEngine {
   }
 
   private seedDefaultDigitalTwin() {
-    const now = new Date().toISOString();
+    if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+      const now = new Date().toISOString();
 
-    const stores: StoreTwin[] = [
-      {
-        id: "store_nissan_feira",
-        name: "Loja Nissan Feira",
-        cnpj: "12.345.678/0001-99",
-        brand: "Nissan",
-        city: "Feira de Santana",
-        state: "BA",
-        managerUserId: "user_client_manager",
-        activeHeadcount: 42,
-        departments: [
-          {
-            id: "dept_nissan_sales",
-            name: "Vendas Novos",
-            costCenters: ["Veículos Novos", "Administração"]
-          },
-          {
-            id: "dept_nissan_workshop",
-            name: "Oficina e Peças",
-            costCenters: ["Oficina", "Peças", "Acessórios"]
-          },
-          {
-            id: "dept_nissan_fi",
-            name: "F&I / Financiamentos",
-            costCenters: ["F&I/FNA"]
-          }
-        ]
-      },
-      {
-        id: "store_fiat_centro",
-        name: "Loja Fiat Centro",
-        cnpj: "12.345.678/0002-88",
-        brand: "Fiat",
-        city: "Salvador",
-        state: "BA",
-        managerUserId: "user_client_director",
-        activeHeadcount: 55,
-        departments: [
-          {
-            id: "dept_fiat_sales",
-            name: "Showroom Novos e Seminovos",
-            costCenters: ["Veículos Novos", "Administração"]
-          },
-          {
-            id: "dept_fiat_parts",
-            name: "Peças e Serviços",
-            costCenters: ["Oficina", "Peças"]
-          }
-        ]
-      }
-    ];
-
-    const company: CompanyTwin = {
-      id: "comp_cliente_real_autos",
-      name: "Empresa Real Veículos Ltda",
-      legalName: "Empresa Real Distribuidora de Veículos e Motores Ltda",
-      taxId: "12.345.678/0001-99",
-      brands: [
+      const stores: StoreTwin[] = [
         {
-          id: "brand_nissan",
-          name: "Nissan",
-          segment: "automotivo",
-          stores: ["store_nissan_feira"]
+          id: "store_nissan_feira",
+          name: "Loja Nissan Feira",
+          cnpj: "12.345.678/0001-99",
+          brand: "Nissan",
+          city: "Feira de Santana",
+          state: "BA",
+          managerUserId: "user_client_manager",
+          activeHeadcount: 42,
+          departments: [
+            {
+              id: "dept_nissan_sales",
+              name: "Vendas Novos",
+              costCenters: ["Veículos Novos", "Administração"]
+            },
+            {
+              id: "dept_nissan_workshop",
+              name: "Oficina e Peças",
+              costCenters: ["Oficina", "Peças", "Acessórios"]
+            },
+            {
+              id: "dept_nissan_fi",
+              name: "F&I / Financiamentos",
+              costCenters: ["F&I/FNA"]
+            }
+          ]
         },
         {
-          id: "brand_fiat",
-          name: "Fiat",
-          segment: "automotivo",
-          stores: ["store_fiat_centro"]
+          id: "store_fiat_centro",
+          name: "Loja Fiat Centro",
+          cnpj: "12.345.678/0002-88",
+          brand: "Fiat",
+          city: "Salvador",
+          state: "BA",
+          managerUserId: "user_client_director",
+          activeHeadcount: 55,
+          departments: [
+            {
+              id: "dept_fiat_sales",
+              name: "Showroom Novos e Seminovos",
+              costCenters: ["Veículos Novos", "Administração"]
+            },
+            {
+              id: "dept_fiat_parts",
+              name: "Peças e Serviços",
+              costCenters: ["Oficina", "Peças"]
+            }
+          ]
         }
-      ],
-      stores: stores,
-      costCenters: ["Veículos Novos", "Peças", "Oficina", "F&I/FNA", "Acessórios", "Administração"]
-    };
+      ];
 
-    this.activeGroupTwin = {
-      id: "group_cliente_real",
-      name: "Cliente Real S/A",
-      ownerUserId: "user_client_director",
-      companies: [company],
-      headquartersAddress: "Av. Luís Viana Filho, 1200, Salvador - BA",
-      createdAt: now
-    };
+      const company: CompanyTwin = {
+        id: "comp_cliente_real_autos",
+        name: "Empresa Real Veículos Ltda",
+        legalName: "Empresa Real Distribuidora de Veículos e Motores Ltda",
+        taxId: "12.345.678/0001-99",
+        brands: [
+          {
+            id: "brand_nissan",
+            name: "Nissan",
+            segment: "automotivo",
+            stores: ["store_nissan_feira"]
+          },
+          {
+            id: "brand_fiat",
+            name: "Fiat",
+            segment: "automotivo",
+            stores: ["store_fiat_centro"]
+          }
+        ],
+        stores: stores,
+        costCenters: ["Veículos Novos", "Peças", "Oficina", "F&I/FNA", "Acessórios", "Administração"]
+      };
 
-    this.saveToStorage();
+      this.activeGroupTwin = {
+        id: "group_cliente_real",
+        name: "Cliente Real S/A",
+        ownerUserId: "user_client_director",
+        companies: [company],
+        headquartersAddress: "Av. Luís Viana Filho, 1200, Salvador - BA",
+        createdAt: now
+      };
+      this.saveToStorage();
+    } else {
+      this.activeGroupTwin = null;
+    }
   }
 
   public getGroupTwin(): BusinessGroupTwin {
     if (!this.activeGroupTwin) {
-      this.seedDefaultDigitalTwin();
+      return {
+        id: "group_empty",
+        name: "Sem Grupo Cadastrado",
+        ownerUserId: "guest_anonymous",
+        companies: [],
+        headquartersAddress: "",
+        createdAt: new Date().toISOString()
+      };
     }
-    return this.activeGroupTwin!;
+    return this.activeGroupTwin;
   }
 
   public getStructure(): OrganizationStructure {
-    const org = organizationManager.getOrganization("org_client_topazio") || organizationManager.getOrganizations()[0];
+    const orgs = organizationManager.getOrganizations();
+    const org = orgs.length > 0 ? orgs[0] : {
+      id: "org_empty",
+      name: "Nenhuma Organização",
+      workspaces: [],
+      members: [],
+      teams: [],
+      createdAt: new Date().toISOString()
+    };
     const workspaces = organizationManager.getWorkspaces().filter(w => w.organizationId === org.id);
     const users = userManager.getUsers().filter(u => u.organizationId === org.id);
     const teams = organizationManager.getTeams().filter(t => t.organizationId === org.id);

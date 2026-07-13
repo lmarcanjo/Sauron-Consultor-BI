@@ -74,6 +74,25 @@ describe("Import services", () => {
     expect(storageMock.saveMetadata).toHaveBeenCalled();
   });
 
+  it("LocalImportService creates distinct jobs for repeated imports with the same file name", async () => {
+    const XLSX = await import("xlsx");
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["Produto", "Valor"],
+      ["Filtro", 10],
+    ]);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "IMP_VENDAS");
+    const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+
+    const service = new LocalImportService();
+    const first = await service.startSpreadsheetImport(new File([buffer], "Honda.xlsx"));
+    const second = await service.startSpreadsheetImport(new File([buffer], "Honda.xlsx"));
+
+    expect(first.jobId).not.toBe(second.jobId);
+    expect(first.metadata?.workbookId).toBe(first.jobId);
+    expect(second.metadata?.workbookId).toBe(second.jobId);
+  });
+
   it("ApiImportService builds the production import requests", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -158,6 +177,9 @@ describe("Import services", () => {
 
     expect(source).toContain("createImportService");
     expect(source).not.toContain('import("xlsx")');
-    expect(source).not.toContain("IndexedSpreadsheetStorage");
+    expect(source).not.toContain("fixtures");
+    expect(source).not.toContain("seeds");
+    expect(source).not.toContain("generators");
+    expect(source).not.toContain("demo");
   });
 });

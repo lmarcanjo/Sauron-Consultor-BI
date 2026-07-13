@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { SauronButton } from "../sauron-sdk/ui/SauronButton";
+import { showToast } from "./Toast";
 import { SauronCard } from "../sauron-sdk/ui/SauronCard";
 import { SauronBadge } from "../sauron-sdk/ui/SauronBadge";
 import { SauronInput } from "../sauron-sdk/ui/SauronInput";
@@ -318,7 +319,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
               <SauronDataStatus
                 sourceType="spreadsheet"
                 isLocked={true}
-                onRefresh={() => alert("Sincronizando planilha...")}
+                onRefresh={() => showToast("info", "Sincronizando planilha...")}
               />
               <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-xl">
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Rastreamento de Origem do EBITDA:</span>
@@ -376,7 +377,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
                   Voltar
                 </SauronButton>
                 <SauronButton variant="filled" onClick={() => {
-                  alert("Ação executada no Drawer!");
+                  showToast("success", "Ação executada com sucesso.");
                   setIsDrawerOpen(false);
                 }}>
                   Sincronizar

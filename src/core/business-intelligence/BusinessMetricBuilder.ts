@@ -8,6 +8,7 @@ import {
   BusinessMetricSource,
   BusinessMetricStatus,
 } from "./BusinessMetricTypes";
+import { businessDomainEngine } from "../business-domains/BusinessDomainEngine";
 
 const METRIC_LABELS: Record<BusinessMetricName, string> = {
   totalVendido: "Total vendido",
@@ -22,7 +23,7 @@ const METRIC_LABELS: Record<BusinessMetricName, string> = {
 };
 
 export function metricLabel(metricName: BusinessMetricName): string {
-  return METRIC_LABELS[metricName];
+  return businessDomainEngine.translateToDomain(METRIC_LABELS[metricName]);
 }
 
 export function buildMetricId(context: BusinessIntelligenceContext, metricName: BusinessMetricName, moduleName?: ModuleName | null): string {

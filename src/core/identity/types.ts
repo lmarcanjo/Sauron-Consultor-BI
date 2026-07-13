@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type Role =
+export type Role = 
+  | "SUPER_ADMIN" 
+  | "CONSULTANT"
   | "Super Admin"
   | "Consultant Admin"
   | "Consultant"
@@ -120,7 +122,7 @@ export interface Workspace {
   name: string;
   organizationId: string;
   clientId: string; // e.g. "client_1"
-  groupId?: string; // e.g. "group_topazio"
+  groupId?: string;
   companies: string[];
   brands: string[];
   stores: string[];
@@ -300,4 +302,15 @@ export interface SecurityScore {
   };
   lastEvaluatedAt: string;
 }
+
+export interface AuthSession {
+  userId: string;
+  role: Role;
+  organizationId: string;
+  workspaceIds: string[];
+  companyIds: string[];
+  authenticatedAt: string;
+  expiresAt?: string;
+}
+
 

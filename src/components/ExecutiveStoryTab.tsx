@@ -52,6 +52,7 @@ import { SauronTimeline } from "../sauron-sdk/ui/SauronTimeline";
 import { SauronKpiCard } from "../sauron-sdk/ui/SauronKpiCard";
 import { SauronDecisionCard } from "../sauron-sdk/domain/SauronDecisionCard";
 import { SauronActionCard } from "../sauron-sdk/domain/SauronActionCard";
+import { showToast } from "./Toast";
 
 export const ExecutiveStoryTab: React.FC = () => {
   // Navigation & Screen Control
@@ -137,7 +138,7 @@ export const ExecutiveStoryTab: React.FC = () => {
       setNewStoryTitle("");
       setNewStorySubtitle("");
     } catch (e: any) {
-      alert(e.message);
+      showToast("error", "Não foi possível criar a narrativa. Verifique os dados e tente novamente.");
     }
   };
 
@@ -152,7 +153,7 @@ export const ExecutiveStoryTab: React.FC = () => {
       setActiveTab("editor");
       setSelectedChapterIndex(0);
     } catch (e: any) {
-      alert(e.message);
+      showToast("error", "Não foi possível duplicar a narrativa.");
     }
   };
 
@@ -177,7 +178,7 @@ export const ExecutiveStoryTab: React.FC = () => {
       setShowApprovalModal(false);
       setApprovalAuthor("");
     } catch (e: any) {
-      alert(e.message);
+      showToast("error", "Não foi possível aprovar a narrativa. Verifique os campos e tente novamente.");
     }
   };
 
@@ -207,7 +208,7 @@ export const ExecutiveStoryTab: React.FC = () => {
       const res = storyDiffEngine.diffVersions(activeStory, diffVer1, diffVer2);
       setDiffResult(res);
     } catch (e: any) {
-      alert(e.message);
+      showToast("error", "Não foi possível comparar as versões selecionadas.");
     }
   };
 

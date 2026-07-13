@@ -8,6 +8,7 @@ import { WorkspaceProject, ActionPlan, Meeting } from "../modules/consultant-wor
 import { AgendaItem } from "./ExecutiveSessionAgenda";
 import { Participant, SessionDecision } from "./ExecutiveSessionRightPanel";
 import { caseHistoryEngine } from "../core/workspace-intelligence/CaseHistoryEngine";
+import { showToast } from "./Toast";
 
 interface UseExecutiveSessionStateProps {
   activeProject?: WorkspaceProject | null;
@@ -44,29 +45,10 @@ export const useExecutiveSessionState = ({
     if (activeProject) return activeProject;
     return {
       id: "case_fallback",
-      client: "Cliente Corporativo Exemplo",
-      group: "Grupo Empresarial Alpha",
-      segment: "Automotivo",
-      actionPlans: [
-        {
-          id: "ap_1",
-          description: "Reavaliar comissionamento de vendas indiretas",
-          priority: "high",
-          responsible: "Carlos Henrique",
-          deadline: "15/07/2026",
-          status: "pending",
-          origin: "Meeting",
-        },
-        {
-          id: "ap_2",
-          description: "Reduzir custos de frete em autopeças de reposição",
-          priority: "medium",
-          responsible: "Ana Luiza",
-          deadline: "30/07/2026",
-          status: "in-progress",
-          origin: "Meeting",
-        },
-      ] as ActionPlan[],
+      client: "Empresa",
+      group: "Grupo",
+      segment: "Serviços",
+      actionPlans: [] as ActionPlan[],
       meetings: [] as Meeting[],
     } as unknown as WorkspaceProject;
   }, [activeProject]);
@@ -92,7 +74,7 @@ export const useExecutiveSessionState = ({
 
   const saveAgendaModel = () => {
     localStorage.setItem(`agenda_config_${project.id}`, JSON.stringify(agenda));
-    alert("Modelo de Agenda salvo e sincronizado com sucesso para este caso.");
+    showToast("success", "Roteiro da reunião salvo.");
   };
 
   const visibleChapters = useMemo(() => agenda.filter((a) => a.visible), [agenda]);
@@ -286,15 +268,23 @@ export const useExecutiveSessionState = ({
         "session_realized"
       );
 
+      // Gravar no localStorage para atualizar Timeline e Checklist de Reunião
+      try {
+        localStorage.setItem("sauron_ata_created", Date.now().toString());
+        if (newActionPlans.length > 0) {
+          localStorage.setItem("sauron_plan_created", Date.now().toString());
+        }
+      } catch (e) {}
+
       if (onUpdateProject) {
         await onUpdateProject(updatedProject);
       }
 
-      alert("Sessão Executiva Sincronizada com sucesso! A base permanente do caso foi atualizada.");
+      showToast("success", "Sessão de reunião e atas sincronizadas.");
       onExit();
     } catch (err) {
       console.error(err);
-      alert("Ocorreu um erro ao sincronizar os dados da sessão.");
+      showToast("error", "Não foi possível salvar a sessão. Tente novamente.");
     } finally {
       setIsSyncing(false);
     }

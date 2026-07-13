@@ -21,53 +21,57 @@ export class ContextActivityEngine {
   }
 
   private seedDefaultActivities() {
-    this.activities = [
-      {
-        id: "act_1",
-        title: "Relatório de Fechamento Emitido",
-        description: "PDF executivo consolidado exportado para o conselho fiscal da holding.",
-        category: "pdf_exported",
-        timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 mins ago
-        user: { name: "Lennon Marcanjo" },
-        contextTags: { orgId: "org_arcanjo", caseId: "case_alpha", companyId: "company_alpha_nissan" }
-      },
-      {
-        id: "act_2",
-        title: "Integração do Banco de Dados Relacional",
-        description: "Tabelas de faturamento real sincronizadas via IPsec Tunneling com o PostgreSQL.",
-        category: "db_synced",
-        timestamp: new Date(Date.now() - 3 * 3600 * 1000).toISOString(), // 3 hours ago
-        user: { name: "Sauron Core DB System" },
-        contextTags: { orgId: "org_arcanjo" }
-      },
-      {
-        id: "act_3",
-        title: "Auditoria de Comissão Aprovada",
-        description: "Aprovação de comissões calculadas para o vendedor destaque Carlos Silva.",
-        category: "commission_approved",
-        timestamp: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-        user: { name: "Aline Santos" },
-        contextTags: { orgId: "org_arcanjo", caseId: "case_alpha", vendedorId: "vendedor_1" }
-      },
-      {
-        id: "act_4",
-        title: "Plano Estratégico Atualizado",
-        description: "Novo plano estratégico 'Aceleração Nissan Feira' ativado com 5 ações pendentes.",
-        category: "plan_created",
-        timestamp: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-        user: { name: "Lennon Marcanjo" },
-        contextTags: { orgId: "org_arcanjo", caseId: "case_alpha" }
-      },
-      {
-        id: "act_5",
-        title: "Ata de Reunião de Alinhamento",
-        description: "Ata de reunião gerada automaticamente pelo assistente de IA Sauron.",
-        category: "session_realized",
-        timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-        user: { name: "Aline Santos" },
-        contextTags: { orgId: "org_arcanjo", caseId: "case_alpha", companyId: "company_alpha_renault" }
-      }
-    ];
+    if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+      this.activities = [
+        {
+          id: "act_1",
+          title: "Relatório de Fechamento Emitido",
+          description: "PDF executivo consolidado exportado para o conselho fiscal da holding.",
+          category: "pdf_exported",
+          timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 mins ago
+          user: { name: "Lennon Marcanjo" },
+          contextTags: { orgId: "org_arcanjo", caseId: "case_alpha", companyId: "company_alpha_nissan" }
+        },
+        {
+          id: "act_2",
+          title: "Integração do Banco de Dados Relacional",
+          description: "Tabelas de faturamento real sincronizadas via IPsec Tunneling com o PostgreSQL.",
+          category: "db_synced",
+          timestamp: new Date(Date.now() - 3 * 3600 * 1000).toISOString(), // 3 hours ago
+          user: { name: "Sauron Core DB System" },
+          contextTags: { orgId: "org_arcanjo" }
+        },
+        {
+          id: "act_3",
+          title: "Auditoria de Comissão Aprovada",
+          description: "Aprovação de comissões calculadas para o vendedor destaque Carlos Silva.",
+          category: "commission_approved",
+          timestamp: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
+          user: { name: "Aline Santos" },
+          contextTags: { orgId: "org_arcanjo", caseId: "case_alpha", vendedorId: "vendedor_1" }
+        },
+        {
+          id: "act_4",
+          title: "Plano Estratégico Atualizado",
+          description: "Novo plano estratégico 'Aceleração Nissan Feira' ativado com 5 ações pendentes.",
+          category: "plan_created",
+          timestamp: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
+          user: { name: "Lennon Marcanjo" },
+          contextTags: { orgId: "org_arcanjo", caseId: "case_alpha" }
+        },
+        {
+          id: "act_5",
+          title: "Ata de Reunião de Alinhamento",
+          description: "Ata de reunião gerada automaticamente pelo assistente de IA Sauron.",
+          category: "session_realized",
+          timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+          user: { name: "Aline Santos" },
+          contextTags: { orgId: "org_arcanjo", caseId: "case_alpha", companyId: "company_alpha_renault" }
+        }
+      ];
+    } else {
+      this.activities = [];
+    }
   }
 
   /**

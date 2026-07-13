@@ -15,6 +15,18 @@ export interface RoleInfo {
 export class RoleManager {
   private static instance: RoleManager;
   private roles: Record<Role, RoleInfo> = {
+    "SUPER_ADMIN": {
+      name: "SUPER_ADMIN",
+      title: "Superadministrador",
+      description: "Controle absoluto sobre o ecossistema Sauron OS, incluindo todas as organizações e infraestrutura.",
+      level: 100
+    },
+    "CONSULTANT": {
+      name: "CONSULTANT",
+      title: "Consultor de Negócios",
+      description: "Realiza análises, importa dados, edita apresentações, lidera rituais de conselho e gerencia planos de ação.",
+      level: 80
+    },
     "Super Admin": {
       name: "Super Admin",
       title: "Superadministrador",

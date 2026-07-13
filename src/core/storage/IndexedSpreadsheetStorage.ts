@@ -236,6 +236,21 @@ export class IndexedSpreadsheetStorage {
     }
   }
 
+  // Delete metadata only
+  public static async deleteMetadata(fileId: string): Promise<void> {
+    try {
+      const db = await this.getDB();
+      const tx = db.transaction([this.METADATA_STORE], "readwrite");
+      tx.objectStore(this.METADATA_STORE).delete(fileId);
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (err) {
+      console.error("[IndexedSpreadsheetStorage] Error deleting metadata:", err);
+    }
+  }
+
   // Save metadata
   public static async saveMetadata(fileId: string, metadata: DatasetMetadata): Promise<void> {
     try {
@@ -293,6 +308,14 @@ export class IndexedSpreadsheetStorage {
       console.error("[IndexedSpreadsheetStorage] Error listing datasets:", err);
       return [];
     }
+  }
+
+  /**
+   * Alias for deleteRows — used by TrashRepository for transactional workbook deletion.
+   * Removes all rows, metadata and legacy entries for the given fileId.
+   */
+  public static async deleteAllRows(fileId: string): Promise<void> {
+    return this.deleteRows(fileId);
   }
 
   public static async clearAll(): Promise<void> {

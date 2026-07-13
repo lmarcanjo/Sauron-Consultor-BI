@@ -11,6 +11,15 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    define: {
+      'process.env.SAURON_RUNTIME_MODE': JSON.stringify(process.env.SAURON_RUNTIME_MODE || 'local'),
+      'process.env.API_BASE_URL': JSON.stringify(process.env.API_BASE_URL || 'http://localhost:3001'),
+      'process.env.CLOUD_AUTH_ENABLED': JSON.stringify(process.env.CLOUD_AUTH_ENABLED || 'false'),
+      'process.env.CLOUD_ENTERPRISE_PERSISTENCE_ENABLED': JSON.stringify(process.env.CLOUD_ENTERPRISE_PERSISTENCE_ENABLED || 'false'),
+      'process.env.CLOUD_WORKBOOK_METADATA_ENABLED': JSON.stringify(process.env.CLOUD_WORKBOOK_METADATA_ENABLED || 'false'),
+      'process.env.CLOUD_OBJECT_STORAGE_ENABLED': JSON.stringify(process.env.CLOUD_OBJECT_STORAGE_ENABLED || 'false'),
+      'process.env.CLOUD_AUDIT_ENABLED': JSON.stringify(process.env.CLOUD_AUDIT_ENABLED || 'false'),
+    },
     build: {
       outDir: 'dist',
     },

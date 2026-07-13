@@ -1,5 +1,6 @@
 import { ActiveDataset } from "../../types/dataSource";
 import { DatasetEvent, DatasetEventType, DatasetEventPayload } from "./DatasetEvents";
+import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
 
 export class ActiveDatasetStore {
   private static instance: ActiveDatasetStore;
@@ -39,18 +40,41 @@ export class ActiveDatasetStore {
     this.activeDataset = dataset;
     if (rawRows) {
       this.activeRows = rawRows;
+      if (typeof window !== "undefined") {
+        IndexedSpreadsheetStorage.saveRows("__active_consolidated_rows__", rawRows).catch(err => {
+          console.error("Failed to save active rows to IndexedDB:", err);
+        });
+      }
     } else if (dataset) {
       this.activeRows = dataset.previewRows.map(r => r.raw);
+      if (typeof window !== "undefined") {
+        IndexedSpreadsheetStorage.saveRows("__active_consolidated_rows__", this.activeRows).catch(err => {
+          console.error("Failed to save active rows to IndexedDB:", err);
+        });
+      }
     } else {
       this.activeRows = [];
+      if (typeof window !== "undefined") {
+        IndexedSpreadsheetStorage.deleteRows("__active_consolidated_rows__").catch(err => {
+          console.error("Failed to delete active rows from IndexedDB:", err);
+        });
+      }
     }
 
     console.log(`[Sauron Instrumentation] ACTIVE_DATASET_STORE_SET - datasetId: ${dataset ? dataset.datasetId : "null"}, sourceName: ${dataset ? dataset.sourceName : "null"}, rowCount: ${this.activeRows.length}, columnCount: ${dataset ? dataset.columnCount : 0}, sourceType: ${dataset ? dataset.sourceType : "null"}`);
 
-    // Persist to localStorage
+    // Persist to localStorage (with truncated previewRows and safe try/catch)
     if (typeof localStorage !== "undefined") {
       if (dataset) {
-        localStorage.setItem("sauron_ds_active_dataset", JSON.stringify(dataset));
+        try {
+          const truncatedDataset = {
+            ...dataset,
+            previewRows: dataset.previewRows ? dataset.previewRows.slice(0, 5) : []
+          };
+          localStorage.setItem("sauron_ds_active_dataset", JSON.stringify(truncatedDataset));
+        } catch (err) {
+          console.warn("[ActiveDatasetStore] LocalStorage quota exceeded. Falling back to in-memory active dataset.", err);
+        }
       } else {
         localStorage.removeItem("sauron_ds_active_dataset");
       }
@@ -77,19 +101,18 @@ export class ActiveDatasetStore {
 
     try {
       const dataset: ActiveDataset = JSON.parse(savedDatasetStr);
-      if (
-        this.activeDataset?.datasetId === dataset.datasetId &&
-        this.activeDataset?.importedAt === dataset.importedAt
-      ) {
-        if (this.activeRows.length === 0) {
-          this.activeRows = dataset.previewRows.map(r => r.raw);
-        }
-        return this.activeDataset;
-      }
+      
+      // Load consolidated rows from IndexedDB
+      const dbRows = await IndexedSpreadsheetStorage.getRows("__active_consolidated_rows__");
 
       this.activeDataset = dataset;
-      this.activeRows = dataset.previewRows.map(r => r.raw);
-      console.log(`[ActiveDatasetStore] Rehydrated dataset metadata and ${this.activeRows.length} preview rows. Full sheet reads stay paged in IndexedDB.`);
+      if (dbRows && dbRows.length > 0) {
+        this.activeRows = dbRows;
+      } else {
+        this.activeRows = dataset.previewRows.map(r => r.raw);
+      }
+      
+      console.log(`[ActiveDatasetStore] Rehydrated dataset metadata and ${this.activeRows.length} rows.`);
 
       const event = this.createEvent("DATASET_REHYDRATED", dataset);
       this.notify(event);

@@ -11,9 +11,9 @@ export class VersionController {
   @HttpCode(HttpStatus.OK)
   getVersion(): { version: string; build: string; environment: string } {
     return {
-      version: "0.7.0-bootstrap",
+      version: "1.0.0",
       build: "2026-06-28-F5",
-      environment: process.env.NODE_ENV || "development",
+      environment: process.env.NODE_ENV || "development"
     };
   }
 }

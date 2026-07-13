@@ -74,6 +74,25 @@ describe("Production Code Sanity Test - Anti-Mock Contamination", () => {
           });
         }
       });
+
+      // Check for imports from forbidden directories (fixtures, seeds, generators, demo)
+      const importRegex = /import\s+.*\s+from\s+['"](.*)['"]/g;
+      let match;
+      while ((match = importRegex.exec(content)) !== null) {
+        const importPath = match[1];
+        if (
+          importPath.includes("/fixtures/") || 
+          importPath.includes("/seeds/") || 
+          importPath.includes("/generators/") || 
+          importPath.includes("/demo/") ||
+          importPath.endsWith("/fixtures") || 
+          importPath.endsWith("/seeds") || 
+          importPath.endsWith("/generators") || 
+          importPath.endsWith("/demo")
+        ) {
+          violations.push(`${path.relative(srcDir, file)} - Found forbidden import path: "${importPath}"`);
+        }
+      }
     });
 
     if (violations.length > 0) {

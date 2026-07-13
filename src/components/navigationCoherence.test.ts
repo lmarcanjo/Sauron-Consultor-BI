@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { getConsultingFlowStructure } from "./AppSidebar";
+import { getConsultingFlowStructure } from "../core/navigation/consultingFlowStructure";
 
 describe("Sauron OS — Navigation Coherence & Product Integrity Tests", () => {
 
@@ -54,14 +54,14 @@ describe("Sauron OS — Navigation Coherence & Product Integrity Tests", () => {
     });
   });
 
-  it("verifies that the 'Conectar Dados' group is compact and contains only Central de Dados", () => {
+  it("verifies that the 'Conectar Dados' group contains Central de Dados and the Workbook Library", () => {
     [true, false].forEach(isAutomotive => {
       const structure = getConsultingFlowStructure(isAutomotive);
       const connectGroup = structure.find(g => g.groupKey === "conectar_dados");
       expect(connectGroup).toBeDefined();
       
       const subItemIds = connectGroup!.subItems.map(s => s.id);
-      expect(subItemIds).toEqual(["importacao"]);
+      expect(subItemIds).toEqual(["importacao", "biblioteca_workbooks"]);
     });
   });
 

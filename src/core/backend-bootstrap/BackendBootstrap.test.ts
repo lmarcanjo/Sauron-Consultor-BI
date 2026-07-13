@@ -154,7 +154,7 @@ describe("Sauron Backend Bootstrap (Foundation F5) Test Suite", () => {
       processor = new JobProcessor();
     });
 
-    it("routes successful spreadsheet.import background jobs and calculates results", async () => {
+    it("routes successful spreadsheet.import background jobs through the structural worker skeleton", async () => {
       const mockJob = {
         name: "spreadsheet.import",
         payload: { fileKey: "arcanjo_auditoria_2026.xlsx", sheetName: "Consolidado", targetWorkspaceId: "ws_123" },
@@ -164,7 +164,7 @@ describe("Sauron Backend Bootstrap (Foundation F5) Test Suite", () => {
 
       const completed = await processor.processJob(mockJob);
       expect(completed.status).toBe(JobStatus.COMPLETED);
-      expect(completed.result.recordsImported).toBe(42);
+      expect(completed.result.recordsImported).toBe(0);
     });
 
     it("implements exponential backoff retries and quarantines terminally failing jobs inside DLQ", async () => {

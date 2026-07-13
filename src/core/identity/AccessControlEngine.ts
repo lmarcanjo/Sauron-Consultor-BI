@@ -39,8 +39,8 @@ export class AccessControlEngine {
 
     const { role, organizationId } = user;
 
-    // 1. Super Admin is always authorized for everything
-    if (role === "Super Admin") {
+    // 1. SUPER_ADMIN is always authorized for everything
+    if (role === "SUPER_ADMIN") {
       return true;
     }
 
@@ -82,7 +82,7 @@ export class AccessControlEngine {
         return team?.members.includes(user.id);
       });
 
-      if (!isAllowedUser && !isAllowedTeam && !["Consultant Admin", "Super Admin"].includes(role)) {
+      if (!isAllowedUser && !isAllowedTeam && !["SUPER_ADMIN"].includes(role)) {
         this.logPermissionDenied(user, permission, resource, "Usuário ou Time não autorizado no workspace.");
         return false;
       }
@@ -195,7 +195,7 @@ export class AccessControlEngine {
 
   public getVisibleCompaniesForUser(user: PlatformUser | null | undefined, workspace: Workspace | null): string[] {
     if (!user || !workspace) return [];
-    if (user.role === "Super Admin" || user.role === "Consultant Admin" || user.role === "Consultant") {
+    if (user.role === "SUPER_ADMIN" || user.role === "CONSULTANT") {
       return workspace.companies;
     }
 
@@ -215,7 +215,7 @@ export class AccessControlEngine {
 
   public getVisibleKPIsForUser(user: PlatformUser | null | undefined, kpis: { id: string; name: string; costCenter?: string }[]): any[] {
     if (!user) return [];
-    if (user.role === "Super Admin" || user.role === "Consultant Admin" || user.role === "Consultant") {
+    if (user.role === "SUPER_ADMIN" || user.role === "CONSULTANT") {
       return kpis;
     }
 
@@ -255,7 +255,7 @@ export class AccessControlEngine {
     resourceId?: string
   ): boolean {
     if (!user) return false;
-    if (user.role === "Super Admin") return true;
+    if (user.role === "SUPER_ADMIN") return true;
 
     const workspace = this.resolveWorkspace(null);
     if (!workspace) return false;

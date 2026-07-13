@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ShieldAlert, Check, X, FileText, Trash2, ShieldCheck, Heart } from "lucide-react";
+import { showToast } from "./Toast";
 
 export const LgpdConsent: React.FC = () => {
   const [showBanner, setShowBanner] = useState(false);
@@ -65,8 +66,10 @@ export const LgpdConsent: React.FC = () => {
       
       pushLgpdAuditLog("EXPURGO DE DADOS", "Landed Right to be Forgotten. Todos os rastreadores e dados de cookies locais foram destruídos e anonimizados.");
       
-      alert("Com base no Art. 18 da LGPD, todas as credenciais pessoais locais e dados de rastreamento do navegador foram expurgados/anonimizados com total segurança de ponta a ponta!");
-      window.location.reload();
+      showToast("success", "Dados locais e credenciais expurgados com base no Artigo 18 da LGPD.");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     }
   };
 

@@ -29,29 +29,29 @@ describe("Sauron Sprint ΩΩΩ — Workspace Intelligence Engine Tests Suite", (
   it("creates and initializes a valid WorkspaceContext", async () => {
     // Bootstrap defaults
     const activeFilters = { marcas: ["Nissan"] };
-    const context = await workspaceIntelligenceEngine.initializeDefaultContext("DEMO_DATA", activeFilters);
+    const context = await workspaceIntelligenceEngine.initializeDefaultContext("SPREADSHEET_DATA", activeFilters);
     
     expect(context).toBeDefined();
     expect(context.currentUser).toBeDefined();
     expect(context.currentUser.id).toBe("user_super_admin");
-    expect(context.modoDemoReal).toBe("demo");
+    expect(context.modoDemoReal).toBe("real");
     expect(context.filtrosAtivos.marcas).toContain("Nissan");
   });
 
   it("updates the context when selecting an organization or case", async () => {
-    const context = await workspaceIntelligenceEngine.initializeDefaultContext("DEMO_DATA", {});
+    const context = await workspaceIntelligenceEngine.initializeDefaultContext("SPREADSHEET_DATA", {});
     
     // Switch case project
-    workspaceIntelligenceEngine.switchCase("case_alpha", "Caso Grupo Alpha");
+    workspaceIntelligenceEngine.switchCase("case_real", "Caso Cliente Real");
     const updated = workspaceIntelligenceEngine.contextManager.getContext();
     
     expect(updated).not.toBeNull();
-    expect(updated?.currentCase?.id).toBe("case_alpha");
-    expect(updated?.currentCase?.name).toBe("Caso Grupo Alpha");
+    expect(updated?.currentCase?.id).toBe("case_real");
+    expect(updated?.currentCase?.name).toBe("Caso Cliente Real");
   });
 
   it("updates the context and scopes access when selecting a company entity", async () => {
-    await workspaceIntelligenceEngine.initializeDefaultContext("DEMO_DATA", {});
+    await workspaceIntelligenceEngine.initializeDefaultContext("SPREADSHEET_DATA", {});
     
     // Switch to Nissan company
     workspaceIntelligenceEngine.switchEntity({
@@ -67,7 +67,7 @@ describe("Sauron Sprint ΩΩΩ — Workspace Intelligence Engine Tests Suite", (
   });
 
   it("updates the context and scopes access when selecting a seller/vendedor placeholder", async () => {
-    await workspaceIntelligenceEngine.initializeDefaultContext("DEMO_DATA", {});
+    await workspaceIntelligenceEngine.initializeDefaultContext("SPREADSHEET_DATA", {});
     
     // Switch to seller placeholder Carlos Silva
     workspaceIntelligenceEngine.switchEntity({
@@ -85,7 +85,7 @@ describe("Sauron Sprint ΩΩΩ — Workspace Intelligence Engine Tests Suite", (
   });
 
   it("generates correct navigation tabs based on context selected entity", async () => {
-    await workspaceIntelligenceEngine.initializeDefaultContext("DEMO_DATA", {});
+    await workspaceIntelligenceEngine.initializeDefaultContext("SPREADSHEET_DATA", {});
     
     // Company selection
     workspaceIntelligenceEngine.switchEntity({
@@ -112,7 +112,7 @@ describe("Sauron Sprint ΩΩΩ — Workspace Intelligence Engine Tests Suite", (
 
   it("calculates secure contextual action items for Unified Create Menu based on role permissions", async () => {
     // Lennon Marcanjo is Super Admin (has all default permissions)
-    const context = await workspaceIntelligenceEngine.initializeDefaultContext("DEMO_DATA", {});
+    const context = await workspaceIntelligenceEngine.initializeDefaultContext("SPREADSHEET_DATA", {});
     const actions = workspaceIntelligenceEngine.actions.getActionsForContext(context);
     
     expect(actions.length).toBeGreaterThan(0);
@@ -120,7 +120,7 @@ describe("Sauron Sprint ΩΩΩ — Workspace Intelligence Engine Tests Suite", (
   });
 
   it("filters context-driven activity feeds accordingly", async () => {
-    const context = await workspaceIntelligenceEngine.initializeDefaultContext("DEMO_DATA", {});
+    const context = await workspaceIntelligenceEngine.initializeDefaultContext("SPREADSHEET_DATA", {});
     
     // Log an activity
     workspaceIntelligenceEngine.activities.logActivity(

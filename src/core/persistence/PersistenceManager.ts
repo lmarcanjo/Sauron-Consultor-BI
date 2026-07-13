@@ -27,6 +27,9 @@ export * from "./SnapshotEngine";
 // 8. Re-export observability telemetry
 export * from "./PersistenceObservability";
 
+export * from "./EnterpriseRepository";
+export * from "./TimelineRepository";
+
 import { IPersistenceProvider, LocalProvider } from "./IPersistenceProvider";
 
 /**

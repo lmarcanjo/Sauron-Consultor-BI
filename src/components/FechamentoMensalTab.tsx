@@ -18,6 +18,7 @@ import {
   Shield,
   LayoutTemplate
 } from "lucide-react";
+import { showToast } from "./Toast";
 import { LancamentoFinanceiro, MetricasConsolidadas } from "../types";
 
 interface FechamentoMensalTabProps {
@@ -121,7 +122,7 @@ export const FechamentoMensalTab: React.FC<FechamentoMensalTabProps> = ({
   // --- BUILDER ACTIONS ---
   const handleSavePresentation = () => {
     localStorage.setItem("sauron_custom_presentation", JSON.stringify(slides));
-    alert("✓ Construtor de Apresentação: Estrutura personalizada salva com sucesso no navegador!");
+    showToast("success", "Estrutura personalizada da apresentação salva.");
   };
 
   const handleResetToDefault = () => {
@@ -149,7 +150,7 @@ export const FechamentoMensalTab: React.FC<FechamentoMensalTabProps> = ({
 
   const handleDeleteSlide = (id: string) => {
     if (slides.length <= 1) {
-      alert("A apresentação deve possuir ao menos uma lâmina ativa.");
+      showToast("warning", "A apresentação precisa ter ao menos uma lâmina ativa.");
       return;
     }
     setSlides(prev => prev.filter(s => s.id !== id));

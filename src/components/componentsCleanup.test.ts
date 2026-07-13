@@ -89,8 +89,8 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
     });
   });
 
-  // Test 4: Demo data is only available when activeDataSource = DEMO_DATA
-  it("guarantees demo/mock data only appears when DEMO_DATA is the active source", () => {
+  // Test 4: Demo data must not appear in the production data flow
+  it("guarantees demo/mock data does not appear in the production data flow", () => {
     // Save original state
     const originalSource = dataSourceManager.getActiveSource();
     
@@ -102,10 +102,10 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
       // Since workspace has no active files in the fresh test environment, SPREADSHEET_DATA should return empty list
       expect(records.length).toBe(0);
 
-      // 2. When DEMO_DATA is active, records are populated
+      // 2. DEMO_DATA is a legacy source type and must not surface records in the normal product flow
       dataSourceManager.setActiveSource("DEMO_DATA");
       const demoRecords = dataSourceManager.getActiveRecords();
-      expect(demoRecords.length).toBeGreaterThan(0);
+      expect(demoRecords.length).toBe(0);
       
     } finally {
       // Restore state

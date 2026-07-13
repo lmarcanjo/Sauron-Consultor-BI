@@ -133,6 +133,24 @@ export class PermissionManager {
   };
 
   private roleDefaultPermissions: Record<Role, Permission[]> = {
+    "SUPER_ADMIN": [
+      "workspace.view", "workspace.manage",
+      "data.view", "data.import", "data.sync", "data.approve",
+      "analytics.view", "analytics.manage",
+      "presentation.view", "presentation.create", "presentation.edit", "presentation.approve",
+      "meeting.view", "meeting.host", "meeting.comment",
+      "action.view", "action.create", "action.assign", "action.complete",
+      "users.invite", "users.manage", "settings.manage", "audit.view"
+    ],
+    "CONSULTANT": [
+      "workspace.view",
+      "data.view", "data.import", "data.sync", "data.approve",
+      "analytics.view", "analytics.manage",
+      "presentation.view", "presentation.create", "presentation.edit",
+      "meeting.view", "meeting.host", "meeting.comment",
+      "action.view", "action.create", "action.assign", "action.complete",
+      "users.invite", "audit.view"
+    ],
     "Super Admin": [
       "workspace.view", "workspace.manage",
       "data.view", "data.import", "data.sync", "data.approve",
@@ -149,7 +167,7 @@ export class PermissionManager {
       "presentation.view", "presentation.create", "presentation.edit", "presentation.approve",
       "meeting.view", "meeting.host", "meeting.comment",
       "action.view", "action.create", "action.assign", "action.complete",
-      "users.invite", "users.manage", "settings.manage", "audit.view"
+      "users.invite", "users.manage"
     ],
     "Consultant": [
       "workspace.view",
@@ -161,59 +179,27 @@ export class PermissionManager {
       "users.invite", "audit.view"
     ],
     "Client Director": [
-      "workspace.view",
-      "data.view", "data.approve",
-      "analytics.view",
-      "presentation.view", "presentation.approve",
-      "meeting.view", "meeting.comment",
-      "action.view", "action.create", "action.assign", "action.complete",
-      "audit.view"
+      "workspace.view", "data.view", "analytics.view", "presentation.view",
+      "meeting.view", "meeting.comment", "action.view", "action.complete"
     ],
     "Client Manager": [
-      "workspace.view",
-      "data.view",
-      "analytics.view",
-      "presentation.view",
-      "meeting.view", "meeting.comment",
-      "action.view", "action.complete"
+      "workspace.view", "data.view", "analytics.view", "presentation.view",
+      "meeting.view", "meeting.comment", "action.view", "action.complete"
     ],
     "Financial User": [
-      "workspace.view",
-      "data.view", "data.import", "data.sync",
-      "analytics.view",
-      "presentation.view",
-      "meeting.view",
-      "action.view", "action.complete"
+      "workspace.view", "data.view", "data.import", "analytics.view", "meeting.view", "action.view"
     ],
     "Controller": [
-      "workspace.view",
-      "data.view", "data.approve",
-      "analytics.view",
-      "presentation.view",
-      "meeting.view",
-      "action.view",
-      "audit.view"
+      "workspace.view", "data.view", "data.approve", "analytics.view", "meeting.view", "action.view"
     ],
     "Auditor": [
-      "workspace.view",
-      "data.view",
-      "analytics.view",
-      "presentation.view",
-      "meeting.view",
-      "action.view",
-      "audit.view"
+      "workspace.view", "data.view", "analytics.view", "audit.view"
     ],
     "Viewer": [
-      "workspace.view",
-      "data.view",
-      "analytics.view",
-      "presentation.view",
-      "meeting.view",
-      "action.view"
+      "workspace.view", "analytics.view", "presentation.view"
     ],
     "Guest": [
-      "presentation.view",
-      "meeting.view"
+      "presentation.view"
     ]
   };
 

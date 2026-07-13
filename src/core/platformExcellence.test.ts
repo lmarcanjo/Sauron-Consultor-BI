@@ -116,9 +116,9 @@ describe("Sauron Platform Excellence Suite (Sprint Ω)", () => {
   // 5. GLOBAL SEARCH ENGINE TESTS
   describe("Global Search Engine Unit Tests", () => {
     it("searches matching clients, tasks and plans across registered index providers", () => {
-      const results = searchEngine.search("Topázio");
+      const results = searchEngine.search("Carlos");
       expect(results.length).toBeGreaterThan(0);
-      expect(results.some(r => r.title.includes("Topázio"))).toBe(true);
+      expect(results.some(r => r.title.includes("Carlos"))).toBe(true);
     });
   });
 

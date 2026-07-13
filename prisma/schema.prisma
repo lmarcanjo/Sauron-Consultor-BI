@@ -7,7 +7,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Tenant {
@@ -26,6 +25,9 @@ model Tenant {
   workspaces    Workspace[]
   cases         ConsultingCase[]
   auditLogs     AuditLog[]
+  auditEvents   AuditEvent[]
+  enterprises   Enterprise[]
+  workbooks     WorkbookMetadata[]
 }
 
 model Organization {
@@ -41,6 +43,8 @@ model Organization {
   tenant     Tenant      @relation(fields: [tenantId], references: [id])
   users      User[]
   workspaces Workspace[]
+
+  @@index([tenantId])
 }
 
 model Role {
@@ -90,6 +94,8 @@ model User {
   organization Organization? @relation(fields: [organizationId], references: [id])
   tenant       Tenant        @relation(fields: [tenantId], references: [id])
   auditLogs    AuditLog[]
+
+  @@index([tenantId])
 }
 
 model Workspace {
@@ -106,6 +112,8 @@ model Workspace {
   tenant       Tenant           @relation(fields: [tenantId], references: [id])
   organization Organization     @relation(fields: [organizationId], references: [id])
   cases        ConsultingCase[]
+
+  @@index([tenantId])
 }
 
 model ConsultingCase {
@@ -122,6 +130,8 @@ model ConsultingCase {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id])
   tenant    Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
 }
 
 model AuditLog {
@@ -137,4 +147,59 @@ model AuditLog {
 
   user   User?   @relation(fields: [userId], references: [id])
   tenant Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model AuditEvent {
+  id            String   @id @default(uuid())
+  action        String
+  details       String
+  userId        String?
+  tenantId      String
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+  correlationId String?
+  metadata      String?  // JSON serialized payload
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Enterprise {
+  id        String    @id @default(uuid())
+  name      String
+  cnpj      String
+  tenantId  String
+  status    String    @default("active")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  createdBy String?
+  updatedBy String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model WorkbookMetadata {
+  id          String    @id @default(uuid())
+  name        String
+  sheetCount  Int       @default(0)
+  rowCount    Int       @default(0)
+  columnCount Int       @default(0)
+  size        String    @default("0 KB")
+  tenantId    String
+  status      String    @default("active")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdBy   String?
+  updatedBy   String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
 }

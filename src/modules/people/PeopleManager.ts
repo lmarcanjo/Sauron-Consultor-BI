@@ -17,46 +17,48 @@ class PeopleManager {
   }
 
   private seedDefaultData(): void {
-    // Seed default profiles for architecture demonstration
-    const emp1: EmployeeProfile = {
-      id: "emp_1",
-      fullName: "Carlos Santos",
-      role: "Gerente Comercial Nissan",
-      department: "Vendas",
-      branch: "Unidade Real",
-      baseSalary: 8500,
-      hireDate: "2024-03-15",
-      status: "active"
-    };
+    if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
+      // Seed default profiles for architecture demonstration
+      const emp1: EmployeeProfile = {
+        id: "emp_1",
+        fullName: "Carlos Santos",
+        role: "Gerente Comercial Nissan",
+        department: "Vendas",
+        branch: "Unidade Real",
+        baseSalary: 8500,
+        hireDate: "2024-03-15",
+        status: "active"
+      };
 
-    const emp2: EmployeeProfile = {
-      id: "emp_2",
-      fullName: "Ana Paula Silva",
-      role: "Coordenadora de Peças",
-      department: "Pós-Vendas",
-      branch: "Unidade Real",
-      baseSalary: 5200,
-      hireDate: "2025-01-10",
-      status: "active"
-    };
+      const emp2: EmployeeProfile = {
+        id: "emp_2",
+        fullName: "Ana Paula Silva",
+        role: "Coordenadora de Peças",
+        department: "Pós-Vendas",
+        branch: "Unidade Real",
+        baseSalary: 5200,
+        hireDate: "2025-01-10",
+        status: "active"
+      };
 
-    this.employees.set(emp1.id, emp1);
-    this.employees.set(emp2.id, emp2);
+      this.employees.set(emp1.id, emp1);
+      this.employees.set(emp2.id, emp2);
 
-    this.performances.set(emp1.id, {
-      employeeId: emp1.id,
-      score: 92,
-      goalsAchieved: 105,
-      evaluations: [
-        { date: "2026-05-10", evaluator: "Gabriel Arcanjo", feedback: "Excelente liderança no time Nissan, superando metas de seminovos." }
-      ]
-    });
+      this.performances.set(emp1.id, {
+        employeeId: emp1.id,
+        score: 92,
+        goalsAchieved: 105,
+        evaluations: [
+          { date: "2026-05-10", evaluator: "Gabriel Arcanjo", feedback: "Excelente liderança no time Nissan, superando metas de seminovos." }
+        ]
+      });
 
-    this.commissions.set(emp1.id, {
-      employeeId: emp1.id,
-      rate: 0.015, // 1.5% commission
-      bonusThreshold: 500000
-    });
+      this.commissions.set(emp1.id, {
+        employeeId: emp1.id,
+        rate: 0.015, // 1.5% commission
+        bonusThreshold: 500000
+      });
+    }
   }
 
   /**

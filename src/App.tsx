@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   Upload,
@@ -99,8 +99,20 @@ import { CommandPalette } from "./components/CommandPalette";
 import { SDLStudio } from "./components/SDLStudio";
 import { ProductQAConsole } from "./components/ProductQAConsole";
 import { DataFlowDebugPanel } from "./components/DataFlowDebugPanel";
+import {
+  GlobalAppErrorBoundary,
+  SidebarErrorBoundary,
+  MainContentErrorBoundary,
+  EnterpriseCenterErrorBoundary,
+  DataLibraryErrorBoundary,
+  DashboardErrorBoundary,
+  PresentationErrorBoundary,
+  MeetingErrorBoundary,
+  SettingsErrorBoundary
+} from "./components/ErrorBoundaries";
 
 import { AppSidebar } from "./components/AppSidebar";
+import { GlobalContextBar } from "./components/GlobalContextBar";
 import { availableTemplates } from "./utils/industryTemplates";
 
 // Sauron Identity & Collaboration Foundation (v0.6.5)
@@ -109,10 +121,94 @@ import { accessControlEngine } from "./core/identity/AccessControlEngine";
 import { IdentitySimulationBar } from "./components/IdentitySimulationBar";
 import { digitalTwinEngine } from "./core/identity/digitalTwin/DigitalTwinEngine";
 
+const VALID_TABS = [
+  "enterprise_center", "executive_workspace", "digital_twin", "area_consultor", 
+  "importacao", "biblioteca_workbooks", "resumo", "comercial", "obstaculos", 
+  "consultor_ia", "relatorios", "narrativa_executiva", "apresentacoes", 
+  "apresentacoes_templates", "preparacao_reuniao", "modo_reuniao", "reuniao_ata", 
+  "reuniao_notes", "plano_executivo", "plano_responsaveis", "comissoes", 
+  "historico_executivo", "comparativos_mensais", "fechamento_mensal", "usuarios_twin", 
+  "organizacao_twin", "permissoes_twin", "perfis", "auditoria_logs", "admin_security", 
+  "qa_console", "sdl_studio", "dre_inteligente", "contabil", "vendedores", 
+  "banco_connector", "vpn_gateway", "posvendas", "pecas", "estoque", "financeiro", 
+  "modelo_consultivo"
+];
+
+function resolveSafeActiveTab(requestedTab: string, currentUser: any): string {
+  if (!requestedTab || !VALID_TABS.includes(requestedTab)) {
+    return "executive_workspace";
+  }
+  const adminTabs = ["usuarios_twin", "organizacao_twin", "permissoes_twin", "perfis", "auditoria_logs", "admin_security"];
+  if (adminTabs.includes(requestedTab) && currentUser?.role !== "SUPER_ADMIN") {
+    return "executive_workspace";
+  }
+  return requestedTab;
+}
+
+// Migrate legacy domain and state before the first render
+let hasRunMigration = false;
+function migrateLegacyDomainAndState() {
+  if (hasRunMigration) return;
+  hasRunMigration = true;
+  if (typeof localStorage === "undefined") return;
+  try {
+    const raw = localStorage.getItem("sauron_workspace_registry");
+    if (raw) {
+      const registry = JSON.parse(raw);
+      let changed = false;
+      if (registry && registry.workspaces) {
+        for (const wsId of Object.keys(registry.workspaces)) {
+          const ws = registry.workspaces[wsId];
+          if (ws.businessDomain === "automotive" && (!ws.manualDomain || ws.manualDomain === "neutral")) {
+            ws.businessDomain = "neutral";
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        localStorage.setItem("sauron_workspace_registry", JSON.stringify(registry));
+      }
+    }
+    const activeGroupSegment = localStorage.getItem("sauron_active_group_segment");
+    if (!activeGroupSegment) {
+      localStorage.setItem("sauron_active_group_segment", "neutral");
+    }
+  } catch (e) {
+    console.error("[Migration] Error migrating legacy domain state:", e);
+  }
+}
+
+migrateLegacyDomainAndState();
+
 export default function App() {
   // --- STATE ---
-  const [activeTab, setActiveTab] = useState<string>("executive_workspace");
-  const [activeIndustryTemplateId, setActiveIndustryTemplateId] = useState<string>("automotive");
+  const [activeTab, setActiveTabState] = useState<string>(() => {
+    const saved = localStorage.getItem("sauron_active_tab") || "executive_workspace";
+    return resolveSafeActiveTab(saved, identityEngine.getCurrentUser());
+  });
+
+  const setActiveTab = useCallback((tab: string) => {
+    const safeTab = resolveSafeActiveTab(tab, identityEngine.getCurrentUser());
+    localStorage.setItem("sauron_active_tab", safeTab);
+    setActiveTabState(safeTab);
+  }, []);
+
+  const [activeIndustryTemplateId, setActiveIndustryTemplateId] = useState<string>(() => {
+    if (typeof localStorage !== "undefined") {
+      try {
+        const savedRegistry = localStorage.getItem("sauron_workspace_registry");
+        if (savedRegistry) {
+          const reg = JSON.parse(savedRegistry);
+          const wsId = reg.currentWorkspaceId;
+          if (wsId && reg.workspaces[wsId]) {
+            const ws = reg.workspaces[wsId];
+            return ws.manualDomain || ws.businessDomain || "neutral";
+          }
+        }
+      } catch {}
+    }
+    return "neutral";
+  });
   const [selectedContaContabil, setSelectedContaContabil] = useState<string>("");
   const [selectedDepartamento, setSelectedDepartamento] = useState<string>("");
   const [selectedConta, setSelectedConta] = useState<string>("");
@@ -145,6 +241,23 @@ export default function App() {
       console.log(`[Sauron Instrumentation] DRE_REFRESHED - O dashboard DRE / BI recebeu os dados reais: ${activeRecords.length} linhas.`);
     }
   }, [activeRecords]);
+
+  useEffect(() => {
+    const handleGoHome = () => setActiveTab("enterprise_center");
+    window.addEventListener("sauron:navigate-home", handleGoHome);
+    return () => window.removeEventListener("sauron:navigate-home", handleGoHome);
+  }, [setActiveTab]);
+
+  useEffect(() => {
+    const handleDomainChange = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) {
+        setActiveIndustryTemplateId(detail);
+      }
+    };
+    window.addEventListener("SAURON_ACTIVE_DOMAIN_CHANGED", handleDomainChange);
+    return () => window.removeEventListener("SAURON_ACTIVE_DOMAIN_CHANGED", handleDomainChange);
+  }, []);
 
   const [camposAusentes, setCamposAusentes] = useState<string[]>([]);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
@@ -1628,43 +1741,8 @@ export default function App() {
 
         {/* WORKSPACE MAIN AREA SCROLLABLE */}
         <main className="flex-1 w-full p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950">
-          
           {/* CONTEXT BAR (v0.6.8 - Consulting OS Cognitive Anchor) */}
-          <div className="bg-slate-900 text-slate-300 px-4 py-2.5 border border-slate-800 rounded-xl shadow-xs flex flex-wrap items-center justify-between gap-4 text-xs font-sans">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="bg-blue-600 text-white font-extrabold px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-mono">CLIENTE</span>
-              <span className="font-extrabold text-white">{activeDataset?.sourceName || "Nenhuma fonte de dados ativa"}</span>
-              <span className="text-slate-500">•</span>
-              <span className="font-medium text-slate-400">{activeDataset ? `${activeDataset.rowCount.toLocaleString("pt-BR")} linhas` : "Sem dataset ativo"}</span>
-              <span className="text-slate-500">•</span>
-              <span className="font-medium text-slate-400">{activeDataset ? `${activeDataset.sheets.length} abas` : "Importe uma planilha"}</span>
-            </div>
-            
-            <div className="flex items-center gap-3 text-[11px] font-mono">
-              <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded border border-slate-850 text-slate-300">
-                <Sliders size={11} className="text-blue-400" />
-                <span className="font-semibold text-blue-400">Filtros:</span>
-                <button 
-                  onClick={() => setIsFilterDrawerOpen(true)}
-                  className="hover:underline font-bold text-white cursor-pointer"
-                >
-                  {Object.keys(filtros).reduce((acc,k)=>filtros[k as keyof FiltrosDashboard]?acc+1:acc,0)} ativos
-                </button>
-              </div>
-              
-              <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded border border-slate-850">
-                <Database size={11} className="text-emerald-400" />
-                <span className="font-bold text-emerald-400">Ingestão:</span>
-                <span className="text-white font-semibold">{activeDataset ? "Planilhas" : "Nenhuma fonte de dados ativa"}</span>
-              </div>
-
-              <div className="flex items-center gap-1.5 bg-slate-950/60 px-2 py-1 rounded border border-slate-850">
-                <ShieldCheck size={11} className="text-indigo-400" />
-                <span className="font-bold text-indigo-400">Org:</span>
-                <span className="text-white font-semibold truncate max-w-[120px]" title={activeSimOrg?.name}>{activeSimOrg?.name || "Arcanjo Consulting"}</span>
-              </div>
-            </div>
-          </div>
+          <GlobalContextBar />
 
           {/* Header/Breadcrumb local da página */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm shrink-0">
@@ -1801,6 +1879,7 @@ export default function App() {
             </div>
           ) : (
             <>
+              <MainContentErrorBoundary>
               {activeTab === "qa_console" && (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.search.includes("qa=true"))) && (
                 <ProductQAConsole setActivePage={setActiveTab} />
               )}
@@ -1810,229 +1889,260 @@ export default function App() {
               )}
 
               {activeTab === "dre_inteligente" && (
-            <IntelligentDRETab
-              filteredData={filteredData}
-              formatCurrency={formatCurrencyValue}
-              activeIndustryTemplateId={activeIndustryTemplateId}
-              activeDataset={activeDataset}
-            />
-          )}
+                <DashboardErrorBoundary>
+                  <IntelligentDRETab
+                    filteredData={filteredData}
+                    formatCurrency={formatCurrencyValue}
+                    activeIndustryTemplateId={activeIndustryTemplateId}
+                    activeDataset={activeDataset}
+                  />
+                </DashboardErrorBoundary>
+              )}
 
-          {activeTab === "contabil" && (
-            <ContabilTab
-              dataOrigem={dataOrigem}
-              filteredData={filteredData}
-              formatCurrency={formatCurrencyValue}
-              margemLimite={margemLimite}
-            />
-          )}
+              {activeTab === "contabil" && (
+                <DashboardErrorBoundary>
+                  <ContabilTab
+                    dataOrigem={dataOrigem}
+                    filteredData={filteredData}
+                    formatCurrency={formatCurrencyValue}
+                    margemLimite={margemLimite}
+                  />
+                </DashboardErrorBoundary>
+              )}
 
-          {activeTab === "vendedores" && (
-            <VendedoresTab
-              dataOrigem={filteredData}
-              formatCurrency={formatCurrencyValue}
-            />
-          )}
+              {activeTab === "vendedores" && (
+                <DashboardErrorBoundary>
+                  <VendedoresTab
+                    dataOrigem={filteredData}
+                    formatCurrency={formatCurrencyValue}
+                  />
+                </DashboardErrorBoundary>
+              )}
 
-          {["importacao", "banco_connector", "etl_pipeline", "validacao_dados", "apis_feed", "sincronizacao", "fonte_ativa", "vpn_gateway"].includes(activeTab) && (
-             <CentralDadosTab
-               dataOrigem={dataOrigem}
-               onDataLoaded={handleDatabaseDataLoaded}
-               currentSource={nomeFonte}
-               camposAusentes={camposAusentes}
-               filtros={filtros}
-               visibleFilters={visibleFilters}
-               fieldMappings={fieldMappings}
-               initialStep={
-                 activeTab === "importacao" ? 0 :
-                 activeTab === "banco_connector" ? 2 :
-                 activeTab === "vpn_gateway" ? 1 : 3
-               }
-             />
+          {["importacao", "banco_connector", "etl_pipeline", "validacao_dados", "apis_feed", "sincronizacao", "fonte_ativa", "vpn_gateway", "biblioteca_workbooks"].includes(activeTab) && (
+            <DataLibraryErrorBoundary>
+              <CentralDadosTab
+                dataOrigem={dataOrigem}
+                onDataLoaded={handleDatabaseDataLoaded}
+                currentSource={nomeFonte}
+                camposAusentes={camposAusentes}
+                filtros={filtros}
+                visibleFilters={visibleFilters}
+                fieldMappings={fieldMappings}
+                initialStep={
+                  activeTab === "importacao" ? 0 :
+                  activeTab === "biblioteca_workbooks" ? 1 :
+                  activeTab === "banco_connector" ? 2 :
+                  activeTab === "vpn_gateway" ? 1 : 0
+                }
+              />
+            </DataLibraryErrorBoundary>
           )}
           {["apresentacoes", "narrativa_executiva", "story_builder", "apresentacoes_templates"].includes(activeTab) && (
-            <PresentationBuilderPage 
-              dataOrigem={dataOrigem}
-              filteredData={filteredData}
-              metrics={metrics}
-              formatCurrency={formatCurrencyValue}
-            />
+            <PresentationErrorBoundary>
+              <PresentationBuilderPage 
+                dataOrigem={dataOrigem}
+                filteredData={filteredData}
+                metrics={metrics}
+                formatCurrency={formatCurrencyValue}
+              />
+            </PresentationErrorBoundary>
           )}
           {activeTab === "fechamento_mensal" && (
-            <FechamentoMensalTab
-              metrics={metrics}
-              filtros={filtros}
-              formatCurrency={formatCurrencyValue}
-            />
+            <DashboardErrorBoundary>
+              <FechamentoMensalTab
+                metrics={metrics}
+                filtros={filtros}
+                formatCurrency={formatCurrencyValue}
+              />
+            </DashboardErrorBoundary>
           )}
           {["modo_reuniao", "reuniao_ata", "reuniao_decisoes", "reuniao_perguntas", "reuniao_notas"].includes(activeTab) && (
-            <MeetingModePage onExit={() => setActiveTab("apresentacoes")} />
+            <MeetingErrorBoundary>
+              <MeetingModePage onExit={() => setActiveTab("apresentacoes")} />
+            </MeetingErrorBoundary>
           )}
 
           {activeTab === "comercial" && (
-            <ComercialTab
-              metrics={metrics}
-              formatCurrency={formatCurrencyValue}
-              activeDataset={activeDataset}
-            />
+            <DashboardErrorBoundary>
+              <ComercialTab
+                metrics={metrics}
+                formatCurrency={formatCurrencyValue}
+                activeDataset={activeDataset}
+              />
+            </DashboardErrorBoundary>
           )}
 
           {activeTab === "posvendas" && (
-            <PosVendasTab
-              metrics={metrics}
-              formatCurrency={formatCurrencyValue}
-            />
+            <DashboardErrorBoundary>
+              <PosVendasTab
+                metrics={metrics}
+                formatCurrency={formatCurrencyValue}
+              />
+            </DashboardErrorBoundary>
           )}
 
           {activeTab === "pecas" && (
-            <PecasTab
-              metrics={metrics}
-              formatCurrency={formatCurrencyValue}
-            />
+            <DashboardErrorBoundary>
+              <PecasTab
+                metrics={metrics}
+                formatCurrency={formatCurrencyValue}
+              />
+            </DashboardErrorBoundary>
           )}
 
           {activeTab === "estoque" && (
-            <EstoqueTab
-              metrics={metrics}
-              formatCurrency={formatCurrencyValue}
-            />
+            <DashboardErrorBoundary>
+              <EstoqueTab
+                metrics={metrics}
+                formatCurrency={formatCurrencyValue}
+              />
+            </DashboardErrorBoundary>
           )}
 
           {activeTab === "financeiro" && (
-            <FinanceiroTab
-              metrics={metrics}
-              formatCurrency={formatCurrencyValue}
-              activeDataset={activeDataset}
-            />
+            <DashboardErrorBoundary>
+              <FinanceiroTab
+                metrics={metrics}
+                formatCurrency={formatCurrencyValue}
+                activeDataset={activeDataset}
+              />
+            </DashboardErrorBoundary>
           )}
 
           {activeTab === "comissoes" && (
-            <PeopleIntelligenceTab
-              dataOrigem={filteredData}
-              peopleView={getNormalizedView('PeopleView')}
-              activeDataset={activeDataset}
-              metrics={metrics}
-              formatCurrency={formatCurrencyValue}
-              calculatedCommissions={{
-                regraAtiva: "Fórmula Ativa",
-                totalGeralComissao: calculatedCommissions.total,
-                detailsByCnpj: calculatedCommissions.detailsByCnpj,
-                detalhePorConta: calculatedCommissions.detailsByAccount
-              }}
-              segmentoCliente={segmentoCliente}
-              setSegmentoCliente={setSegmentoCliente}
-              observacaoGerente={observacaoGerente}
-              setObservacaoGerente={setObservacaoGerente}
-              faturamentoOffset={faturamentoOffset}
-              setFaturamentoOffset={setFaturamentoOffset}
-              despesaOffset={despesaOffset}
-              setDespesaOffset={setDespesaOffset}
-              narrarFeedback={narrarFeedback}
-              setNarrarFeedback={setNarrarFeedback}
-              comissaoFormula={comissaoFormula}
-              setComissaoFormula={setComissaoFormula}
-              percentualComissaoBase={comissaoGeral}
-              setPercentualComissaoBase={setComissaoGeral}
-              taxaComissaoAcessorios={comissaoAcessorios}
-              setTaxaComissaoAcessorios={setComissaoAcessorios}
-              taxaComissaoPecas={comissaoVeiculos}
-              setTaxaComissaoPecas={setComissaoVeiculos}
-              triggerSystemBackup={async () => {
-                await persistSystemDbSettings();
-                alert("Configurações contábeis e parametrização de comissões gravadas com total sucesso no Banco Próprio do Sistema!");
-              }}
-              userRole={currentUser?.role}
-            />
+            <SettingsErrorBoundary>
+              <PeopleIntelligenceTab
+                dataOrigem={filteredData}
+                peopleView={getNormalizedView('PeopleView')}
+                activeDataset={activeDataset}
+                metrics={metrics}
+                formatCurrency={formatCurrencyValue}
+                calculatedCommissions={{
+                  regraAtiva: "Fórmula Ativa",
+                  totalGeralComissao: calculatedCommissions.total,
+                  detailsByCnpj: calculatedCommissions.detailsByCnpj,
+                  detalhePorConta: calculatedCommissions.detailsByAccount
+                }}
+                segmentoCliente={segmentoCliente}
+                setSegmentoCliente={setSegmentoCliente}
+                observacaoGerente={observacaoGerente}
+                setObservacaoGerente={setObservacaoGerente}
+                faturamentoOffset={faturamentoOffset}
+                setFaturamentoOffset={setFaturamentoOffset}
+                despesaOffset={despesaOffset}
+                setDespesaOffset={setDespesaOffset}
+                narrarFeedback={narrarFeedback}
+                setNarrarFeedback={setNarrarFeedback}
+                comissaoFormula={comissaoFormula}
+                setComissaoFormula={setComissaoFormula}
+                percentualComissaoBase={comissaoGeral}
+                setPercentualComissaoBase={setComissaoGeral}
+                taxaComissaoAcessorios={comissaoAcessorios}
+                setTaxaComissaoAcessorios={setComissaoAcessorios}
+                taxaComissaoPecas={comissaoVeiculos}
+                setTaxaComissaoPecas={setComissaoVeiculos}
+                triggerSystemBackup={async () => {
+                  await persistSystemDbSettings();
+                  alert("Configurações contábeis e parametrização de comissões gravadas com total sucesso no Banco Próprio do Sistema!");
+                }}
+                userRole={currentUser?.role}
+              />
+            </SettingsErrorBoundary>
           )}
 
           {["perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security"].includes(activeTab) && (
-            <PerfisConfigTab />
+            <SettingsErrorBoundary>
+              <PerfisConfigTab />
+            </SettingsErrorBoundary>
           )}
 
           {activeTab === "digital_twin" && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="bg-white dark:bg-slate-900 p-6 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
-                <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/50">
-                  <div>
-                    <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                      <Network size={18} className="text-blue-500" /> Digital Twin Corporativo — Grupo Comercial Alpha
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gêmeo Digital e representação estrutural-relacional das empresas, marcas, filiais e departamentos.</p>
+            <EnterpriseCenterErrorBoundary>
+              <div className="space-y-6 animate-fade-in">
+                <div className="bg-white dark:bg-slate-900 p-6 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
+                  <div className="flex justify-between items-center pb-4 border-b border-slate-100 dark:border-slate-800/50">
+                    <div>
+                      <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                        <Network size={18} className="text-blue-500" /> Digital Twin Corporativo — Grupo Comercial Alpha
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gêmeo Digital e representação estrutural-relacional das empresas, marcas, filiais e departamentos.</p>
+                    </div>
+                    <span className="text-[10px] font-mono font-black uppercase text-blue-500 bg-blue-500/10 px-2 py-1 rounded">Visualizador Estrutural</span>
                   </div>
-                  <span className="text-[10px] font-mono font-black uppercase text-blue-500 bg-blue-500/10 px-2 py-1 rounded">Visualizador Estrutural</span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                    {/* Company Twin Nissan */}
+                    <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Alpha Nissan</h4>
+                        <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium">Concessionária oficial Nissan do grupo. Abrange serviços de pós-venda, oficina mecânica estruturada e pátio de novos/seminovos.</p>
+                      <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] space-y-1 text-slate-450 font-mono">
+                        <p>• Lojas mapeadas: <span className="font-bold text-slate-700 dark:text-slate-300">Nissan Sul, Nissan Norte</span></p>
+                        <p>• Headcount total: <span className="font-bold text-slate-700 dark:text-slate-300">42 funcionários</span></p>
+                        <p>• Departamentos: <span className="font-bold text-slate-700 dark:text-slate-300">Vendas, Oficina, Peças, F&I</span></p>
+                      </div>
+                    </div>
+
+                    {/* Company Twin Renault */}
+                    <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Alpha Renault</h4>
+                        <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium">Operação Renault integrada à holding. Processo completo de faturamento direto e canais de peças corporativas homologadas.</p>
+                      <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] space-y-1 text-slate-450 font-mono">
+                        <p>• Lojas mapeadas: <span className="font-bold text-slate-700 dark:text-slate-300">Renault Centro, Renault Leste</span></p>
+                        <p>• Headcount total: <span className="font-bold text-slate-700 dark:text-slate-300">38 funcionários</span></p>
+                        <p>• Departamentos: <span className="font-bold text-slate-700 dark:text-slate-300">Vendas, Oficina, F&I, Financeiro</span></p>
+                      </div>
+                    </div>
+
+                    {/* Company Twin Seminovos */}
+                    <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Alpha Seminovos</h4>
+                        <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
+                      </div>
+                      <p className="text-xs text-slate-500 font-medium">Bandeira própria multimarcas focada em alta rotação de estoque, avaliação integrada de carros usados e preparação rápida mecânica.</p>
+                      <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] space-y-1 text-slate-450 font-mono">
+                        <p>• Lojas mapeadas: <span className="font-bold text-slate-700 dark:text-slate-300">Seminovos Hub Castelo</span></p>
+                        <p>• Headcount total: <span className="font-bold text-slate-700 dark:text-slate-300">16 funcionários</span></p>
+                        <p>• Departamentos: <span className="font-bold text-slate-700 dark:text-slate-300">Vendas, Preparação, Avaliação</span></p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Relational graph schema preview */}
+                  <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase text-slate-700 dark:text-slate-350 flex items-center gap-1">
+                      <Activity size={12} className="text-blue-500" /> Estatísticas Relacionais do Gêmeo Digital
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                      <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Total Lojas</span>
+                        <p className="text-lg font-black text-blue-500 mt-1 font-mono">5</p>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Headcount Holding</span>
+                        <p className="text-lg font-black text-blue-500 mt-1 font-mono">96</p>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Sistemas Integrados</span>
+                        <p className="text-lg font-black text-blue-500 mt-1 font-mono">3 (Siel, DealerNet)</p>
+                      </div>
+                      <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Sincronização</span>
+                        <p className="text-lg font-black text-emerald-500 mt-1 font-mono">OK</p>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                  {/* Company Twin Nissan */}
-                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Alpha Nissan</h4>
-                      <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium">Concessionária oficial Nissan do grupo. Abrange serviços de pós-venda, oficina mecânica estruturada e pátio de novos/seminovos.</p>
-                    <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] space-y-1 text-slate-450 font-mono">
-                      <p>• Lojas mapeadas: <span className="font-bold text-slate-700 dark:text-slate-300">Nissan Sul, Nissan Norte</span></p>
-                      <p>• Headcount total: <span className="font-bold text-slate-700 dark:text-slate-300">42 funcionários</span></p>
-                      <p>• Departamentos: <span className="font-bold text-slate-700 dark:text-slate-300">Vendas, Oficina, Peças, F&I</span></p>
-                    </div>
-                  </div>
-
-                  {/* Company Twin Renault */}
-                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Alpha Renault</h4>
-                      <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium">Operação Renault integrada à holding. Processo completo de faturamento direto e canais de peças corporativas homologadas.</p>
-                    <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] space-y-1 text-slate-450 font-mono">
-                      <p>• Lojas mapeadas: <span className="font-bold text-slate-700 dark:text-slate-300">Renault Centro, Renault Leste</span></p>
-                      <p>• Headcount total: <span className="font-bold text-slate-700 dark:text-slate-300">38 funcionários</span></p>
-                      <p>• Departamentos: <span className="font-bold text-slate-700 dark:text-slate-300">Vendas, Oficina, F&I, Financeiro</span></p>
-                    </div>
-                  </div>
-
-                  {/* Company Twin Seminovos */}
-                  <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350">Alpha Seminovos</h4>
-                      <span className="text-[9px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded">Ativa</span>
-                    </div>
-                    <p className="text-xs text-slate-500 font-medium">Bandeira própria multimarcas focada em alta rotação de estoque, avaliação integrada de carros usados e preparação rápida mecânica.</p>
-                    <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] space-y-1 text-slate-450 font-mono">
-                      <p>• Lojas mapeadas: <span className="font-bold text-slate-700 dark:text-slate-300">Seminovos Hub Castelo</span></p>
-                      <p>• Headcount total: <span className="font-bold text-slate-700 dark:text-slate-300">16 funcionários</span></p>
-                      <p>• Departamentos: <span className="font-bold text-slate-700 dark:text-slate-300">Vendas, Preparação, Avaliação</span></p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Relational graph schema preview */}
-                <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl space-y-3">
-                  <h4 className="text-xs font-extrabold uppercase text-slate-700 dark:text-slate-350 flex items-center gap-1">
-                    <Activity size={12} className="text-blue-500" /> Estatísticas Relacionais do Gêmeo Digital
-                  </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Total Lojas</span>
-                      <p className="text-lg font-black text-blue-500 mt-1 font-mono">5</p>
-                    </div>
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Headcount Holding</span>
-                      <p className="text-lg font-black text-blue-500 mt-1 font-mono">96</p>
-                    </div>
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Sistemas Integrados</span>
-                      <p className="text-lg font-black text-blue-500 mt-1 font-mono">3 (Siel, DealerNet)</p>
-                    </div>
-                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">Sincronização</span>
-                      <p className="text-lg font-black text-emerald-500 mt-1 font-mono">OK</p>
-                    </div>
-                  </div>
-                </div>
-
               </div>
-            </div>
+            </EnterpriseCenterErrorBoundary>
           )}
 
           {activeTab === "vpn_gateway" && (
@@ -2088,6 +2198,7 @@ export default function App() {
           {["relatorios", "historico_executivo"].includes(activeTab) && (
             <ReportsPage setActivePage={setActiveTab} />
           )}
+              </MainContentErrorBoundary>
             </>
           )}
 

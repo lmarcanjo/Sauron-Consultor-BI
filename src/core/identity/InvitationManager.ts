@@ -36,10 +36,11 @@ export class InvitationManager {
         console.error("[InvitationManager] Error loading invitations:", e);
       }
     }
-    this.seedDefaultInvitations();
+    this.invitations = [];
+    this.saveToStorage();
   }
 
-  private saveToStorage() {
+  public saveToStorage() {
     if (typeof localStorage !== "undefined") {
       try {
         localStorage.setItem("sauron_identity_invitations", JSON.stringify(this.invitations));
@@ -47,39 +48,6 @@ export class InvitationManager {
         console.error("[InvitationManager] Error saving invitations:", e);
       }
     }
-  }
-
-  private seedDefaultInvitations() {
-    const now = new Date();
-    const future = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
-    
-    this.invitations = [
-      {
-        id: "invite_1",
-        email: "diretoria.topazio@mock.com",
-        organizationId: "org_client_topazio",
-        role: "Client Director",
-        scope: "group",
-        targetWorkspaceId: "ws_topazio",
-        invitedBy: "user_consultant_admin",
-        status: "pending",
-        createdAt: now.toISOString(),
-        expiresAt: future.toISOString()
-      },
-      {
-        id: "invite_expired",
-        email: "convidado.antigo@mock.com",
-        organizationId: "org_client_topazio",
-        role: "Guest",
-        scope: "presentation",
-        targetWorkspaceId: "ws_topazio",
-        invitedBy: "user_consultant",
-        status: "expired",
-        createdAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-        expiresAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()
-      }
-    ];
-    this.saveToStorage();
   }
 
   private checkExpirations() {
@@ -200,6 +168,12 @@ export class InvitationManager {
       invite.status = "expired";
       this.saveToStorage();
     }
+  }
+
+  // Helper method for test environment to inject seeds dynamically
+  public injectTestInvitations(testInvites: Invitation[]): void {
+    this.invitations = [...testInvites];
+    this.saveToStorage();
   }
 }
 

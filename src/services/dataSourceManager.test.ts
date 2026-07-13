@@ -24,8 +24,8 @@ describe("Sauron Data Source Manager Suite", () => {
   });
 
   it("checks activeDataSource switches to SPREADSHEET_DATA on import and locks out mock data", () => {
-    expect(dataSourceManager.getActiveSource()).toBe("DEMO_DATA");
-    expect(dataSourceManager.isDemoMode()).toBe(true);
+    expect(dataSourceManager.getActiveSource()).toBe("SPREADSHEET_DATA");
+    expect(dataSourceManager.isDemoMode()).toBe(false);
 
     // Mock importing a real spreadsheet file
     const sampleFile = {
@@ -128,11 +128,11 @@ describe("Sauron Data Source Manager Suite", () => {
   });
 
   // --- MANDATORY SPRINT TESTS ---
-  it("verifies initial active source is DEMO_DATA", () => {
+  it("blocks legacy DEMO_DATA as an active production source", () => {
     const manager = dataSourceManager;
     manager.setActiveSource("DEMO_DATA");
-    expect(manager.getActiveSource()).toBe("DEMO_DATA");
-    expect(manager.isDemoMode()).toBe(true);
+    expect(manager.getActiveSource()).toBe("SPREADSHEET_DATA");
+    expect(manager.isDemoMode()).toBe(false);
   });
 
   it("verifies switching active source to SPREADSHEET_DATA", () => {
@@ -154,14 +154,10 @@ describe("Sauron Data Source Manager Suite", () => {
     expect(filtered[0].Grupo).toBe("Grupo Amigos Real S/A");
   });
 
-  it("ensures getActiveRecords returns only active source data", () => {
+  it("ensures getActiveRecords never returns legacy demo records", () => {
     dataSourceManager.setActiveSource("DEMO_DATA");
     const activeData = dataSourceManager.getActiveRecords();
-    expect(activeData.length).toBeGreaterThan(0);
-    // All demo records have Grupo = "Grupo Topázio"
-    activeData.forEach(rec => {
-      expect(rec.Grupo).toBe("Grupo Topázio");
-    });
+    expect(activeData.some((record: any) => record.__isDemo === true || record.id?.startsWith("sim_"))).toBe(false);
   });
 
   it("ensures fictional 'Grupo Topázio' does not appear with SPREADSHEET_DATA active", () => {
