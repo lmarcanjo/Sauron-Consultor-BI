@@ -35,6 +35,8 @@ export interface QueueItemSnapshot {
   progress: number;
   message?: string;
   error?: string;
+  /** Flags de recuperação pós-reload */
+  needsReassociation?: boolean;
   /** Preenchido após a importação ser concluída */
   workbookId?: string;
   importJobId?: string;
@@ -133,6 +135,7 @@ function applyInterruptedRecovery(items: QueueItemSnapshot[]): QueueItemSnapshot
         message:
           "A importação foi interrompida. Selecione novamente o arquivo para continuar.",
         error: undefined,
+        needsReassociation: true,
       };
     }
 
@@ -143,6 +146,7 @@ function applyInterruptedRecovery(items: QueueItemSnapshot[]): QueueItemSnapshot
         status: ImportStatus.READY,
         progress: 100,
         message: "Recuperado após interrupção.",
+        needsReassociation: false,
       };
     }
 

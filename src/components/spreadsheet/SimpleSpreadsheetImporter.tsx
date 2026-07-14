@@ -348,12 +348,12 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
       progress: 0,
       message: undefined,
       error: undefined,
+      needsReassociation: false,
     });
 
     const updatedItem = { ...snap, file, status: ImportStatus.PENDING } as QueueItem;
     await parseFileMetadata(updatedItem);
     reassociateTargetId.current = null;
-    // Reset input para permitir selecionar o mesmo arquivo novamente
     e.target.value = "";
   };
 

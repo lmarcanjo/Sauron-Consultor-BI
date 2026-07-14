@@ -80,6 +80,10 @@ export interface WorkbookReadinessInput {
   hasStorageError?: boolean;
   /** Status da fila (se ainda em importação transitória) */
   importStatus?: string;
+  /** Dados físicos persistidos com sucesso */
+  hasPersistentStorage?: boolean;
+  /** Pelo menos uma aba selecionada/validada */
+  hasSelectedTabs?: boolean;
 }
 
 export interface WorkbookReadinessViewModel {
@@ -103,7 +107,15 @@ export class WorkbookReadinessService {
    * O componente recebe o ViewModel pronto.
    */
   async evaluate(input: WorkbookReadinessInput): Promise<WorkbookReadinessViewModel> {
-    const { workbook, linkedEnterpriseIds, hasMappings, hasEnabledModules, hasPresentation } = input;
+    const {
+      workbook,
+      linkedEnterpriseIds,
+      hasMappings,
+      hasEnabledModules,
+      hasPresentation,
+      hasPersistentStorage = true,
+      hasSelectedTabs = true,
+    } = input;
 
     let status: WorkbookReadinessStatus;
     const actions: string[] = [];
@@ -134,10 +146,17 @@ export class WorkbookReadinessService {
       // Falha ao acessar storage
     }
 
-    if (input.hasStorageError || (!hasMeta && workbook.createdAt)) {
+    const storageReady = hasPersistentStorage || (hasMeta && rowCount > 0 && hasRows);
+
+    if (input.hasStorageError || !storageReady) {
       return this.buildViewModel(workbook, "STORAGE_FAILURE", [
         "Reprocesse a fonte para corrigir a falha de armazenamento.",
       ]);
+    }
+
+    if (!hasSelectedTabs) {
+      actions.push("Selecione pelo menos uma aba válida antes de ativar a fonte.");
+      return this.buildViewModel(workbook, "PENDING_CONFIG", actions);
     }
 
     // 4. Vínculo empresarial
@@ -147,8 +166,8 @@ export class WorkbookReadinessService {
     }
 
     // 5. Configuração de campos
-    if (!hasMappings && !hasEnabledModules) {
-      actions.push("Configure os campos e ative pelo menos um módulo (DRE, KPI, Pessoas, Comissão).");
+    if (!hasMappings || !hasEnabledModules) {
+      actions.push("Configure os campos e habilite pelo menos um módulo para a análise.");
       return this.buildViewModel(workbook, "PENDING_CONFIG", actions);
     }
 
@@ -174,9 +193,8 @@ export class WorkbookReadinessService {
     actions: string[]
   ): WorkbookReadinessViewModel {
     const canActivate =
-      status === "READY" ||
-      status === "READY_MEETING" ||
-      (status === "ACTIVE" && actions.length === 0);
+      (status === "READY" || status === "READY_MEETING" || status === "ACTIVE") &&
+      actions.length === 0;
 
     return {
       workbookId: workbook.id,

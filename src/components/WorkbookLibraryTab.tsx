@@ -12,7 +12,13 @@ import {
   Trash2, Building, Network, ChevronRight, ChevronDown, Move, CheckSquare
 } from "lucide-react";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
-import { DEFAULT_WORKBOOK_PROJECT_ID, Workbook, workbookRepository } from "../core/workbook-library";
+import {
+  DEFAULT_WORKBOOK_PROJECT_ID,
+  Workbook,
+  WorkbookReadinessViewModel,
+  workbookReadinessService,
+  workbookRepository,
+} from "../core/workbook-library";
 import { enterpriseRepository, Enterprise, Company, BusinessGroup, Unit } from "../core/persistence/EnterpriseRepository";
 import { SafeDisplayAdapters } from "../core/workbook/SafeDisplayAdapters";
 import { showToast } from "./Toast";
@@ -30,19 +36,39 @@ export const WorkbookLibraryTab: React.FC = () => {
   const [selectedWorkbookId, setSelectedWorkbookId] = useState<string>("");
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [targetMoveWorkbookId, setTargetMoveWorkbookId] = useState<string | null>(null);
+  const [readinessByWorkbookId, setReadinessByWorkbookId] = useState<Record<string, WorkbookReadinessViewModel>>({});
 
   const refresh = React.useCallback(async () => {
-    // Carregar workbooks
     const list = workbookRepository.listWorkbooks({
       projectId: DEFAULT_WORKBOOK_PROJECT_ID,
-      includeArchived: true
+      includeArchived: true,
     });
     setWorkbooks(list);
     setSelectedWorkbookId(workbookRepository.getSelectedWorkbook()?.id || "");
 
-    // Carregar empresas/grupos
     const ents = await enterpriseRepository.getAll();
     setEnterprises(ents);
+
+    const nextReadiness: Record<string, WorkbookReadinessViewModel> = {};
+    await Promise.all(
+      list.map(async (wb) => {
+        const linkedEnterpriseIds = ents
+          .filter((ent) => (ent as any).workbookIds?.includes(wb.id))
+          .map((ent) => ent.id);
+
+        nextReadiness[wb.id] = await workbookReadinessService.evaluate({
+          workbook: wb,
+          linkedEnterpriseIds,
+          hasMappings: true,
+          hasEnabledModules: wb.status === "ACTIVE",
+          hasPresentation: false,
+          hasPersistentStorage: true,
+          hasSelectedTabs: true,
+        });
+      })
+    );
+
+    setReadinessByWorkbookId(nextReadiness);
   }, []);
 
   useEffect(() => {
@@ -239,6 +265,7 @@ export const WorkbookLibraryTab: React.FC = () => {
                               <WorkbookCard 
                                 key={wb.id} 
                                 wb={wb} 
+                                readiness={readinessByWorkbookId[wb.id]}
                                 isSelected={wb.id === selectedWorkbookId}
                                 companyName={company.name}
                                 onActivate={() => activateWorkbook(wb.id)}
@@ -268,6 +295,7 @@ export const WorkbookLibraryTab: React.FC = () => {
                                       <WorkbookCard 
                                         key={wb.id} 
                                         wb={wb} 
+                                        readiness={readinessByWorkbookId[wb.id]}
                                         isSelected={wb.id === selectedWorkbookId}
                                         companyName={company.name}
                                         onActivate={() => activateWorkbook(wb.id)}
@@ -310,6 +338,7 @@ export const WorkbookLibraryTab: React.FC = () => {
                 <WorkbookCard 
                   key={wb.id} 
                   wb={wb} 
+                  readiness={readinessByWorkbookId[wb.id]}
                   isSelected={wb.id === selectedWorkbookId}
                   companyName="Sem Vínculo"
                   onActivate={() => activateWorkbook(wb.id)}
@@ -369,6 +398,7 @@ export const WorkbookLibraryTab: React.FC = () => {
 // Componente do Card de Workbook individual
 const WorkbookCard: React.FC<{
   wb: Workbook;
+  readiness?: WorkbookReadinessViewModel;
   isSelected: boolean;
   companyName: string;
   onActivate: () => void;
@@ -376,7 +406,7 @@ const WorkbookCard: React.FC<{
   onRestore: () => void;
   onDelete: () => void;
   onMove: () => void;
-}> = ({ wb, isSelected, companyName, onActivate, onArchive, onRestore, onDelete, onMove }) => {
+}> = ({ wb, readiness, isSelected, companyName, onActivate, onArchive, onRestore, onDelete, onMove }) => {
   const safe = SafeDisplayAdapters.toSafeWorkbook(wb);
   return (
     <div className={`p-4 rounded-xl border transition-all flex flex-col justify-between h-[130px] ${
@@ -390,9 +420,9 @@ const WorkbookCard: React.FC<{
             Vínculo: {companyName}
           </span>
           <span className={`text-[8px] font-mono font-black uppercase px-2 py-0.5 rounded-full ${
-            safe.status === "ACTIVE" ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-450" : "bg-slate-200 text-slate-500"
+            readiness?.badgeClass ?? (safe.status === "ACTIVE" ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-450" : "bg-slate-200 text-slate-500")
           }`}>
-            {safe.status === "ACTIVE" ? "Ativo" : "Arquivado"}
+            {readiness?.label ?? (safe.status === "ACTIVE" ? "Ativo" : "Arquivado")}
           </span>
         </div>
         <h4 className="text-xs font-bold text-slate-850 dark:text-slate-100 truncate mt-1">{safe.name}</h4>

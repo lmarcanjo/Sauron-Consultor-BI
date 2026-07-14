@@ -336,6 +336,10 @@ export default function App() {
     role: "consultor" | "diretor" | "gerente" | "analista";
   } | null>(() => {
     const user = identityEngine.getCurrentUser();
+    if (!user) {
+      console.warn("No user found on app initialization, using default test user");
+      return null;
+    }
     return {
       name: user.profile.fullName,
       email: user.profile.email,
