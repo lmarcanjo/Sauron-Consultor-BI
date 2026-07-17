@@ -33,9 +33,9 @@ export class DataLineage {
       id: `lineage_${kpiCode}_${Date.now()}`,
       targetKpi: kpiCode,
       value,
-      sourceType: firstRowWithMeta ? "SPREADSHEET" : "DEMO",
-      fileId: firstRowWithMeta?.arquivo || firstRowWithMeta?.nome_arquivo || "demo_source",
-      sheetName: firstRowWithMeta?.aba || firstRowWithMeta?.nome_aba || "Simulado",
+      sourceType: firstRowWithMeta ? "SPREADSHEET" : "UNMAPPED",
+      fileId: firstRowWithMeta?.arquivo || firstRowWithMeta?.nome_arquivo || "fonte_nao_identificada",
+      sheetName: firstRowWithMeta?.aba || firstRowWithMeta?.nome_aba || "aba_nao_identificada",
       rowIndices: records.map((_, idx) => idx).slice(0, 10), // Truncate for size limits
       formulaApplied: formula || "SUM([Receita])",
       calculatedAt: new Date().toISOString(),

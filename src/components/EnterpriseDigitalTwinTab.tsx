@@ -18,12 +18,14 @@ import { workbookRepository as libraryWorkbookRepository } from "../core/workboo
 import { spreadsheetStorageAdapter } from "../core/storage/IndexedSpreadsheetStorageAdapter";
 import { getEnterpriseContext, setEnterpriseContext } from "../core/enterprise-consolidation";
 import { showToast } from "./Toast";
+import { getDomainDisplayOptions } from "../core/business-domains";
 
 export const EnterpriseDigitalTwinTab: React.FC = () => {
   const { activeDataset, activeFiles, refreshDataSource } = useDataSourceManager();
 
   // State
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
+  const [sourceBindings, setSourceBindings] = useState<Awaited<ReturnType<typeof enterpriseRepository.listSourceBindings>>>([]);
   const [activeGroup, setActiveGroup] = useState<BusinessGroup | null>(null);
   const [activeCompany, setActiveCompany] = useState<Company | null>(null);
   const [activeUnit, setActiveUnit] = useState<Unit | null>(null);
@@ -42,7 +44,7 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addType, setAddType] = useState<"group" | "company" | "unit">("company");
   const [newName, setNewName] = useState("");
-  const [newSegment, setNewSegment] = useState("automotive");
+  const [newSegment, setNewSegment] = useState("neutral");
   const [newCnpj, setNewCnpj] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [selectedParentId, setSelectedParentId] = useState("");
@@ -56,25 +58,26 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
   const loadStructure = async () => {
     const list = await enterpriseRepository.getAll();
     setEnterprises(list);
+    setSourceBindings(await enterpriseRepository.listSourceBindings());
 
     // Resolver Grupo Ativo padrão
     const groups = list.filter(e => e.type === "Grupo") as BusinessGroup[];
     if (groups.length > 0) {
-      const storedGroupId = localStorage.getItem("sauron_active_group_id");
+      const storedGroupId = getEnterpriseContext().groupId;
       const currentGroup = groups.find(g => g.id === storedGroupId) || groups[0];
       setActiveGroup(currentGroup);
 
       // Resolver Empresa Ativa padrão
       const companies = list.filter(e => e.type === "Empresa" && e.parentId === currentGroup.id) as Company[];
       if (companies.length > 0) {
-        const storedCompanyId = localStorage.getItem("sauron_active_company_id");
+        const storedCompanyId = getEnterpriseContext().companyId;
         const currentCompany = companies.find(c => c.id === storedCompanyId) || companies[0];
         setActiveCompany(currentCompany);
 
         // Resolver Unidade Ativa padrão
         const units = list.filter(e => e.type === "Unidade" && e.parentId === currentCompany.id) as Unit[];
         if (units.length > 0) {
-          const storedUnitId = localStorage.getItem("sauron_active_unit_id");
+          const storedUnitId = getEnterpriseContext().unitId;
           const currentUnit = units.find(u => u.id === storedUnitId) || units[0];
           setActiveUnit(currentUnit);
         } else {
@@ -97,24 +100,30 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
 
   const selectGroup = (group: BusinessGroup) => {
     setActiveGroup(group);
-    localStorage.setItem("sauron_active_group_id", group.id);
     
     // Auto-select first company of this group
     const firstCompany = enterprises.find(e => e.type === "Empresa" && (e as Company).parentId === group.id) as Company;
+    let firstUnit: Unit | undefined;
     if (firstCompany) {
-      selectCompany(firstCompany);
+      setActiveCompany(firstCompany);
+      firstUnit = enterprises.find(e => e.type === "Unidade" && (e as Unit).parentId === firstCompany.id) as Unit;
+      setActiveUnit(firstUnit || null);
     } else {
       setActiveCompany(null);
       setActiveUnit(null);
-      localStorage.removeItem("sauron_active_company_id");
-      localStorage.removeItem("sauron_active_unit_id");
     }
-    triggerGlobalContextUpdate();
+    setEnterpriseContext({
+      ...getEnterpriseContext(),
+      groupId: group.id,
+      companyId: firstCompany?.id,
+      unitId: firstUnit?.id,
+      scope: firstUnit ? "UNIT" : firstCompany ? "COMPANY" : "GROUP",
+    });
+    refreshDataSource();
   };
 
   const selectCompany = (company: Company) => {
     setActiveCompany(company);
-    localStorage.setItem("sauron_active_company_id", company.id);
     
     // Auto-select first unit of this company
     const firstUnit = enterprises.find(e => e.type === "Unidade" && (e as Unit).parentId === company.id) as Unit;
@@ -122,26 +131,14 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
       selectUnit(firstUnit);
     } else {
       setActiveUnit(null);
-      localStorage.removeItem("sauron_active_unit_id");
+      setEnterpriseContext({ ...getEnterpriseContext(), groupId: company.parentId, companyId: company.id, unitId: undefined, scope: "COMPANY" });
+      refreshDataSource();
     }
-    triggerGlobalContextUpdate();
   };
 
   const selectUnit = (unit: Unit) => {
     setActiveUnit(unit);
-    localStorage.setItem("sauron_active_unit_id", unit.id);
-    triggerGlobalContextUpdate();
-  };
-
-  const triggerGlobalContextUpdate = () => {
-    const event = new CustomEvent("sauron:context-updated", {
-      detail: {
-        groupId: localStorage.getItem("sauron_active_group_id"),
-        companyId: localStorage.getItem("sauron_active_company_id"),
-        unitId: localStorage.getItem("sauron_active_unit_id")
-      }
-    });
-    window.dispatchEvent(event);
+    setEnterpriseContext({ ...getEnterpriseContext(), companyId: unit.parentId, unitId: unit.id, scope: "UNIT" });
     refreshDataSource();
   };
 
@@ -291,26 +288,41 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
       }
     }
 
-    const wbs = deleteCompanyTarget.workbookIds || [];
+    const bindings = await enterpriseRepository.listSourceBindings();
+    const unitIds = new Set(childUnits.map(unit => unit.id));
+    const companyBindings = bindings.filter(binding => binding.companyId === deleteCompanyTarget.id || (binding.unitId && unitIds.has(binding.unitId)));
 
     if (deleteCompanyOption === "registry_and_sources") {
-      for (const wbId of wbs) {
-        libraryWorkbookRepository.deleteWorkbook(wbId);
-        const wb = libraryWorkbookRepository.getWorkbook(wbId);
+      for (const binding of companyBindings) {
+        const wb = libraryWorkbookRepository.getWorkbook(binding.workbookId);
+        const version = wb ? libraryWorkbookRepository.getCurrentVersion(wb.id) : null;
+        const storageId = version?.activeDataset?.datasetId || binding.datasetId;
         if (wb) {
-          await spreadsheetStorageAdapter.deleteMetadata(wb.id);
-          await spreadsheetStorageAdapter.deleteRows(wb.id);
+          await spreadsheetStorageAdapter.deleteMetadata(storageId);
+          await spreadsheetStorageAdapter.deleteRows(storageId);
+          libraryWorkbookRepository.deleteWorkbook(wb.id);
         }
+        await enterpriseRepository.removeSourceBinding(binding.sourceId);
       }
     } else if (deleteCompanyOption === "move_sources" && deleteCompanyMoveTargetId) {
       const destCompany = enterprises.find(e => e.id === deleteCompanyMoveTargetId);
       if (destCompany) {
-        const destWbs = destCompany.workbookIds || [];
-        const nextWbs = Array.from(new Set([...destWbs, ...wbs]));
-        await enterpriseRepository.save({
-          ...destCompany,
-          workbookIds: nextWbs
-        });
+        for (const binding of companyBindings) {
+          await enterpriseRepository.bindSource({
+            sourceId: binding.sourceId,
+            workbookId: binding.workbookId,
+            datasetId: binding.datasetId,
+            tenantId: binding.tenantId,
+            workspaceId: binding.workspaceId,
+            groupId: (destCompany as Company).parentId,
+            companyId: destCompany.id,
+          });
+        }
+      }
+    } else {
+      // Keep the workbooks, but remove the deleted company's ownership.
+      for (const binding of companyBindings) {
+        await enterpriseRepository.removeSourceBinding(binding.sourceId);
       }
     }
 
@@ -341,12 +353,26 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
 
     const entity = await enterpriseRepository.getById(associateTargetId);
     if (entity) {
-      // Salvar dinamicamente nos metadados da empresa/unidade
-      const updated = {
-        ...entity,
-        workbookIds: Array.from(new Set([...((entity as any).workbookIds || []), associateWorkbookId]))
-      };
-      await enterpriseRepository.save(updated as any);
+      const workbook = libraryWorkbookRepository.getWorkbook(associateWorkbookId);
+      const version = workbook ? libraryWorkbookRepository.getCurrentVersion(workbook.id) : null;
+      const company = entity.type === "Empresa"
+        ? entity
+        : entity.type === "Unidade"
+          ? await enterpriseRepository.getById(entity.parentId || "")
+          : undefined;
+      const group = entity.type === "Grupo"
+        ? entity
+        : (company as Company | undefined)?.parentId
+          ? await enterpriseRepository.getById((company as Company).parentId)
+          : undefined;
+      await enterpriseRepository.bindSource({
+        sourceId: version?.activeDataset?.datasetId || associateWorkbookId,
+        workbookId: associateWorkbookId,
+        datasetId: version?.activeDataset?.datasetId || associateWorkbookId,
+        groupId: group?.id,
+        companyId: company?.id,
+        unitId: entity.type === "Unidade" ? entity.id : undefined,
+      });
       showToast("success", "Workbook associado com sucesso.");
       setShowAssociateModal(false);
       loadStructure();
@@ -355,8 +381,9 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
 
   // Get associated workbooks
   const getAssociatedWorkbooks = (entityId: string): string[] => {
-    const entity = enterprises.find(e => e.id === entityId);
-    return (entity as any)?.workbookIds || [];
+    return sourceBindings
+      .filter(binding => binding.groupId === entityId || binding.companyId === entityId || binding.unitId === entityId)
+      .map(binding => binding.workbookId);
   };
 
   const getCompanyTimeline = () => {
@@ -409,7 +436,7 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
             </span>
             <h1 className="text-xl font-black tracking-tight">Representação Organizacional</h1>
             <p className="text-xs text-slate-400 max-w-xl">
-              Modelagem tática da holding estruturada em Grupos, Empresas e Unidades de faturamento.
+              Modelagem tática do grupo empresarial estruturada em Grupos, Empresas e Unidades de faturamento.
             </p>
           </div>
           <button
@@ -692,7 +719,7 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
                   onChange={e => setAddType(e.target.value as any)}
                   className="w-full bg-slate-50 dark:bg-slate-950 text-xs px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 focus:outline-hidden text-slate-700 dark:text-slate-300"
                 >
-                  <option value="group">Grupo Empresarial (Holding)</option>
+                  <option value="group">Grupo Empresarial</option>
                   <option value="company">Empresa / Unidade Faturamento</option>
                   <option value="unit">Filial / Oficina / Loja Física</option>
                 </select>
@@ -703,7 +730,7 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Renault Castelo, Nissan Sul"
+                  placeholder="Ex: Unidade Centro, Empresa Sul"
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-slate-950 text-xs px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-white"
@@ -718,9 +745,9 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
                     onChange={e => setNewSegment(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-950 text-xs px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-800 focus:outline-hidden text-slate-700 dark:text-slate-300"
                   >
-                    <option value="automotive">Automotivo (Concessionárias)</option>
-                    <option value="agribusiness">Agronegócio (Fazendas)</option>
-                    <option value="shared">Geral / Multi-Segmento</option>
+                    {getDomainDisplayOptions().map(option => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
                   </select>
                 </div>
               )}
@@ -896,7 +923,7 @@ export const EnterpriseDigitalTwinTab: React.FC = () => {
                 <p className="text-[10px] font-black uppercase text-slate-450 tracking-wider">Recursos Vinculados:</p>
                 {(() => {
                   const childUnits = enterprises.filter(u => (u as Unit).parentId === deleteCompanyTarget.id);
-                  const wbs = deleteCompanyTarget.workbookIds || [];
+                  const wbs = getAssociatedWorkbooks(deleteCompanyTarget.id);
                   return (
                     <ul className="space-y-1 text-[10px] font-semibold text-slate-350">
                       <li>• Unidades/Filiais: <strong className="text-white">{childUnits.length}</strong></li>

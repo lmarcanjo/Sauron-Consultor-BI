@@ -20,6 +20,8 @@ import {
 import { AuditEngine } from "../audit/AuditEngine";
 import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
 import { activeDatasetStore } from "./ActiveDatasetStore";
+import { platformLogger } from "../platform/PlatformLogger";
+import { dispatchPlatformEvent, PLATFORM_EVENTS } from "../events/PlatformEvents";
 
 // --- GLOBAL QUERY SECURITY / PROTECTIONS ---
 export function assertNoMockDataWhenRealSource(
@@ -46,7 +48,7 @@ export function assertNoMockDataWhenRealSource(
       (r.id && String(r.id).startsWith("sim_"))
     );
     if (isMockRecord) {
-      console.log("DETECTED MOCK RECORD!", {
+      platformLogger.warn("Invalid synthetic source record detected.", {
         __isDemo: record.__isDemo,
         sourceType: record.sourceType,
         Grupo: r.Grupo,
@@ -57,10 +59,10 @@ export function assertNoMockDataWhenRealSource(
     return isMockRecord;
   };
 
-  const mockRecords = records.filter(isMock);
+  const simulatedRecords = records.filter(isMock);
   const cleanRecords = records.filter(r => !isMock(r));
 
-  if (mockRecords.length > 0) {
+  if (simulatedRecords.length > 0) {
     const errorMsg = `[Sauron Audit] Violação Crítica de Integridade: Dados simulados/fictícios (Simulado/Demo) foram detectados em uma fonte de dados real (${activeDataSource})! Operação abortada para evitar contaminação de relatórios executivos.`;
     console.error(errorMsg);
 
@@ -76,7 +78,7 @@ export function assertNoMockDataWhenRealSource(
           severity: "CRITICAL",
           message: errorMsg,
           dataSource: activeDataSource,
-          count: mockRecords.length,
+          count: simulatedRecords.length,
         });
         localStorage.setItem("sauron_audit_logs", JSON.stringify(logs));
       } catch (err) {
@@ -88,6 +90,10 @@ export function assertNoMockDataWhenRealSource(
   return cleanRecords;
 }
 
+/**
+ * @deprecated Compatibility facade. New code must use ActiveDatasetStore,
+ * DataActivation and SpreadsheetStoragePort. This class is not an import owner.
+ */
 export class DataSourceManager {
   private state: DataSourceState;
   private workspace: SpreadsheetWorkspace;
@@ -148,7 +154,7 @@ export class DataSourceManager {
 
     // Synchronize and subscribe to ActiveDatasetStore
     activeDatasetStore.subscribe((event) => {
-      if (event.type === "DATASET_ACTIVATED" || event.type === "DATASET_REHYDRATED" || event.type === "DATASET_UPDATED") {
+      if (event.type === "DATASET_ACTIVATED" || event.type === "DATASET_REHYDRATED") {
         const metadata = event.payload.metadata;
         if (event.payload.datasetId) {
           this.activeDataset = {
@@ -158,6 +164,8 @@ export class DataSourceManager {
             rowCount: event.payload.rowCount,
             columnCount: event.payload.columnCount,
             importedAt: metadata.importedAt || new Date().toISOString(),
+            sourceDatasetIds: metadata.sourceDatasetIds || undefined,
+            sourceWorkbookIds: metadata.sourceWorkbookIds || undefined,
             sheets: metadata.sheets || [],
             activeSheet: metadata.activeSheet || "",
             previewRows: metadata.previewRows || [],
@@ -169,7 +177,7 @@ export class DataSourceManager {
           this.state.activeDataSource = "SPREADSHEET_DATA";
           this.state.approvedByConsultant = true;
 
-          console.log(`[Sauron Instrumentation] DATASOURCE_MANAGER_ACTIVE_DATASET_UPDATED - datasetId: ${this.activeDataset.datasetId}, sourceName: ${this.activeDataset.sourceName}, rowCount: ${this.activeDataset.rowCount}, columnCount: ${this.activeDataset.columnCount}, sourceType: ${this.activeDataset.sourceType}`);
+          platformLogger.info(`[Sauron Instrumentation] DATASOURCE_MANAGER_ACTIVE_DATASET_UPDATED - datasetId: ${this.activeDataset.datasetId}, sourceName: ${this.activeDataset.sourceName}, rowCount: ${this.activeDataset.rowCount}, columnCount: ${this.activeDataset.columnCount}, sourceType: ${this.activeDataset.sourceType}`);
 
           this.cachedActiveRecords = null;
           this.triggerUpdateEvent();
@@ -239,11 +247,15 @@ export class DataSourceManager {
         }
 
         try {
-          if (this.activeDataset) {
+          // During boot the manager and the store can be hydrated in either
+          // order. Never erase a persisted active dataset just because this
+          // instance has not received the store event yet.
+          const datasetToPersist = this.activeDataset || activeDatasetStore.getActiveDataset();
+          if (datasetToPersist) {
             // save truncated active dataset (prevent quota issues)
             const truncatedDataset = {
-              ...this.activeDataset,
-              previewRows: this.activeDataset.previewRows.slice(0, 50)
+              ...datasetToPersist,
+              previewRows: (datasetToPersist.previewRows || []).slice(0, 50)
             };
             localStorage.setItem("sauron_ds_active_dataset", JSON.stringify(truncatedDataset));
           } else {
@@ -451,15 +463,9 @@ export class DataSourceManager {
     return this.state.activeDataSource;
   }
 
-  public setActiveSource(source: ActiveDataSource) {
+  public setActiveSource(source: ActiveDataSource | string) {
     const allowedSources: ActiveDataSource[] = ["SPREADSHEET_DATA", "DATABASE_DATA", "CONSULTANT_DATA", "MIXED_APPROVED_DATA"];
-    this.state.activeDataSource = allowedSources.includes(source) ? source : "SPREADSHEET_DATA";
-    this.saveToStorage();
-    this.triggerUpdateEvent();
-  }
-
-  public clearDemoFallback() {
-    this.state.activeDataSource = "SPREADSHEET_DATA";
+    this.state.activeDataSource = allowedSources.includes(source as ActiveDataSource) ? source as ActiveDataSource : "SPREADSHEET_DATA";
     this.saveToStorage();
     this.triggerUpdateEvent();
   }
@@ -495,10 +501,6 @@ export class DataSourceManager {
 
   public isSpreadsheetMode(): boolean {
     return this.state.activeDataSource === "SPREADSHEET_DATA";
-  }
-
-  public isDemoMode(): boolean {
-    return false;
   }
 
   public isDatabaseMode(): boolean {
@@ -1058,15 +1060,10 @@ export class DataSourceManager {
 
   public triggerUpdateEvent() {
     this.cachedActiveRecords = null;
-    if (typeof window !== "undefined" && typeof CustomEvent !== "undefined") {
-      const event = new CustomEvent("sauron_datasource_updated", {
-        detail: {
-          activeDataSource: this.state.activeDataSource,
-          approvedByConsultant: this.state.approvedByConsultant
-        }
-      });
-      window.dispatchEvent(event);
-    }
+    dispatchPlatformEvent(PLATFORM_EVENTS.DATA_SOURCE_STATE_CHANGED, {
+      activeDataSource: this.state.activeDataSource,
+      approvedByConsultant: this.state.approvedByConsultant,
+    });
   }
 }
 

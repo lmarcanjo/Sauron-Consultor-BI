@@ -7,10 +7,24 @@
  */
 
 import { EnterpriseContext } from "./EnterpriseContextTypes";
+import { dispatchPlatformEvent, PLATFORM_EVENTS } from "../events/PlatformEvents";
+import { runLegacyCompatibilityMigration } from "../migrations/LegacyCompatibilityMigration";
 
 const STORAGE_KEY = "sauron_active_enterprise_context";
+type ContextRefreshOptions = { refreshSources?: boolean };
+type ContextResolver = (context: EnterpriseContext) => Promise<void>;
+let contextResolver: ContextResolver | null = null;
+let refreshSequence = 0;
+
+export function registerEnterpriseContextResolver(resolver: ContextResolver): () => void {
+  contextResolver = resolver;
+  return () => {
+    if (contextResolver === resolver) contextResolver = null;
+  };
+}
 
 const getInitialContext = (): EnterpriseContext => {
+  runLegacyCompatibilityMigration();
   if (typeof localStorage !== "undefined") {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -18,23 +32,7 @@ const getInitialContext = (): EnterpriseContext => {
         return JSON.parse(saved);
       }
       
-      // Tentar construir a partir de chaves antigas de compatibilidade
-      const groupId = localStorage.getItem("sauron_active_group_id") || undefined;
-      const companyId = localStorage.getItem("sauron_active_company_id") || undefined;
-      const unitId = localStorage.getItem("sauron_active_unit_id") || undefined;
-      
-      let scope: EnterpriseContext["scope"] = "GROUP";
-      if (unitId) scope = "UNIT";
-      else if (companyId) scope = "COMPANY";
-
-      return {
-        groupId,
-        companyId,
-        unitId,
-        workbookIds: [],
-        datasetIds: [],
-        scope
-      };
+      return { workbookIds: [], datasetIds: [], scope: "GROUP" };
     } catch (e) {
       console.error("[EnterpriseContextStore] Error parsing context from localStorage", e);
     }
@@ -54,40 +52,30 @@ export const getEnterpriseContext = (): EnterpriseContext => {
   return { ...currentContext };
 };
 
-export const setEnterpriseContext = (context: EnterpriseContext): void => {
+export const setEnterpriseContext = (context: EnterpriseContext, options: ContextRefreshOptions = {}): void => {
   currentContext = { ...context };
 
   if (typeof localStorage !== "undefined") {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(currentContext));
       
-      // Sincronizar chaves legadas por compatibilidade
-      if (currentContext.groupId) {
-        localStorage.setItem("sauron_active_group_id", currentContext.groupId);
-      } else {
-        localStorage.removeItem("sauron_active_group_id");
-      }
-
-      if (currentContext.companyId) {
-        localStorage.setItem("sauron_active_company_id", currentContext.companyId);
-      } else {
-        localStorage.removeItem("sauron_active_company_id");
-      }
-
-      if (currentContext.unitId) {
-        localStorage.setItem("sauron_active_unit_id", currentContext.unitId);
-      } else {
-        localStorage.removeItem("sauron_active_unit_id");
-      }
-
-      // Despachar evento para notificar componentes de fora do React
-      window.dispatchEvent(new CustomEvent("sauron:context-updated", { detail: currentContext }));
+      dispatchPlatformEvent(PLATFORM_EVENTS.ENTERPRISE_CONTEXT_CHANGED, currentContext);
     } catch (e) {
       console.error("[EnterpriseContextStore] Failed to save context to localStorage", e);
     }
   }
 
   listeners.forEach(listener => listener(currentContext));
+
+  if (options.refreshSources !== false && contextResolver) {
+    const sequence = ++refreshSequence;
+    void Promise.resolve().then(async () => {
+      if (sequence !== refreshSequence || !contextResolver) return;
+      await contextResolver({ ...currentContext });
+    }).catch(error => {
+      console.error("[EnterpriseContextStore] Não foi possível atualizar as fontes do contexto", error);
+    });
+  }
 };
 
 export const subscribeEnterpriseContext = (listener: (ctx: EnterpriseContext) => void): (() => void) => {

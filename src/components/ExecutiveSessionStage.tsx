@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { AgendaItem } from './ExecutiveSessionAgenda';
 import { WorkspaceProject, ActionPlan } from '../modules/consultant-workspace/types';
+import { PresentationMetricValues } from '../core/business-intelligence/PresentationMetricContext';
 
 interface ExecutiveSessionStageProps {
   currentChapter: AgendaItem;
@@ -17,6 +18,7 @@ interface ExecutiveSessionStageProps {
   formatCurrency: (value: number) => string;
   chartDataRevenue: any[];
   chartDataCosts: any[];
+  metricValues?: PresentationMetricValues | null;
   setActiveChapterIndex: (index: number) => void;
   setAgenda: React.Dispatch<React.SetStateAction<AgendaItem[]>>;
   setIsCreatingAction: (val: boolean) => void;
@@ -34,6 +36,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
   formatCurrency,
   chartDataRevenue,
   chartDataCosts,
+  metricValues,
   setActiveChapterIndex,
   setAgenda,
   setIsCreatingAction,
@@ -41,6 +44,22 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
   setActivePlans,
   agenda
 }) => {
+  const totalRevenue = metricValues?.totalRevenue ?? null;
+  const totalTarget = metricValues?.targetTotal ?? null;
+  const totalCosts = metricValues?.totalCosts ?? null;
+  const hasRevenueData = totalRevenue !== null && totalRevenue > 0;
+  const hasCostData = totalCosts !== null && totalCosts > 0;
+  const targetGap = metricValues?.targetGap ?? null;
+  const grossMargin = metricValues?.grossMargin ?? null;
+
+  const renderPendingConfig = (message: string) => (
+    <div className="max-w-2xl mx-auto my-12 bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center space-y-3">
+      <ShieldAlert className="mx-auto text-amber-400" size={34} />
+      <h3 className="text-sm font-black uppercase tracking-widest text-white">Configuração pendente</h3>
+      <p className="text-xs text-slate-300 leading-relaxed">{message}</p>
+    </div>
+  );
+
   return (
     <section className="flex-1 bg-slate-950 flex flex-col overflow-hidden relative">
       <div className="flex-1 overflow-y-auto p-8 flex flex-col justify-between custom-scrollbar">
@@ -90,11 +109,11 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                 </div>
                 <div className="bg-slate-900/60 border border-slate-850 p-4 rounded-xl space-y-1">
                   <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block">SEGMENTO DE MERCADO</span>
-                  <p className="text-sm font-bold text-blue-400">{project.segment || 'Automotivo'}</p>
+                  <p className="text-sm font-bold text-blue-400">{project.segment || 'Geral'}</p>
                 </div>
                 <div className="bg-slate-900/60 border border-slate-850 p-4 rounded-xl space-y-1">
                   <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider block">LÍDER CONSULTOR</span>
-                  <p className="text-sm font-bold text-slate-200">Lennon Marcanjo</p>
+                  <p className="text-sm font-bold text-slate-200">Consultor responsável</p>
                 </div>
               </div>
 
@@ -104,7 +123,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                 <ul className="text-xs text-slate-300 space-y-2.5">
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                    <span>Validar desvios de receita e queda observada na margem operacional de seminovos.</span>
+                    <span>Validar desvios de receita e queda observada na margem operacional.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
@@ -112,7 +131,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                    <span>Aprovar as 5 ações táticas prioritárias no Plano de Ação Estratégico.</span>
+                    <span>Aprovar as ações táticas prioritárias registradas no Plano de Ação Estratégico.</span>
                   </li>
                 </ul>
               </div>
@@ -120,6 +139,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
           )}
 
           {currentChapter.chapterKey === 'receita' && (
+            !hasRevenueData ? renderPendingConfig("Fonte real ativa sem colunas financeiras suficientes para apresentar receita na sessão.") :
             <div className="space-y-6 w-full max-w-4xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-4 flex items-center gap-4">
@@ -128,7 +148,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                   </div>
                   <div className="space-y-0.5">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Receita Acumulada</span>
-                    <p className="text-base font-black text-white">{formatCurrency(5400000)}</p>
+                    <p className="text-base font-black text-white">{formatCurrency(totalRevenue)}</p>
                   </div>
                 </div>
                 <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-4 flex items-center gap-4">
@@ -137,7 +157,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                   </div>
                   <div className="space-y-0.5">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Meta Consolidada</span>
-                    <p className="text-base font-black text-white">{formatCurrency(5800000)}</p>
+                    <p className="text-base font-black text-white">{totalTarget > 0 ? formatCurrency(totalTarget) : "Configuração pendente"}</p>
                   </div>
                 </div>
                 <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-4 flex items-center gap-4">
@@ -146,7 +166,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                   </div>
                   <div className="space-y-0.5">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">Defasagem Operacional</span>
-                    <p className="text-base font-black text-rose-400">- 6,90%</p>
+                    <p className="text-base font-black text-rose-400">{targetGap !== null ? `${targetGap.toFixed(2)}%` : "Configuração pendente"}</p>
                   </div>
                 </div>
               </div>
@@ -169,29 +189,30 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
           )}
 
           {currentChapter.chapterKey === 'margem' && (
+            !hasRevenueData || !hasCostData ? renderPendingConfig("Configure colunas de receita, custo e despesa para apresentar margem real na sessão.") :
             <div className="space-y-6 w-full max-w-4xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl flex flex-col justify-center space-y-4">
                   <div className="space-y-1">
                     <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Margem Bruta Consolidada</span>
-                    <h3 className="text-5xl font-black text-white font-mono">41.20%</h3>
+                    <h3 className="text-5xl font-black text-white font-mono">{grossMargin !== null ? `${grossMargin.toFixed(2)}%` : "Configuração pendente"}</h3>
                     <p className="text-emerald-400 text-xs font-bold flex items-center gap-1">
-                      <span>+ 1.5% vs Ciclo Anterior</span>
+                      <span>Calculada a partir da fonte ativa</span>
                     </p>
                   </div>
                   
                   <div className="space-y-2 border-t border-slate-850 pt-4">
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">Venda de Veículos</span>
-                      <span className="font-mono text-slate-200">12.5%</span>
+                      <span className="text-slate-400">Linha Comercial</span>
+                      <span className="font-mono text-slate-200">{grossMargin !== null ? `${grossMargin.toFixed(2)}%` : "Configuração pendente"}</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">Oficina e Pós-Venda</span>
-                      <span className="font-mono text-slate-200">52.3%</span>
+                      <span className="text-slate-400">Operações e Serviços</span>
+                      <span className="font-mono text-slate-200">{formatCurrency(totalCosts)}</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-400">Acessórios & F&I</span>
-                      <span className="font-mono text-slate-200">48.0%</span>
+                      <span className="text-slate-400">Categorias Adicionais</span>
+                      <span className="font-mono text-slate-200">Configuração pendente</span>
                     </div>
                   </div>
                 </div>
@@ -202,7 +223,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                       <ShieldAlert size={14} /> Alerta de Alavanca de Margem
                     </h4>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                      A margem bruta de seminovos caiu 3.4 pontos percentuais devido ao excesso de descontos na venda cruzada. É necessário frear a comissão em modelos Nissan.
+                      A sessão está usando a fonte real ativa. Configure colunas adicionais de desconto, meta e linha comercial para detalhar as alavancas de margem.
                     </p>
                   </div>
 
@@ -212,20 +233,20 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                     <div className="space-y-2">
                       <div className="space-y-1">
                         <div className="flex justify-between text-[10px] font-mono">
-                          <span>Veículos Novos</span>
-                          <span>92%</span>
+                          <span>Linha Comercial A</span>
+                          <span>{grossMargin !== null ? `${Math.max(0, Math.min(100, grossMargin)).toFixed(0)}%` : "Configuração pendente"}</span>
                         </div>
                         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div className="bg-blue-500 h-full" style={{ width: '92%' }} />
+                          <div className="bg-blue-500 h-full" style={{ width: `${grossMargin !== null ? Math.max(0, Math.min(100, grossMargin)) : 0}%` }} />
                         </div>
                       </div>
                       <div className="space-y-1">
                         <div className="flex justify-between text-[10px] font-mono">
-                          <span>Oficina Geral</span>
-                          <span>105%</span>
+                          <span>Operações Gerais</span>
+                          <span>Configuração pendente</span>
                         </div>
                         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div className="bg-emerald-500 h-full" style={{ width: '100%' }} />
+                          <div className="bg-emerald-500 h-full" style={{ width: '0%' }} />
                         </div>
                       </div>
                     </div>
@@ -236,6 +257,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
           )}
 
           {currentChapter.chapterKey === 'custos' && (
+            !hasCostData ? renderPendingConfig("Configure colunas de custo e despesa para apresentar a composição estrutural real.") :
             <div className="space-y-6 w-full max-w-4xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-5 h-72 flex flex-col justify-between">
@@ -260,14 +282,14 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                 <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl flex flex-col justify-center space-y-4">
                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Oportunidade de Saving</span>
                   <div className="space-y-1">
-                    <p className="text-xs text-slate-400">Eficiência CMV Logística</p>
-                    <h4 className="text-3xl font-black text-emerald-400 font-mono">R$ 180.000</h4>
-                    <p className="text-slate-300 text-xs">Identificada possibilidade de centralizar compras de suprimentos na matriz, obtendo 15% de desconto em lote fechado.</p>
+                    <p className="text-xs text-slate-400">Custos e despesas mapeados</p>
+                    <h4 className="text-3xl font-black text-emerald-400 font-mono">{formatCurrency(totalCosts)}</h4>
+                    <p className="text-slate-300 text-xs">Configure regras de saving para transformar esta prévia em recomendação executiva.</p>
                   </div>
                   
                   <div className="border-t border-slate-850 pt-4 text-xs text-slate-400 flex items-start gap-2">
                     <CheckCircle2 size={14} className="text-emerald-500 shrink-0 mt-0.5" />
-                    <span>Ação correspondente: Centralizar compras de autopeças de giro na matriz com Carlos Henrique.</span>
+                    <span>Ação correspondente: configuração pendente.</span>
                   </div>
                 </div>
               </div>
@@ -275,91 +297,11 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
           )}
 
           {currentChapter.chapterKey === 'comercial' && (
-            <div className="space-y-6 w-full max-w-4xl mx-auto">
-              <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-5">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-4">Leaderboard Comercial - Performance</span>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-500 uppercase tracking-wider text-[9px] font-bold">
-                        <th className="pb-2.5">Vendedor</th>
-                        <th className="pb-2.5 text-right">Volume de Vendas</th>
-                        <th className="pb-2.5 text-right">Atingimento Meta</th>
-                        <th className="pb-2.5 text-right">Comissão Estimada</th>
-                        <th className="pb-2.5 text-right">Morale / Prod</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-900 text-slate-300">
-                      <tr>
-                        <td className="py-3 font-semibold text-white flex items-center gap-1.5">
-                          <span className="w-5 h-5 rounded-full bg-blue-500 text-slate-950 font-black text-[9px] flex items-center justify-center">1º</span>
-                          Carlos Santos
-                        </td>
-                        <td className="py-3 text-right font-mono">{formatCurrency(1250000)}</td>
-                        <td className="py-3 text-right text-emerald-400 font-bold font-mono">104%</td>
-                        <td className="py-3 text-right font-mono">{formatCurrency(18750)}</td>
-                        <td className="py-3 text-right">
-                          <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-black uppercase rounded">Alto</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 font-semibold text-white flex items-center gap-1.5">
-                          <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-black text-[9px] flex items-center justify-center">2º</span>
-                          Ana Paula Silva
-                        </td>
-                        <td className="py-3 text-right font-mono">{formatCurrency(980000)}</td>
-                        <td className="py-3 text-right text-slate-300 font-mono">98%</td>
-                        <td className="py-3 text-right font-mono">{formatCurrency(14700)}</td>
-                        <td className="py-3 text-right">
-                          <span className="px-1.5 py-0.5 bg-slate-900 text-slate-400 border border-slate-800 text-[9px] font-black uppercase rounded">Médio</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-3 font-semibold text-white flex items-center gap-1.5">
-                          <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-400 font-black text-[9px] flex items-center justify-center">3º</span>
-                          Roberto Melo
-                        </td>
-                        <td className="py-3 text-right font-mono">{formatCurrency(710000)}</td>
-                        <td className="py-3 text-right text-rose-400 font-bold font-mono">71%</td>
-                        <td className="py-3 text-right font-mono">{formatCurrency(10650)}</td>
-                        <td className="py-3 text-right">
-                          <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase rounded">Crítico</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            renderPendingConfig("Configure colunas de vendedor, cliente, produto e valor para apresentar ranking comercial real.")
           )}
 
           {currentChapter.chapterKey === 'pessoas' && (
-            <div className="space-y-6 w-full max-w-4xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-5 text-center space-y-1">
-                  <span className="text-[9px] font-black text-slate-500 uppercase block tracking-wider">Satisfação Geral do Time</span>
-                  <h4 className="text-4xl font-black text-white font-mono">78%</h4>
-                  <p className="text-[10px] text-emerald-400 font-bold">Excelente / Saudável</p>
-                </div>
-                <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-5 text-center space-y-1">
-                  <span className="text-[9px] font-black text-slate-500 uppercase block tracking-wider">Rotatividade (Turnover)</span>
-                  <h4 className="text-4xl font-black text-white font-mono">4.1%</h4>
-                  <p className="text-[10px] text-slate-400">Sob controle setorial</p>
-                </div>
-                <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-5 text-center space-y-1">
-                  <span className="text-[9px] font-black text-slate-500 uppercase block tracking-wider">Produtividade Média</span>
-                  <h4 className="text-4xl font-black text-white font-mono">R$ 48K</h4>
-                  <p className="text-[10px] text-emerald-400 font-bold">+ 12% vs meta técnica</p>
-                </div>
-              </div>
-
-              <div className="bg-slate-900/30 border border-slate-900 p-5 rounded-2xl space-y-3">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Diagnóstico de Gestão de Equipes</span>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Identificada alta sobrecarga no pós-venda, impulsionada pelo crescimento na demanda de serviços da concessionária. A contratação emergencial de 2 técnicos mecânicos plenos é necessária para aliviar o gargalo.
-                </p>
-              </div>
-            </div>
+            renderPendingConfig("Configure colunas de pessoa, cargo, setor e produtividade para apresentar indicadores reais de equipe.")
           )}
 
           {currentChapter.chapterKey === 'plano' && (

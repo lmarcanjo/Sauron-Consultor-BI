@@ -74,7 +74,7 @@ export class CaseDossierEngine {
     }
 
     // Collect trace of data source origin
-    let dataSourceTrace = "Dados Demo / Mock";
+    let dataSourceTrace = "Nenhuma fonte de dados vinculada.";
     if (project.spreadsheets && project.spreadsheets.length > 0) {
       dataSourceTrace = project.spreadsheets.map(s => s.name).join(", ");
     } else if (project.dbConnections && project.dbConnections.length > 0) {
@@ -86,7 +86,7 @@ export class CaseDossierEngine {
       caseName: project.client || "Caso Sem Nome",
       client: project.client || "Cliente Desconhecido",
       group: project.group || "Grupo Desconhecido",
-      segment: project.segment || "Automotivo",
+      segment: project.segment || "Geral",
       companies: project.companies || [],
       cnpjs: project.cnpjs || [],
       connectedDataSources,

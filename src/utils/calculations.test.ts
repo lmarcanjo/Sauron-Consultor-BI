@@ -4,7 +4,6 @@ import {
   calculateMargin, 
   buildSellerRanking,
   isQueryReadOnly,
-  isMockAllowed,
   validateFormula,
   validateTraceability
 } from './calculations';
@@ -51,13 +50,6 @@ describe('Financial Calculations', () => {
     expect(isQueryReadOnly('ALTER TABLE users ADD column role text')).toBe(false);
     expect(isQueryReadOnly('CREATE TABLE new_table (id int)')).toBe(false);
     expect(isQueryReadOnly('TRUNCATE table logs')).toBe(false);
-  });
-
-  it('never allows mock visibility in the production data flow', () => {
-    expect(isMockAllowed('DEMO_DATA')).toBe(false);
-    expect(isMockAllowed('SPREADSHEET_DATA')).toBe(false);
-    expect(isMockAllowed('DATABASE_DATA')).toBe(false);
-    expect(isMockAllowed('CONSULTANT_DATA')).toBe(false);
   });
 
   it('validates consultant / calculated formulas format', () => {

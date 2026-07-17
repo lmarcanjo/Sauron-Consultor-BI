@@ -89,26 +89,7 @@ class SearchEngine {
     this.registerProvider({
       name: "vendedores-provider",
       search: (q) => {
-        const sellers: SearchResultItem[] = [
-          {
-            id: "vend_1",
-            title: "Carlos Silva",
-            subtitle: "Consultor de Vendas Destaque — Unidade Alpha Nissan",
-            category: "Vendedor",
-            targetTab: "executive_workspace",
-            requiredPermission: "action.view", // Under commissions or people intelligence
-            contextEntity: { id: "vendedor_1", type: "vendedor", name: "Carlos Silva", metadata: { role: "Destaque Nissan", store: "Nissan Feira" } }
-          },
-          {
-            id: "vend_2",
-            title: "Amanda Souza",
-            subtitle: "Consultor de Vendas Destaque — Unidade Alpha Renault",
-            category: "Vendedor",
-            targetTab: "executive_workspace",
-            requiredPermission: "action.view",
-            contextEntity: { id: "vendedor_2", type: "vendedor", name: "Amanda Souza", metadata: { role: "Destaque Renault", store: "Renault Feira" } }
-          }
-        ];
+        const sellers: SearchResultItem[] = [];
         return sellers.filter(s => 
           s.title.toLowerCase().includes(q) || 
           s.subtitle.toLowerCase().includes(q)
@@ -120,11 +101,7 @@ class SearchEngine {
     this.registerProvider({
       name: "action-plans-provider",
       search: (q) => {
-        const plans: SearchResultItem[] = [
-          { id: "act_1", title: "Renegociar taxas de recebíveis", subtitle: "Finanças • Alta Prioridade", category: "Plano", targetTab: "executive_workspace", requiredPermission: "action.view" },
-          { id: "act_2", title: "Rito de precificação de Seminovos", subtitle: "Giro de Estoque • Média Prioridade", category: "Plano", targetTab: "executive_workspace", requiredPermission: "action.view" },
-          { id: "act_3", title: "Revisar comissão técnica da Oficina", subtitle: "Operações • Baixa Prioridade", category: "Plano", targetTab: "executive_workspace", requiredPermission: "action.view" }
-        ];
+        const plans: SearchResultItem[] = [];
         return plans.filter(p => 
           p.title.toLowerCase().includes(q) || 
           p.subtitle.toLowerCase().includes(q)
@@ -136,11 +113,7 @@ class SearchEngine {
     this.registerProvider({
       name: "presentations-provider",
       search: (q) => {
-        const pres: SearchResultItem[] = [
-          { id: "pres_1", title: "Relatório de Fechamento Operacional Q2", subtitle: "Apresentação para o Conselho", category: "Apresentação", targetTab: "apresentacoes", requiredPermission: "presentation.view" },
-          { id: "pres_2", title: "Ata da Reunião de Diretoria de Finanças", subtitle: "Comitê de Auditoria", category: "Ata", targetTab: "modo_reuniao", requiredPermission: "meeting.view" },
-          { id: "rep_1", title: "Análise Tributária Monofásica de Autopeças", subtitle: "Estudo Fiscal", category: "Relatório", targetTab: "resumo", requiredPermission: "analytics.view" }
-        ];
+        const pres: SearchResultItem[] = [];
         return pres.filter(p => 
           p.title.toLowerCase().includes(q) || 
           p.subtitle.toLowerCase().includes(q)

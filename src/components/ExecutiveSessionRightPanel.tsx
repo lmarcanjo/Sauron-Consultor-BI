@@ -94,19 +94,19 @@ export const ExecutiveSessionRightPanel: React.FC<ExecutiveSessionRightPanelProp
             <span>Certifique-se de validar a presença de todos os stakeholders fundamentais antes de iniciar as discussões de números.</span>
           )}
           {currentChapter.chapterKey === 'receita' && (
-            <span>Foque em identificar quais filiais ou marcas da holding acumularam o maior desvio no ciclo corrente.</span>
+            <span>Foque em identificar quais unidades ou marcas do grupo acumularam o maior desvio no ciclo corrente.</span>
           )}
           {currentChapter.chapterKey === 'margem' && (
-            <span>Explore a venda de acessórios de alto valor agregado como alavanca corretiva imediata para elevar a margem de veículos novos.</span>
+            <span>Explore a venda de categorias de alto valor agregado como alavanca corretiva imediata para elevar a margem da linha comercial.</span>
           )}
           {currentChapter.chapterKey === 'custos' && (
-            <span>CMV e logística agregam 62% das despesas. Recomende a renegociação de prazos logísticos com transportadoras.</span>
+            <span>Configure custos e despesas para revisar a composição financeira desta pauta.</span>
           )}
           {currentChapter.chapterKey === 'comercial' && (
-            <span>Vendedores C e D continuam 18% abaixo do patamar de produtividade mínima. Alinhar reciclagem e treinamento técnico.</span>
+            <span>Configure vendedor, cliente, produto e valor para revisar o desempenho comercial real.</span>
           )}
           {currentChapter.chapterKey === 'pessoas' && (
-            <span>A satisfação geral caiu 2 p.p. no pós-venda. O estresse no atendimento precisa ser endereçado.</span>
+            <span>Configure uma coluna de pessoa ou vendedor para revisar dados reais de equipe.</span>
           )}
           {currentChapter.chapterKey === 'plano' && (
             <span>Revisar e reatribuir prazos de entregas vencidas. Cada ação concluída gera impacto positivo na pontuação de maturidade.</span>

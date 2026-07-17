@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { dataSourceManager } from "../services/dataSourceManager";
 import { LancamentoFinanceiro } from "../types";
 import { ActiveDataSource, SpreadsheetFile, ActiveDataset, ColumnProfile } from "../types/dataSource";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
+import { PLATFORM_EVENTS, subscribePlatformEvent } from "../core/events/PlatformEvents";
 
 export function useDataSourceManager() {
   const [activeDataSource, setActiveDataSourceState] = useState<ActiveDataSource>(
@@ -25,21 +27,11 @@ export function useDataSourceManager() {
       setTick(t => t + 1);
     };
 
-    if (typeof window !== "undefined") {
-      window.addEventListener("sauron_datasource_updated", handleUpdate);
-      window.addEventListener("DATASET_ACTIVATED", handleUpdate);
-      window.addEventListener("DATASET_REHYDRATED", handleUpdate);
-      window.addEventListener("DATASET_REMOVED", handleUpdate);
-      window.addEventListener("DATASET_UPDATED", handleUpdate);
-    }
+    const unsubscribe = activeDatasetStore.subscribe(handleUpdate);
+    const unsubscribeSource = subscribePlatformEvent(PLATFORM_EVENTS.DATA_SOURCE_STATE_CHANGED, handleUpdate);
     return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("sauron_datasource_updated", handleUpdate);
-        window.removeEventListener("DATASET_ACTIVATED", handleUpdate);
-        window.removeEventListener("DATASET_REHYDRATED", handleUpdate);
-        window.removeEventListener("DATASET_REMOVED", handleUpdate);
-        window.removeEventListener("DATASET_UPDATED", handleUpdate);
-      }
+      unsubscribe();
+      unsubscribeSource();
     };
   }, []);
 

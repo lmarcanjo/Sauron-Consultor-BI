@@ -79,8 +79,8 @@ export class CompensationEngine {
   constructor() {
     // Register Default Policies
     this.registerPolicy({
-      id: "automotive_premium",
-      name: "Concessionária Premium Elite",
+      id: "standard_performance",
+      name: "Política de Performance Padrão",
       baseRate: 0.015, // 1.5%
       accessoriesRate: 0.02, // 2%
       partsRate: 0.01, // 1%
@@ -90,22 +90,22 @@ export class CompensationEngine {
         { targetAmount: 800000, bonusValue: 5000 },
       ],
       multipliers: [
-        { segment: "Premium", factor: 1.2 },
-        { segment: "Popular", factor: 1.0 },
+        { segment: "Linha Estratégica", factor: 1.2 },
+        { segment: "Linha Padrão", factor: 1.0 },
       ],
       penalties: [
         { metric: "csat", limit: 4.2, value: 500, reason: "CSAT abaixo da meta de 4.2" },
         { metric: "cancellation_rate", limit: 0.05, value: 1000, reason: "Taxa de cancelamento superior a 5%" },
       ],
       campaigns: [
-        { id: "feirao_junho", name: "Feirão de Vendas Junho", bonusValue: 1200 },
-        { id: "f_i_acessorio", name: "Agregados de F&I de Alta Margem", bonusValue: 800 },
+        { id: "campanha_periodo", name: "Campanha Comercial do Período", bonusValue: 1200 },
+        { id: "linha_alta_margem", name: "Itens de Alta Margem", bonusValue: 800 },
       ],
     });
 
     this.registerPolicy({
-      id: "automotive_popular",
-      name: "Concessionária Popular",
+      id: "standard_volume",
+      name: "Política de Volume Padrão",
       baseRate: 0.01, // 1%
       accessoriesRate: 0.015, // 1.5%
       partsRate: 0.008, // 0.8%
@@ -118,7 +118,7 @@ export class CompensationEngine {
         { metric: "csat", limit: 4.0, value: 300, reason: "CSAT abaixo da meta de 4.0" },
       ],
       campaigns: [
-        { id: "feirao_junho", name: "Feirão de Vendas Junho", bonusValue: 600 },
+        { id: "campanha_periodo", name: "Campanha Comercial do Período", bonusValue: 600 },
       ],
     });
   }
@@ -144,7 +144,7 @@ export class CompensationEngine {
     policyId: string,
     baseSalary: number = 3200
   ): CompensationResult {
-    const policy = this.policies.get(policyId) || this.policies.get("automotive_premium")!;
+    const policy = this.policies.get(policyId) || this.policies.get("standard_performance")!;
     const trace: CalculationTraceStep[] = [];
 
     // 1. Base Salary
@@ -176,10 +176,10 @@ export class CompensationEngine {
     // 4. Parts Commission
     const partsComm = performance.partsSales * policy.partsRate;
     trace.push({
-      name: "Comissão de Autopeças",
-      formula: `Vendas Autopeças (R$ ${performance.partsSales.toLocaleString("pt-BR")}) x Taxa Autopeças (${(policy.partsRate * 100).toFixed(1)}%)`,
+      name: "Comissão de Itens",
+      formula: `Vendas Itens (R$ ${performance.partsSales.toLocaleString("pt-BR")}) x Taxa Itens (${(policy.partsRate * 100).toFixed(1)}%)`,
       result: partsComm,
-      lineage: { sourceCell: performance.lineage.partsSalesCell, sheetName: "PEÇAS" },
+      lineage: { sourceCell: performance.lineage.partsSalesCell, sheetName: "ITENS" },
     });
 
     // 5. Threshold Bonus
@@ -205,13 +205,13 @@ export class CompensationEngine {
 
     // 6. Multipliers
     let multiplierBonus = 0;
-    const premiumMultiplier = policy.multipliers.find((m) => m.segment === "Premium");
-    if (premiumMultiplier && performance.totalSales > 500000) {
-      const extraFactor = premiumMultiplier.factor - 1.0;
+    const strategicMultiplier = policy.multipliers.find((m) => m.segment === "Linha Estratégica");
+    if (strategicMultiplier && performance.totalSales > 500000) {
+      const extraFactor = strategicMultiplier.factor - 1.0;
       multiplierBonus = Math.round(rawComm * extraFactor);
       trace.push({
-        name: "Multiplicador de Performance Premium",
-        formula: `Comissão Geral (R$ ${rawComm.toLocaleString("pt-BR")}) x Fator Extra (+${(extraFactor * 100).toFixed(0)}% por vendas Premium > R$ 500k)`,
+        name: "Multiplicador de Performance Estratégica",
+        formula: `Comissão Geral (R$ ${rawComm.toLocaleString("pt-BR")}) x Fator Extra (+${(extraFactor * 100).toFixed(0)}% por vendas estratégicas > R$ 500k)`,
         result: multiplierBonus,
         lineage: { sourceCell: "I14", sheetName: "POLITICA_RECOMPENSAS" },
       });
@@ -280,7 +280,7 @@ export class CompensationEngine {
 
     trace.push({
       name: "Resultado Final Comissões",
-      formula: "Comissão Geral + Acessórios + Autopeças + Bônus + Campanhas - Penalidades",
+      formula: "Comissão Geral + Categorias + Itens + Bônus + Campanhas - Penalidades",
       result: netCommission,
       lineage: null,
     });

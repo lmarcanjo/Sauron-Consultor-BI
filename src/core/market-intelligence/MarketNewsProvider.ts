@@ -35,7 +35,7 @@ export class MarketNewsProvider {
       return [
         {
           id: "news_auto_1",
-          title: "Vendas de veículos eletrificados crescem 45% no primeiro semestre de 2026",
+          title: "Vendas de linhas eletrificadas crescem 45% no primeiro semestre de 2026",
           source: "Anfavea",
           summary: "A ampliação da rede de recarga rápida e novos lançamentos nacionais impulsionam a venda de híbridos e elétricos.",
           publishedAt: "2026-07-08T14:20:00Z",
@@ -43,8 +43,8 @@ export class MarketNewsProvider {
         },
         {
           id: "news_auto_2",
-          title: "Produção nacional de autopeças enfrenta gargalos logísticos globais",
-          source: "Sindipeças",
+          title: "Produção nacional de componentes enfrenta gargalos logísticos globais",
+          source: "Indicador setorial",
           summary: "Atrasos na chegada de componentes eletrônicos acendem alerta nas montadoras instaladas no país.",
           publishedAt: "2026-07-09T11:15:00Z",
           sentiment: "negative"

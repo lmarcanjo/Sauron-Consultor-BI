@@ -9,17 +9,20 @@ import { AgendaItem } from "./ExecutiveSessionAgenda";
 import { Participant, SessionDecision } from "./ExecutiveSessionRightPanel";
 import { caseHistoryEngine } from "../core/workspace-intelligence/CaseHistoryEngine";
 import { showToast } from "./Toast";
+import type { CertifiedMetricSnapshot } from "../core/financial-consistency";
 
 interface UseExecutiveSessionStateProps {
   activeProject?: WorkspaceProject | null;
   onUpdateProject?: (project: WorkspaceProject) => Promise<void>;
   onExit: () => void;
+  certifiedSnapshot?: CertifiedMetricSnapshot | null;
 }
 
 export const useExecutiveSessionState = ({
   activeProject,
   onUpdateProject,
   onExit,
+  certifiedSnapshot,
 }: UseExecutiveSessionStateProps) => {
   // --- Timer State ---
   const [timerSeconds, setTimerSeconds] = useState(0);
@@ -40,14 +43,14 @@ export const useExecutiveSessionState = ({
       .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // --- Fallback Project Mock (if none provided) ---
+  // Keep the session usable while making the missing project explicit.
   const project = useMemo(() => {
     if (activeProject) return activeProject;
     return {
-      id: "case_fallback",
-      client: "Empresa",
-      group: "Grupo",
-      segment: "Serviços",
+      id: "case_unselected",
+      client: "Contexto não selecionado",
+      group: "Não definido",
+      segment: "Geral",
       actionPlans: [] as ActionPlan[],
       meetings: [] as Meeting[],
     } as unknown as WorkspaceProject;
@@ -177,6 +180,7 @@ export const useExecutiveSessionState = ({
       deadline: actDeadline.trim() || "Próximo comitê",
       status: "pending",
       origin: `Sessão Executiva - ${currentChapter.title}`,
+      certifiedSnapshotId: certifiedSnapshot?.snapshotId,
     };
 
     setNewActionPlans((prev) => [...prev, newAction]);
@@ -194,12 +198,7 @@ export const useExecutiveSessionState = ({
   };
 
   // --- Participant Tracker State ---
-  const [participants, setParticipants] = useState<Participant[]>([
-    { id: "p_1", name: "Lennon Marcanjo", role: "Consultor Líder", present: true },
-    { id: "p_2", name: "Diretor Geral", role: "Cliente Executivo", present: true },
-    { id: "p_3", name: "Gerente Financeiro", role: "Cliente Operações", present: true },
-    { id: "p_4", name: "Conselho de Administração", role: "Sócio", present: false },
-  ]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [newParticipantName, setNewParticipantName] = useState("");
   const [newParticipantRole, setNewParticipantRole] = useState("Stakeholder");
 
@@ -246,6 +245,8 @@ export const useExecutiveSessionState = ({
           .map((p) => p.name)
           .join(", ") || "Consultor",
         pendingItems: sessionPendingItems,
+        certifiedSnapshotId: certifiedSnapshot?.snapshotId,
+        certifiedSnapshot: certifiedSnapshot || undefined,
       };
 
       const updatedActionPlans = [...activePlans];

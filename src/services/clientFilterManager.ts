@@ -7,7 +7,7 @@ export interface FilterConfig {
 }
 
 const DEFAULT_FILTERS: FilterConfig[] = [
-  { column: "Grupo", label: "Holding Corporativa", active: true, type: "multi", scope: "manager" },
+  { column: "Grupo", label: "Grupo Empresarial", active: true, type: "multi", scope: "manager" },
   { column: "CNPJ", label: "Chave CNPJ", active: true, type: "list", scope: "standard" },
   { column: "Marca", label: "Bandeira / Marca", active: true, type: "multi", scope: "standard" },
   { column: "Empresa", label: "Estabelecimento Filial", active: true, type: "multi", scope: "standard" },

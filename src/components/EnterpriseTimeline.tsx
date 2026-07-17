@@ -168,7 +168,7 @@ export const EnterpriseTimeline: React.FC<EnterpriseTimelineProps> = () => {
             Nenhum evento registrado
           </p>
           <p className="text-[10px] text-slate-450">
-            Realize ações no workspace para ver o histórico real.
+            Realize ações no projeto para ver o histórico.
           </p>
         </div>
       )}

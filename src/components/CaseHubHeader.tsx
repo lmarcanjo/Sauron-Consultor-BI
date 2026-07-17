@@ -124,7 +124,8 @@ export const CaseHubHeader: React.FC<CaseHubHeaderProps> = ({
                 value={newProjectSegment}
                 onChange={(e) => setNewProjectSegment(e.target.value)}
                 options={[
-                  { value: "Automotivo", label: "Automotivo" },
+                  { value: "Geral", label: "Geral" },
+                  { value: "Operação Especializada", label: "Operação Especializada" },
                   { value: "Agro", label: "Agro" },
                   { value: "Indústria", label: "Indústria" },
                   { value: "Serviços", label: "Serviços" }

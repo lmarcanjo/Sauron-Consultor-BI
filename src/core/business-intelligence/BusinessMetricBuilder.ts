@@ -9,10 +9,13 @@ import {
   BusinessMetricStatus,
 } from "./BusinessMetricTypes";
 import { businessDomainEngine } from "../business-domains/BusinessDomainEngine";
+import { metricKeyFor } from "./MetricRegistry";
 
 const METRIC_LABELS: Record<BusinessMetricName, string> = {
   totalVendido: "Total vendido",
   totalComissao: "Total de comissão",
+  despesaCandidata: "Despesa candidata",
+  resultadoLiquido: "Resultado líquido",
   quantidadeVendedores: "Quantidade de vendedores",
   quantidadeClientes: "Quantidade de clientes",
   quantidadeProdutos: "Quantidade de produtos",
@@ -74,6 +77,7 @@ export function buildBusinessMetric(params: {
 }): BusinessMetric {
   return {
     id: buildMetricId(params.context, params.metricName, params.moduleName),
+    metricKey: metricKeyFor(params.metricName),
     name: params.metricName,
     label: metricLabel(params.metricName),
     value: params.value,

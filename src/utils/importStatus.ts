@@ -20,12 +20,12 @@ export enum ImportStatus {
  * NUNCA exibir os enums em inglês na interface.
  */
 export const statusLabelMap: Record<ImportStatus, string> = {
-  [ImportStatus.PENDING]: "Aguardando",
-  [ImportStatus.READING]: "Lendo arquivo",
-  [ImportStatus.VALIDATING]: "Validando",
-  [ImportStatus.PERSISTING]: "Salvando",
+  [ImportStatus.PENDING]: "Aguardando arquivo",
+  [ImportStatus.READING]: "Lendo a planilha",
+  [ImportStatus.VALIDATING]: "Conferindo dados",
+  [ImportStatus.PERSISTING]: "Preparando análise",
   [ImportStatus.READY]: "Pronto para configurar",
-  [ImportStatus.ACTIVE]: "Ativa",
+  [ImportStatus.ACTIVE]: "Pronto para análise",
   [ImportStatus.FAILED]: "Não foi possível importar",
   [ImportStatus.CANCELLED]: "Cancelada",
   [ImportStatus.INTERRUPTED]: "Importação interrompida",

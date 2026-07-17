@@ -50,18 +50,18 @@ describe("Sauron Core Engines Unit Tests Suite", () => {
 
   // Test 2: PluginEngine loads automotive plugin correctly
   it("PluginEngine loads automotive plugin", () => {
-    const automotivePlg = pluginEngine.getPlugin("automotivo");
+    const automotivePlg = pluginEngine.getPlugin("especializado");
     expect(automotivePlg).not.toBeNull();
-    expect(automotivePlg?.getSegmentName()).toBe("automotivo");
+    expect(automotivePlg?.getSegmentName()).toBe("especializado");
   });
 
-  // Test 3: AutomotivePlugin contains correct cost centers
-  it("AutomotivePlugin contains correct cost centers including F&I and Accessories", () => {
-    const centers = pluginEngine.getSegmentCostCenters("automotivo");
-    expect(centers.some(c => c.name === "F&I/FNA")).toBe(true);
-    expect(centers.some(c => c.name === "Acessórios")).toBe(true);
-    expect(centers.some(c => c.name === "Veículos Novos")).toBe(true);
-    expect(centers.some(c => c.name === "Peças")).toBe(true);
+  // Test 3: Specialized plugin contains neutral cost centers
+  it("AutomotivePlugin contains neutralized cost centers", () => {
+    const centers = pluginEngine.getSegmentCostCenters("especializado");
+    expect(centers.some(c => c.name === "Financeiro")).toBe(true);
+    expect(centers.some(c => c.name === "Categorias Adicionais")).toBe(true);
+    expect(centers.some(c => c.name === "Linha Comercial")).toBe(true);
+    expect(centers.some(c => c.name === "Itens")).toBe(true);
   });
 
   // Test 4: DataQuality generates score and findings

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Building, 
   Folder, 
@@ -28,6 +28,7 @@ import {
   Trash2
 } from "lucide-react";
 import { enterpriseRepository, Enterprise, Company, Unit } from "../core/persistence/EnterpriseRepository";
+import { enterpriseConsolidationService } from "../core/enterprise-consolidation";
 import { getEnterpriseContext, setEnterpriseContext } from "../core/enterprise-consolidation";
 import { workbookRepository } from "../core/workbook-library";
 import { spreadsheetStorageAdapter } from "../core/storage/IndexedSpreadsheetStorageAdapter";
@@ -35,6 +36,9 @@ import { showToast } from "./Toast";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { executivePresentationEngine, ExecutivePresentation } from "../core/business-intelligence/ExecutivePresentationEngine";
+import { calculatePresentationMetricValues } from "../core/business-intelligence/BusinessIntelligenceEngine";
+import { PresentationMetricValues } from "../core/business-intelligence/PresentationMetricContext";
+import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
 import { useDataSourceManager } from "../hooks/useDataSourceManager";
 import { MarketIntelligencePanel } from "./MarketIntelligencePanel";
 import { Workspace } from "../core/workspace-intelligence/WorkspaceIntelligenceTypes";
@@ -44,10 +48,13 @@ import { EnterpriseTimeline } from "./EnterpriseTimeline";
 import { PendingActionsCenter } from "./PendingActionsCenter";
 import { HealthScoreWidget } from "./HealthScoreWidget";
 import { MeetingChecklistWidget } from "./MeetingChecklistWidget";
+import { getDomainDisplayOptions } from "../core/business-domains";
 
 interface EnterpriseCenterProps {
   onSelectTab: (tab: string) => void;
 }
+
+type RegisterModalType = "Grupo" | "Empresa" | "Unidade";
 
 export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab }) => {
   const { activeDataset, activeRecords, activeFiles } = useDataSourceManager();
@@ -64,14 +71,17 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
 
   // Modals Toggles
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [registerModalType, setRegisterModalType] = useState<"Grupo" | "Empresa">("Grupo");
+  const [registerModalType, setRegisterModalType] = useState<RegisterModalType>("Grupo");
+  const [registerParentId, setRegisterParentId] = useState<string | undefined>();
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [marketApiKey, setMarketApiKey] = useState(marketIntelligenceEngine.getApiKey() || "");
   const [marketConfigured, setMarketConfigured] = useState(marketIntelligenceEngine.isConfigured());
+  const [marketConfigError, setMarketConfigError] = useState("");
 
   // Storytelling Presentation State
   const [presentation, setPresentation] = useState<ExecutivePresentation | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [consolidatedMetrics, setConsolidatedMetrics] = useState<PresentationMetricValues | null>(null);
 
   // Form validation state (replaces alert() calls)
   const [formError, setFormError] = useState<string>("");
@@ -134,26 +144,35 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
       }
     }
 
-    const wbs = deleteCompanyTarget.workbookIds || [];
+    const bindings = await enterpriseRepository.listSourceBindings();
+    const unitIds = new Set(childUnits.map(unit => unit.id));
+    const companyBindings = bindings.filter(binding => binding.companyId === deleteCompanyTarget.id || (binding.unitId && unitIds.has(binding.unitId)));
+    const wbs = companyBindings.map(binding => binding.workbookId);
 
     if (deleteCompanyOption === "registry_and_sources") {
       for (const wbId of wbs) {
-        workbookRepository.deleteWorkbook(wbId);
         const wb = workbookRepository.getWorkbook(wbId);
-        if (wb) {
-          await spreadsheetStorageAdapter.deleteMetadata(wb.id);
-          await spreadsheetStorageAdapter.deleteRows(wb.id);
-        }
+        const version = wb ? workbookRepository.getCurrentVersion(wb.id) : null;
+        const storageId = version?.activeDataset?.datasetId || wbId;
+        await spreadsheetStorageAdapter.deleteMetadata(storageId);
+        await spreadsheetStorageAdapter.deleteRows(storageId);
+        await enterpriseRepository.removeSourceBinding(wbId);
+        if (wb) workbookRepository.deleteWorkbook(wb.id);
       }
     } else if (deleteCompanyOption === "move_sources" && deleteCompanyMoveTargetId) {
       const destCompany = enterprises.find(e => e.id === deleteCompanyMoveTargetId);
       if (destCompany) {
-        const destWbs = destCompany.workbookIds || [];
-        const nextWbs = Array.from(new Set([...destWbs, ...wbs]));
-        await enterpriseRepository.save({
-          ...destCompany,
-          workbookIds: nextWbs
-        });
+        for (const binding of companyBindings) {
+          await enterpriseRepository.bindSource({
+            sourceId: binding.sourceId,
+            workbookId: binding.workbookId,
+            datasetId: binding.datasetId,
+            tenantId: binding.tenantId,
+            workspaceId: binding.workspaceId,
+            groupId: (destCompany as Company).parentId,
+            companyId: destCompany.id,
+          });
+        }
       }
     }
 
@@ -175,6 +194,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
     setShowDeleteCompanyModal(false);
     setDeleteCompanyTarget(null);
     await loadEnterprises();
+    await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
   };
 
   // Load persistence structures
@@ -206,59 +226,44 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
     new Set(activeRecords.map(r => r.Mês || r["mês"] || r["Mes"] || "").filter(Boolean))
   );
 
-  // Consolidation calculations
-  const calculateConsolidation = () => {
+  const scopedRecords = useMemo(() => {
     let filtered = [...activeRecords];
-
     if (selectedPeriod) {
       filtered = filtered.filter(r => (r.Mês || r["mês"] || r["Mes"]) === selectedPeriod);
     }
+    if (!selectedScopeEntity) return filtered;
 
-    if (selectedScopeEntity) {
-      filtered = filtered.filter(r => {
-        const groupVal = (r.Grupo || r["grupo"] || "").toLowerCase();
-        const compVal = (r.Empresa || r["empresa"] || "").toLowerCase();
-        const unitVal = (r.Unidade || r["unidade"] || "").toLowerCase();
-        const entityName = selectedScopeEntity.toLowerCase();
+    const entityName = selectedScopeEntity.toLowerCase();
+    return filtered.filter(r => {
+      const groupVal = String(r.Grupo || r["grupo"] || "").toLowerCase();
+      const compVal = String(r.Empresa || r["empresa"] || "").toLowerCase();
+      const unitVal = String(r.Unidade || r["unidade"] || "").toLowerCase();
+      if (consolidationScope === "grupo") return groupVal.includes(entityName) || compVal.includes(entityName);
+      if (consolidationScope === "empresa") return compVal.includes(entityName);
+      if (consolidationScope === "unidade") return unitVal.includes(entityName);
+      return true;
+    });
+  }, [activeRecords, selectedPeriod, selectedScopeEntity, consolidationScope]);
 
-        if (consolidationScope === "grupo") {
-          return groupVal.includes(entityName) || compVal.includes(entityName);
-        } else if (consolidationScope === "empresa") {
-          return compVal.includes(entityName);
-        } else if (consolidationScope === "unidade") {
-          return unitVal.includes(entityName);
-        }
-        return true;
-      });
+  useEffect(() => {
+    let mounted = true;
+    if (!activeDataset) {
+      setConsolidatedMetrics(null);
+      return () => { mounted = false; };
     }
 
-    let receita = 0;
-    let custo = 0;
-    let despesa = 0;
-    let comissao = 0;
-
-    filtered.forEach(r => {
-      receita += Number(r.Receita || r["receita"] || 0);
-      custo += Number(r.Custo || r["custo"] || 0);
-      despesa += Number(r.Despesa || r["despesa"] || 0);
-      comissao += Number(r.Comissão || r["comissão"] || r["Comissao"] || 0);
+    const projectId = getDefaultProjectId(activeDataset);
+    const moduleMappings = listModuleMappings(activeDataset.datasetId, projectId);
+    calculatePresentationMetricValues({
+      activeDataset,
+      rows: scopedRecords,
+      moduleMappings,
+    }).then(result => {
+      if (mounted) setConsolidatedMetrics(result.values);
     });
 
-    const lucro = receita - custo - despesa;
-    const margem = receita > 0 ? (lucro / receita) * 100 : 0;
-
-    return {
-      receita,
-      custo,
-      despesa,
-      lucro,
-      margem,
-      comissao,
-      rowCount: filtered.length
-    };
-  };
-
-  const consolidatedMetrics = calculateConsolidation();
+    return () => { mounted = false; };
+  }, [activeDataset?.datasetId, activeDataset?.importedAt, scopedRecords]);
 
   // Load Executive Presentation dynamically
   useEffect(() => {
@@ -268,7 +273,8 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
       enterpriseId: selectedEnterpriseId || undefined,
       workspace: ws,
       activeDataset,
-      allRows: activeRecords
+      allRows: activeRecords,
+      moduleMappings: activeDataset ? listModuleMappings(activeDataset.datasetId, getDefaultProjectId(activeDataset)) : [],
     }).then(res => {
       setPresentation(res);
       setCurrentSlideIndex(0);
@@ -324,12 +330,33 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
 
   const configWarnings = getConfigurationWarnings();
 
+  const getDefaultParentId = (type: RegisterModalType): string | undefined => {
+    if (type === "Grupo") return undefined;
+
+    const selected = enterprises.find(e => e.id === selectedEnterpriseId);
+    if (type === "Empresa") {
+      if (selected?.type === "Grupo") return selected.id;
+      return enterprises.find(e => e.type === "Grupo")?.id;
+    }
+
+    if (selected?.type === "Empresa") return selected.id;
+    if (selected?.type === "Unidade") return selected.parentId;
+    return enterprises.find(e => e.type === "Empresa")?.id;
+  };
+
+  const openRegisterModal = (type: RegisterModalType) => {
+    setRegisterModalType(type);
+    setRegisterParentId(getDefaultParentId(type));
+    setFormError("");
+    setShowRegisterModal(true);
+  };
+
   // Modal handlers
   const handleSaveEnterprise = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const name = formData.get("name") as string;
-    const type = formData.get("type") as any;
+    const type = formData.get("type") as RegisterModalType;
     const segment = formData.get("segment") as string;
     const cnpj = formData.get("cnpj") as string;
     const notes = formData.get("notes") as string;
@@ -339,25 +366,93 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
       return;
     }
 
-    const newEnt: Enterprise = {
-      id: `ent_${Date.now()}`,
-      name,
-      type,
-      segment: segment || undefined,
-      cnpj: cnpj || undefined,
-      notes: notes || undefined,
-      companyIds: [],
-      unitIds: []
-    };
+    const parentId = registerParentId || getDefaultParentId(type);
+    if (type === "Unidade" && !parentId) {
+      setFormError("Cadastre uma empresa antes de cadastrar uma unidade.");
+      return;
+    }
+
+    const id = `ent_${Date.now()}`;
+    const newEnt: Enterprise = type === "Grupo"
+      ? {
+          id,
+          name,
+          type: "Grupo",
+          segment: segment || undefined,
+          cnpj: cnpj || undefined,
+          notes: notes || undefined,
+          companyIds: [],
+          workbookIds: []
+        }
+      : type === "Empresa"
+        ? {
+            id,
+            name,
+            type: "Empresa",
+            segment: segment || undefined,
+            cnpj: cnpj || undefined,
+            notes: notes || undefined,
+            parentId,
+            unitIds: [],
+            workbookIds: [],
+            contacts: []
+          }
+        : {
+            id,
+            name,
+            type: "Unidade",
+            segment: segment || undefined,
+            cnpj: cnpj || undefined,
+            notes: notes || undefined,
+            parentId,
+            workbookIds: [],
+            contacts: []
+          };
 
     await enterpriseRepository.save(newEnt);
+
+    if (parentId) {
+      const parent = await enterpriseRepository.getById(parentId);
+      if (parent) {
+        if (type === "Empresa" && parent.type === "Grupo") {
+          await enterpriseRepository.save({
+            ...parent,
+            companyIds: Array.from(new Set([...(parent.companyIds || []), newEnt.id]))
+          });
+        }
+        if (type === "Unidade" && parent.type === "Empresa") {
+          await enterpriseRepository.save({
+            ...parent,
+            unitIds: Array.from(new Set([...(parent.unitIds || []), newEnt.id]))
+          });
+        }
+      }
+    }
+
+    if (type === "Grupo") {
+      setEnterpriseContext({ scope: "GROUP", groupId: newEnt.id, workbookIds: [], datasetIds: [] });
+    } else if (type === "Empresa") {
+      const parentEnterprise = parentId ? enterprises.find(e => e.id === parentId) : undefined;
+      const groupId = parentEnterprise?.type === "Grupo" ? parentId : undefined;
+      setEnterpriseContext({ scope: "COMPANY", groupId, companyId: newEnt.id, workbookIds: [], datasetIds: [] });
+    } else {
+      const company = parentId ? enterprises.find(e => e.id === parentId && e.type === "Empresa") as Company | undefined : undefined;
+      setEnterpriseContext({ scope: "UNIT", groupId: company?.parentId, companyId: parentId, unitId: newEnt.id, workbookIds: [], datasetIds: [] });
+    }
+
+    setSelectedEnterpriseId(newEnt.id);
     await loadEnterprises();
     setShowRegisterModal(false);
   };
 
   const handleSaveMarketConfig = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    marketIntelligenceEngine.setApiKey(marketApiKey || "SIMULATOR_DEMO_KEY");
+    if (!marketApiKey.trim()) {
+      setMarketConfigError("Informe uma chave válida para ativar a integração.");
+      return;
+    }
+    marketIntelligenceEngine.setApiKey(marketApiKey.trim());
+    setMarketConfigError("");
     setMarketConfigured(true);
     setShowConfigModal(false);
   };
@@ -383,6 +478,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
     marketIntelligenceEngine.setApiKey("");
     marketIntelligenceEngine.setConfigured(false);
     setMarketConfigured(false);
+    setMarketConfigError("");
     setShowConfigModal(false);
   };
 
@@ -401,9 +497,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <button
               onClick={() => {
-                setRegisterModalType("Grupo");
-                setFormError("");
-                setShowRegisterModal(true);
+                openRegisterModal("Grupo");
               }}
               className="flex flex-col items-center p-5 bg-slate-950 border border-slate-850 rounded-2xl hover:border-emerald-600 transition-all text-center space-y-3 cursor-pointer group"
             >
@@ -416,9 +510,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
 
             <button
               onClick={() => {
-                setRegisterModalType("Empresa");
-                setFormError("");
-                setShowRegisterModal(true);
+                openRegisterModal("Empresa");
               }}
               className="flex flex-col items-center p-5 bg-slate-950 border border-slate-850 rounded-2xl hover:border-blue-600 transition-all text-center space-y-3 cursor-pointer group"
             >
@@ -433,12 +525,12 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
               onClick={() => {
                 setOnboardingBanner("Cadastre um grupo ou empresa antes de importar planilhas. Clique em \"Grupo Empresarial\" ou \"Empresa Individual\" acima.");
               }}
-              className="flex flex-col items-center p-5 bg-slate-950 border border-slate-850 rounded-2xl hover:border-slate-700 transition-all text-center space-y-3 cursor-pointer group opacity-60"
+              className="flex flex-col items-center p-5 bg-slate-950 border border-slate-850 rounded-2xl hover:border-slate-700 transition-all text-center space-y-3 cursor-pointer group opacity-75"
             >
               <FileSpreadsheet className="text-slate-500" size={24} />
               <div>
                 <h4 className="text-xs font-black uppercase text-white">Importar Planilhas</h4>
-                <p className="text-[10px] text-slate-450 mt-1">Carregar dados financeiros brutos.</p>
+                <p className="text-[10px] text-slate-400 mt-1">Carregar dados financeiros brutos.</p>
               </div>
             </button>
 
@@ -446,12 +538,12 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
               onClick={() => {
                 setOnboardingBanner("Cadastre um grupo ou empresa antes de conectar um banco de dados. Clique em \"Grupo Empresarial\" ou \"Empresa Individual\" acima.");
               }}
-              className="flex flex-col items-center p-5 bg-slate-950 border border-slate-850 rounded-2xl hover:border-slate-700 transition-all text-center space-y-3 cursor-pointer group opacity-60"
+              className="flex flex-col items-center p-5 bg-slate-950 border border-slate-850 rounded-2xl hover:border-slate-700 transition-all text-center space-y-3 cursor-pointer group opacity-75"
             >
               <Database className="text-slate-500" size={24} />
               <div>
                 <h4 className="text-xs font-black uppercase text-white">Conectar Banco</h4>
-                <p className="text-[10px] text-slate-450 mt-1">Configurar banco de dados local.</p>
+                <p className="text-[10px] text-slate-400 mt-1">Configurar banco de dados local.</p>
               </div>
             </button>
           </div>
@@ -478,7 +570,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
           <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
             <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full text-slate-100 space-y-4 text-left shadow-2xl">
               <h3 className="text-sm font-black uppercase text-white tracking-wider border-b border-slate-850 pb-2">
-                Cadastrar {registerModalType === "Grupo" ? "Grupo Empresarial" : "Empresa Individual"}
+                Cadastrar {registerModalType === "Grupo" ? "Grupo" : registerModalType === "Empresa" ? "Empresa" : "Unidade"}
               </h3>
               <form onSubmit={handleSaveEnterprise} className="space-y-4">
                 <div>
@@ -487,7 +579,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
                     name="name"
                     type="text"
                     required
-                    placeholder="Ex: Grupo Apolo, Fazenda Bela Vista"
+                    placeholder="Ex: Grupo Apolo, Unidade Bela Vista"
                     className="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold"
                   />
                 </div>
@@ -497,26 +589,26 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
                     name="segment"
                     className="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold"
                   >
-                    <option value="neutral">Neutro / Geral</option>
-                    <option value="automotive">Automotivo</option>
-                    <option value="agribusiness">Agronegócio</option>
-                    <option value="construction">Construção Civil</option>
-                    <option value="services">Serviços</option>
-                    <option value="retail">Varejo</option>
+                    {getDomainDisplayOptions().map(option => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="text-[9px] font-black uppercase text-slate-450 block mb-1">Tipo</label>
                   <select
                     name="type"
-                    defaultValue={registerModalType}
+                    value={registerModalType}
+                    onChange={(e) => {
+                      const nextType = e.target.value as RegisterModalType;
+                      setRegisterModalType(nextType);
+                      setRegisterParentId(getDefaultParentId(nextType));
+                    }}
                     className="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold"
                   >
                     <option value="Grupo">Grupo</option>
                     <option value="Empresa">Empresa</option>
                     <option value="Unidade">Unidade</option>
-                    <option value="Fazenda">Fazenda</option>
-                    <option value="Loja">Loja</option>
                   </select>
                 </div>
                 <div>
@@ -577,13 +669,13 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
             <Building size={24} />
           </div>
           <div>
-            <h1 className="text-lg font-black uppercase text-white tracking-wider">Enterprise Center</h1>
-            <p className="text-xs font-bold text-slate-400 uppercase">Contexto Empresarial Geral</p>
+            <h1 className="text-lg font-black uppercase text-white tracking-wider">Empresas e Grupos</h1>
+            <p className="text-xs font-bold text-slate-400 uppercase">Estrutura do cliente</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">Organização ativa:</label>
+          <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">Contexto ativo:</label>
           <select
             value={selectedEnterpriseId}
             onChange={(e) => {
@@ -597,20 +689,80 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
               <option key={e.id} value={e.id}>{e.name} ({e.type})</option>
             ))}
           </select>
-          <button
-            onClick={() => {
-              setRegisterModalType("Empresa");
-              setShowRegisterModal(true);
-            }}
-            className="p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer"
-            title="Cadastrar Nova Empresa"
-          >
-            <Plus size={14} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => openRegisterModal("Grupo")} className="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-lg cursor-pointer text-[10px] font-black uppercase" title="Cadastrar grupo">
+              Novo grupo
+            </button>
+            <button onClick={() => openRegisterModal("Empresa")} className="px-2.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer text-[10px] font-black uppercase" title="Cadastrar empresa">
+              Nova empresa
+            </button>
+            <button onClick={() => openRegisterModal("Unidade")} className="px-2.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer text-[10px] font-black uppercase" title="Cadastrar unidade">
+              Nova unidade
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Consulting Pipeline — 7 Etapas Horizontais + Readiness Score */}
+      {/* Próxima ação: mantém a Home orientada ao trabalho do consultor. */}
+      <section className="bg-blue-950/30 border border-blue-900/60 rounded-2xl p-5 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">Próximo passo</p>
+            <h2 className="text-lg font-black text-white mt-1">
+              {!activeDataset
+                ? "Adicione os dados para começar a análise."
+                : configWarnings.length > 0
+                  ? "Confirme as informações encontradas para liberar a análise."
+                  : "Sua análise está pronta. O que você deseja fazer agora?"}
+            </h2>
+            <p className="text-xs text-slate-300 mt-1 max-w-2xl">
+              {!activeDataset
+                ? "Escolha uma planilha da empresa selecionada. O arquivo original permanece preservado."
+                : configWarnings.length > 0
+                  ? "Revise apenas os campos que ainda precisam de confirmação."
+                  : "Escolha uma ação e continue do ponto em que parou."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            {!activeDataset ? (
+              <button
+                type="button"
+                onClick={() => onSelectTab("importacao")}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase transition-colors cursor-pointer"
+              >
+                Adicionar dados
+              </button>
+            ) : configWarnings.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => onSelectTab("perfis")}
+                className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-black uppercase transition-colors cursor-pointer"
+              >
+                Confirmar informações
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onSelectTab("resumo")}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase transition-colors cursor-pointer"
+                >
+                  Ver análise
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectTab("preparacao_reuniao")}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-black uppercase transition-colors cursor-pointer"
+                >
+                  Preparar reunião
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Jornada consultiva em etapas claras */}
       <ConsultingPipelineWidget
         enterprises={enterprises}
         activeDataset={activeDataset}
@@ -810,28 +962,28 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
               <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-150 dark:border-slate-850 p-4 rounded-xl">
                 <p className="text-[9px] uppercase font-bold text-slate-450">Receita Bruta</p>
                 <p className="text-base font-black text-slate-800 dark:text-white mt-1 font-mono">
-                  R$ {consolidatedMetrics.receita.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  {consolidatedMetrics?.totalRevenue === null || !consolidatedMetrics ? "Configuração pendente" : `R$ ${consolidatedMetrics.totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                 </p>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-150 dark:border-slate-850 p-4 rounded-xl">
                 <p className="text-[9px] uppercase font-bold text-slate-450">Custos</p>
                 <p className="text-base font-black text-slate-800 dark:text-white mt-1 font-mono">
-                  R$ {consolidatedMetrics.custo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  {consolidatedMetrics?.totalCost === null || !consolidatedMetrics ? "Configuração pendente" : `R$ ${consolidatedMetrics.totalCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                 </p>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-150 dark:border-slate-850 p-4 rounded-xl">
                 <p className="text-[9px] uppercase font-bold text-slate-450 font-sans">Resultado Líquido</p>
-                <p className={`text-base font-black mt-1 font-mono ${consolidatedMetrics.lucro >= 0 ? "text-emerald-650 dark:text-emerald-500" : "text-rose-600"}`}>
-                  R$ {consolidatedMetrics.lucro.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                <p className={`text-base font-black mt-1 font-mono ${consolidatedMetrics?.netResult !== null && consolidatedMetrics?.netResult !== undefined && consolidatedMetrics.netResult >= 0 ? "text-emerald-650 dark:text-emerald-500" : "text-rose-600"}`}>
+                  {consolidatedMetrics?.netResult === null || !consolidatedMetrics ? "Configuração pendente" : `R$ ${consolidatedMetrics.netResult.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                 </p>
               </div>
 
               <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-150 dark:border-slate-850 p-4 rounded-xl">
                 <p className="text-[9px] uppercase font-bold text-slate-455">Margem Operacional</p>
                 <p className="text-base font-black text-slate-800 dark:text-white mt-1 font-mono">
-                  {consolidatedMetrics.margem.toFixed(2)}%
+                  {consolidatedMetrics?.grossMargin === null || !consolidatedMetrics ? "Configuração pendente" : `${consolidatedMetrics.grossMargin.toFixed(2)}%`}
                 </p>
               </div>
             </div>
@@ -1001,7 +1153,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
         <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl max-w-md w-full text-slate-100 space-y-4 text-left shadow-2xl">
             <h3 className="text-sm font-black uppercase text-white tracking-wider border-b border-slate-850 pb-2">
-              Cadastrar {registerModalType === "Grupo" ? "Grupo Empresarial" : "Empresa/Unidade"}
+              Cadastrar {registerModalType === "Grupo" ? "Grupo" : registerModalType === "Empresa" ? "Empresa" : "Unidade"}
             </h3>
             <form onSubmit={handleSaveEnterprise} className="space-y-4">
               <div>
@@ -1010,7 +1162,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
                   name="name"
                   type="text"
                   required
-                  placeholder="Ex: Grupo Apolo, Fazenda Bela Vista"
+                  placeholder="Ex: Grupo Apolo, Unidade Bela Vista"
                   className="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold"
                 />
               </div>
@@ -1020,26 +1172,26 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
                   name="segment"
                   className="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold"
                 >
-                  <option value="neutral">Neutro / Geral</option>
-                  <option value="automotive">Automotivo</option>
-                  <option value="agribusiness">Agronegócio</option>
-                  <option value="construction">Construção Civil</option>
-                  <option value="services">Serviços</option>
-                  <option value="retail">Varejo</option>
+                  {getDomainDisplayOptions().map(option => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="text-[9px] font-black uppercase text-slate-450 block mb-1">Tipo</label>
                 <select
                   name="type"
-                  defaultValue={registerModalType}
+                    value={registerModalType}
+                    onChange={(e) => {
+                      const nextType = e.target.value as RegisterModalType;
+                      setRegisterModalType(nextType);
+                      setRegisterParentId(getDefaultParentId(nextType));
+                    }}
                   className="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold"
                 >
                   <option value="Grupo">Grupo</option>
                   <option value="Empresa">Empresa</option>
                   <option value="Unidade">Unidade</option>
-                  <option value="Fazenda">Fazenda</option>
-                  <option value="Loja">Loja</option>
                 </select>
               </div>
               <div>
@@ -1096,8 +1248,11 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
                   placeholder="Vincular chave de API"
                   className="w-full text-xs p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold"
                 />
+                {marketConfigError && (
+                  <p className="text-[10px] text-rose-400 mt-1 font-semibold">{marketConfigError}</p>
+                )}
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Insira uma chave válida ou use o simulador deixando com qualquer valor fictício.
+                  Informe uma chave válida fornecida pelo serviço externo.
                 </p>
               </div>
               <div className="flex gap-2 justify-end pt-2">

@@ -169,3 +169,13 @@ businessDomainRegistry.register(energyPack);
 - **Shared Concept Fallbacks**: Always query the `shared` pack for universal concepts (like `Receita`, `Margem`, `Grupo`, `Empresa`) if the specific segment pack does not define them.
 - **Case and Whitespace Insensitivity**: When matching column headers and resolving synonyms, convert inputs to lowercase and trim spaces to prevent formatting mismatches.
 - **No Mock or Fake Data**: Avoid generating fake names or static demo variables. Rely strictly on structural templates and validated workbook logs.
+
+## 5. RC-3 Vocabulary Boundary
+
+Core components use neutral labels and query the registry through
+`BusinessDomainEngine` and `DomainDisplay`. Industry-specific words belong in
+the pack vocabulary, terminology, mappings, KPIs, and presentation templates.
+`src/core/quality/DomainVocabularyScanner.ts` runs in CI and blocks new
+production occurrences outside Domain Packs, migrations, and the explicit
+legacy baseline. Existing residual occurrences are tracked debt, not a
+permission to add new usage.

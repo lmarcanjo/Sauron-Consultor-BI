@@ -437,7 +437,7 @@ export const ExecutiveStoryTab: React.FC = () => {
                 <label className="block text-[10px] font-black uppercase text-slate-500">Título do Deck</label>
                 <input
                   type="text"
-                  placeholder="Ex: Conselho Fiscal Q2 Nissan"
+                  placeholder="Ex: Conselho Fiscal Q2"
                   value={newStoryTitle}
                   onChange={(e) => setNewStoryTitle(e.target.value)}
                   className="w-full text-xs font-semibold p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -1183,7 +1183,7 @@ export const ExecutiveStoryTab: React.FC = () => {
                 <label className="text-[10px] font-black uppercase text-slate-500 block">Autor / Diretor Responsável</label>
                 <input
                   type="text"
-                  placeholder="Ex: Carlos Santos (Diretor Nissan)"
+                  placeholder="Ex: Carlos Santos (Diretor)"
                   value={approvalAuthor}
                   onChange={(e) => setApprovalAuthor(e.target.value)}
                   className="w-full text-xs font-semibold p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 focus:outline-none"

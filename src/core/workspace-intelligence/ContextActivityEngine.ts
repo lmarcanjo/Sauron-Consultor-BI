@@ -26,11 +26,11 @@ export class ContextActivityEngine {
         {
           id: "act_1",
           title: "Relatório de Fechamento Emitido",
-          description: "PDF executivo consolidado exportado para o conselho fiscal da holding.",
+          description: "PDF executivo consolidado exportado para o conselho fiscal.",
           category: "pdf_exported",
           timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 mins ago
           user: { name: "Lennon Marcanjo" },
-          contextTags: { orgId: "org_arcanjo", caseId: "case_alpha", companyId: "company_alpha_nissan" }
+          contextTags: { orgId: "org_cliente", caseId: "case_alpha", companyId: "company_alpha" }
         },
         {
           id: "act_2",
@@ -39,7 +39,7 @@ export class ContextActivityEngine {
           category: "db_synced",
           timestamp: new Date(Date.now() - 3 * 3600 * 1000).toISOString(), // 3 hours ago
           user: { name: "Sauron Core DB System" },
-          contextTags: { orgId: "org_arcanjo" }
+          contextTags: { orgId: "org_cliente" }
         },
         {
           id: "act_3",
@@ -48,16 +48,16 @@ export class ContextActivityEngine {
           category: "commission_approved",
           timestamp: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
           user: { name: "Aline Santos" },
-          contextTags: { orgId: "org_arcanjo", caseId: "case_alpha", vendedorId: "vendedor_1" }
+          contextTags: { orgId: "org_cliente", caseId: "case_alpha", vendedorId: "vendedor_1" }
         },
         {
           id: "act_4",
           title: "Plano Estratégico Atualizado",
-          description: "Novo plano estratégico 'Aceleração Nissan Feira' ativado com 5 ações pendentes.",
+          description: "Novo plano estratégico de aceleração ativado com 5 ações pendentes.",
           category: "plan_created",
           timestamp: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
           user: { name: "Lennon Marcanjo" },
-          contextTags: { orgId: "org_arcanjo", caseId: "case_alpha" }
+          contextTags: { orgId: "org_cliente", caseId: "case_alpha" }
         },
         {
           id: "act_5",
@@ -66,7 +66,7 @@ export class ContextActivityEngine {
           category: "session_realized",
           timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
           user: { name: "Aline Santos" },
-          contextTags: { orgId: "org_arcanjo", caseId: "case_alpha", companyId: "company_alpha_renault" }
+          contextTags: { orgId: "org_cliente", caseId: "case_alpha", companyId: "company_beta" }
         }
       ];
     } else {

@@ -2,11 +2,11 @@ import React from "react";
 import { Target, X, Bell, Award } from "lucide-react";
 import { WorkspaceContext } from "../core/workspace-intelligence/types";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/WorkspaceIntelligenceEngine";
-import { DNASuggestions } from "../core/workspace-intelligence/WorkspaceDNAEngine";
+import { WorkspaceSuggestions } from "../core/workspace-intelligence/WorkspaceSuggestions";
 
 interface CaseDataPanelProps {
   context: WorkspaceContext;
-  dnaSuggestions: DNASuggestions;
+  dnaSuggestions: WorkspaceSuggestions;
 }
 
 export const CaseDataPanel: React.FC<CaseDataPanelProps> = ({ context, dnaSuggestions }) => {

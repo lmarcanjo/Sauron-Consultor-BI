@@ -4,10 +4,13 @@ import { EnterpriseKnowledgeGraph } from "../knowledge-graph";
 import { BusinessRule } from "../rule-engine";
 import { WorkbookCatalog } from "../workbook";
 import { WorkbookReverseEngineeringReport } from "../workbook-reverse";
+import type { MetricKey } from "./MetricRegistry";
 
 export type BusinessMetricName =
   | "totalVendido"
   | "totalComissao"
+  | "despesaCandidata"
+  | "resultadoLiquido"
   | "quantidadeVendedores"
   | "quantidadeClientes"
   | "quantidadeProdutos"
@@ -60,6 +63,7 @@ export interface BusinessMetricDiagnostics {
 
 export interface BusinessMetric {
   id: string;
+  metricKey: MetricKey;
   name: BusinessMetricName;
   label: string;
   value: number | null;

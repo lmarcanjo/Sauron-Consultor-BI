@@ -9,6 +9,7 @@ import { IndexedSpreadsheetStorage } from "../../core/storage/IndexedSpreadsheet
 import { Check, Shuffle, HelpCircle, AlertCircle, Save, Sparkles, Sliders, ChevronDown } from "lucide-react";
 
 import { SpreadsheetColumn } from "../../types/dataSource";
+import { PLATFORM_EVENTS, subscribePlatformEvent } from "../../core/events/PlatformEvents";
 
 export const SpreadsheetFieldSelectionPanel: React.FC = () => {
   const [workspace, setWorkspace] = useState(dataSourceManager.getWorkspace());
@@ -26,11 +27,11 @@ export const SpreadsheetFieldSelectionPanel: React.FC = () => {
       }
     };
 
-    window.addEventListener("sauron_datasource_updated", handleUpdate);
+    const unsubscribe = subscribePlatformEvent(PLATFORM_EVENTS.DATA_SOURCE_STATE_CHANGED, handleUpdate);
     handleUpdate();
 
     return () => {
-      window.removeEventListener("sauron_datasource_updated", handleUpdate);
+      unsubscribe();
     };
   }, []);
 
@@ -49,7 +50,7 @@ export const SpreadsheetFieldSelectionPanel: React.FC = () => {
     return (
       <div className="p-8 text-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400">
         <AlertCircle className="mx-auto text-blue-500 mb-3" size={32} />
-        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">Nenhum dataset real selecionado</h4>
+        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">Nenhuma fonte selecionada</h4>
         <p className="text-xs text-slate-400 mt-1">Importe ou selecione uma planilha na aba "Planilhas" para mapear os campos dinâmicos.</p>
       </div>
     );

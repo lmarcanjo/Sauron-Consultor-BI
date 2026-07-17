@@ -22,6 +22,8 @@ import {
 import { enterpriseRepository, Enterprise, Company, BusinessGroup, Unit } from "../core/persistence/EnterpriseRepository";
 import { SafeDisplayAdapters } from "../core/workbook/SafeDisplayAdapters";
 import { showToast } from "./Toast";
+import { getEnterpriseContext } from "../core/enterprise-consolidation/EnterpriseContextStore";
+import { enterpriseConsolidationService } from "../core/enterprise-consolidation";
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -37,6 +39,7 @@ export const WorkbookLibraryTab: React.FC = () => {
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [targetMoveWorkbookId, setTargetMoveWorkbookId] = useState<string | null>(null);
   const [readinessByWorkbookId, setReadinessByWorkbookId] = useState<Record<string, WorkbookReadinessViewModel>>({});
+  const [sourceBindings, setSourceBindings] = useState<Awaited<ReturnType<typeof enterpriseRepository.listSourceBindings>>>([]);
 
   const refresh = React.useCallback(async () => {
     const list = workbookRepository.listWorkbooks({
@@ -48,13 +51,14 @@ export const WorkbookLibraryTab: React.FC = () => {
 
     const ents = await enterpriseRepository.getAll();
     setEnterprises(ents);
+    const bindings = await enterpriseRepository.listSourceBindings();
+    setSourceBindings(bindings);
 
     const nextReadiness: Record<string, WorkbookReadinessViewModel> = {};
     await Promise.all(
       list.map(async (wb) => {
-        const linkedEnterpriseIds = ents
-          .filter((ent) => (ent as any).workbookIds?.includes(wb.id))
-          .map((ent) => ent.id);
+        const binding = bindings.find(item => item.workbookId === wb.id || item.sourceId === wb.id);
+        const linkedEnterpriseIds = [binding?.groupId, binding?.companyId, binding?.unitId].filter(Boolean) as string[];
 
         nextReadiness[wb.id] = await workbookReadinessService.evaluate({
           workbook: wb,
@@ -83,17 +87,28 @@ export const WorkbookLibraryTab: React.FC = () => {
         return;
       }
 
-      // Encontrar empresa e grupo vinculados a este workbook
-      const linkedEnt = enterprises.find(e => 
-        e.id === workbookId || 
-        (e as any).workbookIds?.includes(workbookId)
-      );
+      const binding = await enterpriseRepository.getSourceBinding(workbookId);
+      // O vínculo canônico é a fonte de verdade; arrays antigos servem apenas
+      // para abrir bibliotecas criadas antes da migração.
+      const linkedEnt = binding?.unitId
+        ? enterprises.find(entity => entity.id === binding.unitId)
+        : binding?.companyId
+          ? enterprises.find(entity => entity.id === binding.companyId)
+          : binding?.groupId
+            ? enterprises.find(entity => entity.id === binding.groupId)
+            : enterprises.find(e => e.id === workbookId || (e as any).workbookIds?.includes(workbookId));
       
       let groupId = undefined;
       let companyId = undefined;
+      let unitId: string | undefined;
       let scope: "GROUP" | "COMPANY" | "UNIT" | "WORKBOOK" = "WORKBOOK";
 
-      if (linkedEnt) {
+      if (binding) {
+        groupId = binding.groupId;
+        companyId = binding.companyId;
+        unitId = binding.unitId;
+        scope = unitId ? "UNIT" : companyId ? "COMPANY" : groupId ? "GROUP" : "WORKBOOK";
+      } else if (linkedEnt) {
         if (linkedEnt.type === "Grupo") {
           groupId = linkedEnt.id;
           scope = "GROUP";
@@ -115,14 +130,17 @@ export const WorkbookLibraryTab: React.FC = () => {
         enterpriseContext: {
           groupId,
           companyId,
+          unitId,
           workbookIds: [workbookId],
           datasetIds: [dataset.datasetId],
           scope
         }
       });
 
-      refresh();
-      showToast("success", "Planilha ativada como dataset ativo.");
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
+
+      await refresh();
+      showToast("success", "Planilha ativada para análise.");
     } catch (err: any) {
       console.error("[WorkbookLibraryTab] Error activating workbook:", err);
       showToast("error", "Erro ao ativar planilha: " + err.message);
@@ -132,22 +150,25 @@ export const WorkbookLibraryTab: React.FC = () => {
   const archiveWorkbook = (workbook: Workbook) => {
     workbookRepository.archiveWorkbook(workbook.id);
     if (selectedWorkbookId === workbook.id) activeDatasetStore.clearActiveDataset();
-    refresh();
-    showToast("info", "Workbook arquivado com sucesso.");
+    void enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
+    void refresh();
+      showToast("info", "Planilha arquivada com sucesso.");
   };
 
   const restoreWorkbook = (workbook: Workbook) => {
     workbookRepository.restoreWorkbook(workbook.id);
-    refresh();
-    showToast("success", "Workbook restaurado com sucesso.");
+    void enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
+    void refresh();
+      showToast("success", "Planilha restaurada com sucesso.");
   };
 
   const deleteWorkbook = (workbook: Workbook) => {
     if (!window.confirm(`Excluir "${workbook.name}" da biblioteca? Esta ação não pode ser desfeita.`)) return;
     workbookRepository.deleteWorkbook(workbook.id);
     if (selectedWorkbookId === workbook.id) activeDatasetStore.clearActiveDataset();
-    refresh();
-    showToast("success", "Workbook removido da biblioteca.");
+    void enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
+    void refresh();
+      showToast("success", "Planilha removida da biblioteca.");
   };
 
   // Mover workbook para outra empresa
@@ -160,27 +181,18 @@ export const WorkbookLibraryTab: React.FC = () => {
     if (!window.confirm(`Deseja mover este workbook para a empresa "${targetComp.name}"?`)) return;
 
     try {
-      // 1. Remover de qualquer empresa anterior
-      for (const ent of enterprises) {
-        if (ent.type === "Empresa" || ent.type === "Unidade") {
-          const compCast = ent as Company;
-          if (compCast.workbookIds?.includes(targetMoveWorkbookId)) {
-            await enterpriseRepository.save({
-              ...compCast,
-              workbookIds: compCast.workbookIds.filter(id => id !== targetMoveWorkbookId)
-            });
-          }
-        }
-      }
-
-      // 2. Adicionar na empresa de destino
-      const targetWbIds = targetComp.workbookIds || [];
-      await enterpriseRepository.save({
-        ...targetComp,
-        workbookIds: [...targetWbIds, targetMoveWorkbookId]
+      const workbook = workbookRepository.getWorkbook(targetMoveWorkbookId);
+      const version = workbook ? workbookRepository.getCurrentVersion(workbook.id) : null;
+      await enterpriseRepository.bindSource({
+        sourceId: version?.activeDataset?.datasetId || targetMoveWorkbookId,
+        workbookId: targetMoveWorkbookId,
+        datasetId: version?.activeDataset?.datasetId || targetMoveWorkbookId,
+        groupId: targetComp.parentId,
+        companyId: targetComp.id,
       });
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
 
-      showToast("success", `Workbook movido com sucesso para a empresa ${targetComp.name}.`);
+      showToast("success", `Planilha movida com sucesso para a empresa ${targetComp.name}.`);
       setIsMoveModalOpen(false);
       setTargetMoveWorkbookId(null);
       await refresh();
@@ -194,24 +206,38 @@ export const WorkbookLibraryTab: React.FC = () => {
   const companies = enterprises.filter(e => e.type === "Empresa") as Company[];
 
   const getWbsForCompany = (comp: Company): Workbook[] => {
-    const wbIds = comp.workbookIds || [];
-    return workbooks.filter(w => wbIds.includes(w.id));
+    const wbIds = new Set(sourceBindings
+      .filter(binding => binding.companyId === comp.id && !binding.unitId)
+      .map(binding => binding.workbookId));
+    return workbooks.filter(w => wbIds.has(w.id));
   };
 
   const getWbsForUnit = (unit: Unit): Workbook[] => {
-    const wbIds = (unit as any).workbookIds || [];
-    return workbooks.filter(w => wbIds.includes(w.id));
+    const wbIds = new Set(sourceBindings
+      .filter(binding => binding.unitId === unit.id)
+      .map(binding => binding.workbookId));
+    return workbooks.filter(w => wbIds.has(w.id));
   };
 
-  // Achar workbooks sem vínculo
-  const linkedWbIds = new Set<string>();
-  enterprises.forEach(e => {
-    const compCast = e as any;
-    if (compCast.workbookIds) {
-      compCast.workbookIds.forEach((id: string) => linkedWbIds.add(id));
-    }
-  });
-  const unlinkedWorkbooks = workbooks.filter(w => !linkedWbIds.has(w.id));
+  // Workbooks vinculados a entidades que não aparecem na árvore atual também
+  // precisam permanecer visíveis, para que nenhum arquivo persistido suma da
+  // biblioteca por uma inconsistência de hierarquia.
+  const visibleGroupIds = new Set(groups.map(group => group.id));
+  const visibleCompanyIds = new Set(
+    companies.filter(company => company.parentId && visibleGroupIds.has(company.parentId)).map(company => company.id)
+  );
+  const visibleUnitIds = new Set(
+    enterprises
+      .filter(entity => entity.type === "Unidade" && entity.parentId && visibleCompanyIds.has(entity.parentId))
+      .map(entity => entity.id)
+  );
+  const visibleHierarchyEntityIds = new Set([...visibleGroupIds, ...visibleCompanyIds, ...visibleUnitIds]);
+  const visibleHierarchyWorkbookIds = new Set(
+    sourceBindings
+      .filter(binding => [binding.groupId, binding.companyId, binding.unitId].some(id => id && visibleHierarchyEntityIds.has(id)))
+      .map(binding => binding.workbookId)
+  );
+  const unlinkedWorkbooks = workbooks.filter(wb => !visibleHierarchyWorkbookIds.has(wb.id));
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-800 dark:text-slate-150 text-left font-sans text-xs">
@@ -222,10 +248,10 @@ export const WorkbookLibraryTab: React.FC = () => {
           <div>
             <h2 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 uppercase tracking-wider">
               <FileSpreadsheet size={16} className="text-blue-500" />
-              Biblioteca de Workbooks
+              Biblioteca de Planilhas
             </h2>
             <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">
-              Repositório corporativo estruturado em Grupos, Empresas e Unidades.
+              Todas as fontes da consultoria, organizadas por grupo, empresa e unidade.
             </p>
           </div>
         </div>
@@ -327,11 +353,11 @@ export const WorkbookLibraryTab: React.FC = () => {
           );
         })}
 
-        {/* Workbooks Sem Vínculo */}
+        {/* Planilhas sem vinculo */}
         {unlinkedWorkbooks.length > 0 && (
           <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-805 rounded-2xl p-4 space-y-3">
             <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-850 pb-2">
-              <span className="font-extrabold text-slate-500 uppercase tracking-wider">Outros Workbooks (Sem Vínculo)</span>
+              <span className="font-extrabold text-slate-500 uppercase tracking-wider">Planilhas sem vinculo definido</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pl-2">
               {unlinkedWorkbooks.map(wb => (
@@ -370,7 +396,7 @@ export const WorkbookLibraryTab: React.FC = () => {
                 defaultValue=""
                 className="w-full bg-slate-950 text-xs px-3 py-2 rounded-lg border border-slate-800 text-white focus:outline-hidden"
               >
-                <option value="" disabled>-- Selecione uma empresa --</option>
+                <option value="" disabled>Selecione uma empresa</option>
                 {companies.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -395,7 +421,7 @@ export const WorkbookLibraryTab: React.FC = () => {
   );
 };
 
-// Componente do Card de Workbook individual
+// Cartao de uma planilha na biblioteca.
 const WorkbookCard: React.FC<{
   wb: Workbook;
   readiness?: WorkbookReadinessViewModel;
@@ -417,7 +443,7 @@ const WorkbookCard: React.FC<{
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <span className="text-[8px] font-mono text-slate-450 uppercase font-black">
-            Vínculo: {companyName}
+            Empresa: {companyName}
           </span>
           <span className={`text-[8px] font-mono font-black uppercase px-2 py-0.5 rounded-full ${
             readiness?.badgeClass ?? (safe.status === "ACTIVE" ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-450" : "bg-slate-200 text-slate-500")
@@ -441,7 +467,7 @@ const WorkbookCard: React.FC<{
                 <button 
                   onClick={onActivate} 
                   className="p-1 hover:bg-blue-500/20 text-blue-500 rounded transition-colors cursor-pointer"
-                  title="Ativar como dataset atual"
+                  title="Usar esta planilha"
                 >
                   <CheckSquare size={12} />
                 </button>

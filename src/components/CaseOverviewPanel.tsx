@@ -6,11 +6,11 @@
 import React from "react";
 import { CaseOverview } from "./CaseOverview";
 import { WorkspaceProject } from "../modules/consultant-workspace/types";
-import { DNASuggestions } from "../core/workspace-intelligence/WorkspaceDNAEngine";
+import { WorkspaceSuggestions } from "../core/workspace-intelligence/WorkspaceSuggestions";
 
 interface CaseOverviewPanelProps {
   widgetContext: any;
-  dnaSuggestions: DNASuggestions;
+  dnaSuggestions: WorkspaceSuggestions;
   activeProject: WorkspaceProject | null;
 }
 

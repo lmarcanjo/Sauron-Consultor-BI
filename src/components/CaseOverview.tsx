@@ -6,11 +6,11 @@ import { ExecutiveBriefWidget, ClientPulseWidget } from "./ExecutiveWidgets";
 import { SauronCard } from "../sauron-sdk/ui/SauronCard";
 import { SauronBadge } from "../sauron-sdk/ui/SauronBadge";
 import { WorkspaceProject } from "../modules/consultant-workspace/types";
-import { DNASuggestions } from "../core/workspace-intelligence/WorkspaceDNAEngine";
+import { WorkspaceSuggestions } from "../core/workspace-intelligence/WorkspaceSuggestions";
 
 interface CaseOverviewProps {
   widgetContext: any;
-  dnaSuggestions: DNASuggestions;
+  dnaSuggestions: WorkspaceSuggestions;
   activeProject: WorkspaceProject | null;
 }
 
@@ -19,6 +19,8 @@ export const CaseOverview: React.FC<CaseOverviewProps> = ({
   dnaSuggestions,
   activeProject
 }) => {
+  const hasRealRows = Array.isArray(widgetContext?.filteredData) && widgetContext.filteredData.length > 0;
+
   return (
     <div className="space-y-6">
       {/* Executive Brief Widget */}
@@ -31,16 +33,14 @@ export const CaseOverview: React.FC<CaseOverviewProps> = ({
           title="Índice de Maturidade Operacional (IMO)"
         >
           <div className="p-1 flex flex-col items-center justify-center text-center space-y-3">
-            <div className="relative w-28 h-28 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle cx="56" cy="56" r="48" className="stroke-slate-100 dark:stroke-slate-800 fill-none" strokeWidth="8" />
-                <circle cx="56" cy="56" r="48" className="stroke-blue-600 fill-none" strokeWidth="8" strokeDasharray="301.6" strokeDashoffset={301.6 * (1 - 0.78)} strokeLinecap="round" />
-              </svg>
-              <span className="absolute text-2xl font-black text-slate-800 dark:text-white">78%</span>
+            <div className="relative w-28 h-28 flex items-center justify-center rounded-full border-8 border-slate-100 dark:border-slate-800">
+              <span className="text-center text-xs font-black uppercase text-slate-700 dark:text-slate-200">
+                {hasRealRows ? "Fonte real ativa" : "Configuração pendente"}
+              </span>
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Nível Saudável / Em Consolidação</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Atingimento de rituais e consistência de dados em nível elevado.</p>
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Índice aguardando métricas certificadas</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">Nenhum percentual é exibido sem fonte e cálculo auditáveis.</p>
             </div>
           </div>
         </SauronCard>
@@ -79,7 +79,7 @@ export const CaseOverview: React.FC<CaseOverviewProps> = ({
                     <span>Sessão Aprovada</span>
                   </div>
                   <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 leading-relaxed">
-                    {m.decisions || "Aprovação do teto de compras de estoque."}
+                    {m.decisions || "Decisão registrada sem descrição."}
                   </p>
                 </div>
               ))}
@@ -130,10 +130,10 @@ export const CaseOverview: React.FC<CaseOverviewProps> = ({
             </p>
             <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-850 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Conexão Estável</span>
+                <div className={`w-2.5 h-2.5 rounded-full ${hasRealRows ? "bg-emerald-500" : "bg-amber-500"}`} />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{hasRealRows ? "Fonte real ativa" : "Nenhuma fonte ativa"}</span>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">Nenhuma fonte de dados ativa.</span>
+              <span className="text-[10px] font-mono text-slate-400">{hasRealRows ? "Linhas disponíveis para análise." : "Importe e ative uma fonte para começar."}</span>
             </div>
           </div>
         </SauronCard>

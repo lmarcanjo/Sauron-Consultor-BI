@@ -4,6 +4,7 @@
  */
 
 import { ReplaySession, ReplayEvent, Story } from "./types";
+import { platformLogger } from "../platform/PlatformLogger";
 
 export class StoryPresentationEngine {
   private activeSession: ReplaySession | null = null;
@@ -96,7 +97,7 @@ export class StoryPresentationEngine {
       this.activeSession = null;
     }
 
-    console.log(`[Sauron Audit] PRESENTATION_ENDED - Replay session for Story ID: ${session.storyId} finished. Total Duration: ${session.durationSeconds}s.`);
+    platformLogger.info(`[Sauron Audit] PRESENTATION_ENDED - Replay session for Story ID: ${session.storyId} finished. Total Duration: ${session.durationSeconds}s.`);
     return session;
   }
 

@@ -18,6 +18,10 @@ import { workbookReverseEngineer } from "../core/workbook-reverse";
 import { buildKnowledgeGraph } from "../core/knowledge-graph/KnowledgeGraphBuilder";
 import { RuleEngine } from "../core/rule-engine/RuleEngine";
 import { adaptivePresentationEngine } from "../core/adaptive-ui";
+import { platformLogger } from "../core/platform/PlatformLogger";
+import { buildPresentationPeriodChanges, getPresentationPeriods } from "../core/business-intelligence/PresentationMetricContext";
+import { getEnterpriseContext } from "../core/enterprise-consolidation";
+import { buildCertifiedMetricSnapshot, buildConsistencyMetricFromBusinessMetric, certifiedMetricSnapshotStore, financialConsistencyOrchestrator } from "../core/financial-consistency";
 
 export class MeetingPrepService {
   /**
@@ -27,6 +31,7 @@ export class MeetingPrepService {
     activeDataset: ActiveDataset | null;
     activeRecords: LancamentoFinanceiro[];
     workspace: any;
+    skipStructuralAnalysis?: boolean;
   }): Promise<MeetingPrepReport> {
     const { activeDataset, activeRecords, workspace } = params;
     const generatedAt = new Date().toISOString();
@@ -63,7 +68,7 @@ export class MeetingPrepService {
     const globalWarnings: string[] = [];
 
     const activeWorkbookId = workspace?.workbookIds?.[0] || activeDataset.datasetId;
-    if (activeWorkbookId) {
+    if (!params.skipStructuralAnalysis && activeWorkbookId) {
       catalog = workbookRepository.get(activeWorkbookId);
       if (catalog) {
         try {
@@ -81,7 +86,7 @@ export class MeetingPrepService {
           });
           rules = ruleEngine.listRules();
         } catch (e: any) {
-          console.warn("Falha ao inicializar grafos ou regras a partir do workbook:", e.message);
+          platformLogger.warn("Falha ao inicializar grafos ou regras a partir do workbook:", e.message);
           globalWarnings.push("Algumas regras complexas ou nós de dados não puderam ser processados.");
         }
       }
@@ -120,10 +125,51 @@ export class MeetingPrepService {
       }
     }
 
+    const enterpriseContext = getEnterpriseContext();
+    const snapshotMetrics = Object.values(calculatedMetrics)
+      .filter((metric): metric is BusinessMetric => Boolean(metric))
+      .map(metric => buildConsistencyMetricFromBusinessMetric({
+        metricKey: metric.metricKey,
+        displayLabel: metric.label,
+        value: metric.value,
+        sourceValue: metric.status === "ready" ? metric.value : null,
+        lineage: {
+          sourceId: metric.source.datasetId,
+          workbookId: metric.source.workbookId,
+          sheetName: metric.sheetName,
+          physicalColumnName: metric.columnsUsed[0] || null,
+          mappingId: metric.source.mappingId,
+          producer: "BusinessIntelligenceEngine",
+          calculatedAt: generatedAt,
+        },
+      }));
+    const snapshotContextId = enterpriseContext.scope === "GROUP"
+      ? enterpriseContext.groupId
+      : enterpriseContext.scope === "COMPANY"
+        ? enterpriseContext.companyId
+        : enterpriseContext.scope === "UNIT"
+          ? enterpriseContext.unitId
+          : activeDataset.datasetId;
+    const snapshotConsistency = financialConsistencyOrchestrator.reconcile({
+      contextId: snapshotContextId || activeDataset.datasetId,
+      requiredStages: ["source", "dataset", "kpis", "dashboard", "narrative"],
+      metrics: snapshotMetrics,
+    });
+    const certifiedSnapshot = snapshotMetrics.length > 0
+      ? certifiedMetricSnapshotStore.save(buildCertifiedMetricSnapshot({
+          contextType: enterpriseContext.scope,
+          contextId: snapshotContextId || activeDataset.datasetId,
+          tenantId: activeDataset.sourceIdentity?.tenantId,
+          workspaceId: enterpriseContext.workspaceId || activeDataset.sourceIdentity?.workspaceId,
+          datasetVersion: `${activeDataset.datasetId}:${activeDataset.importedAt}`,
+          metrics: snapshotMetrics,
+          consistency: snapshotConsistency.report,
+        }))
+      : undefined;
+
     // 3. Resolver período e metadados
-    const availablePeriods = Array.from(
-      new Set(activeRecords.map(r => r.Mês || r["mês"] || r["Mes"] || "").filter(Boolean))
-    ).sort();
+    const rows = activeRecords as unknown as Record<string, unknown>[];
+    const availablePeriods = getPresentationPeriods(rows, moduleMappings);
     const currentPeriod = availablePeriods[availablePeriods.length - 1] || "Período Ativo";
     const previousPeriod = availablePeriods[availablePeriods.length - 2] || null;
 
@@ -131,7 +177,7 @@ export class MeetingPrepService {
     const radarDimensions: RadarDimension[] = this.buildRadar(calculatedMetrics);
 
     // 5. Mudanças desde o período/reunião anterior
-    const changes: MetricChange[] = this.buildChanges(activeRecords, currentPeriod, previousPeriod, calculatedMetrics);
+    const changes: MetricChange[] = this.buildChanges(activeRecords, currentPeriod, previousPeriod, calculatedMetrics, moduleMappings);
 
     // 6. Resumo Executivo em 30 segundos
     const summary30s: SummaryLine[] = this.buildSummary(calculatedMetrics, currentPeriod, changes);
@@ -156,7 +202,8 @@ export class MeetingPrepService {
       radarDimensions,
       changes,
       suggestedTopics,
-      globalWarnings: [...globalWarnings, ...biContext.rules ? [] : ["Configure a biblioteca de workbooks para habilitar a extração de regras contábeis automatizada."]]
+      globalWarnings: [...globalWarnings, ...biContext.rules ? [] : ["Configure a biblioteca de workbooks para habilitar a extração de regras contábeis automatizada."]],
+      certifiedSnapshot,
     };
   }
 
@@ -253,73 +300,16 @@ export class MeetingPrepService {
     records: LancamentoFinanceiro[],
     currentPeriod: string,
     previousPeriod: string | null,
-    metrics: Record<string, BusinessMetric | null>
+    metrics: Record<string, BusinessMetric | null>,
+    moduleMappings: ReturnType<typeof listModuleMappings>
   ): MetricChange[] {
-    if (!previousPeriod) return [];
-
-    // Calcular valores do período anterior de forma real usando agregação simples
-    const currentRows = records.filter(r => (r.Mês || r["mês"] || r["Mes"]) === currentPeriod);
-    const prevRows = records.filter(r => (r.Mês || r["mês"] || r["Mes"]) === previousPeriod);
-
-    const getSum = (rows: any[], field: string): number => {
-      return rows.reduce((acc, r) => acc + (Number(r[field] || r[field.toLowerCase()] || 0)), 0);
-    };
-
-    // Obter colunas mapeadas via metrics do BI
-    const getMappedCol = (m: BusinessMetric | null): string => {
-      return m?.columnsUsed?.[0] || "";
-    };
-
-    const receitaCol = getMappedCol(metrics["receitaCandidata"]) || "Receita";
-    const custoCol = getMappedCol(metrics["custoCandidato"]) || "Custo";
-
-    const prevReceita = getSum(prevRows, receitaCol);
-    const currentReceita = metrics["receitaCandidata"]?.value ?? getSum(currentRows, receitaCol);
-
-    const prevCusto = getSum(prevRows, custoCol);
-    const currentCusto = metrics["custoCandidato"]?.value ?? getSum(currentRows, custoCol);
-
-    const calcChange = (curr: number, prev: number): { pct: string | null; dir: "up" | "down" | "stable" } => {
-      if (!prev) return { pct: null, dir: "stable" };
-      const diff = ((curr - prev) / prev) * 100;
-      if (Math.abs(diff) < 0.1) return { pct: "0.0%", dir: "stable" };
-      return {
-        pct: `${diff > 0 ? "+" : ""}${diff.toFixed(1)}%`,
-        dir: diff > 0 ? "up" : "down"
-      };
-    };
-
-    const recChange = calcChange(currentReceita, prevReceita);
-    const costChange = calcChange(currentCusto, prevCusto);
-
-    const getLineageStr = (m: BusinessMetric | null): string => {
-      if (!m) return "Cálculo Geral";
-      return `Aba: ${m.sheetName || "N/A"} | Col: ${m.columnsUsed.join(", ")}`;
-    };
-
-    return [
-      {
-        id: "change_receita",
-        label: "Receita Operacional",
-        currentValue: currentReceita,
-        previousValue: prevReceita,
-        changePercent: recChange.pct,
-        direction: recChange.dir,
-        isPositiveChange: recChange.dir === "up",
-        lineage: getLineageStr(metrics["receitaCandidata"])
-      },
-      {
-        id: "change_custo",
-        label: "Custos Totais",
-        currentValue: currentCusto,
-        previousValue: prevCusto,
-        changePercent: costChange.pct,
-        direction: costChange.dir,
-        // Custo subir é alteração negativa
-        isPositiveChange: costChange.dir === "down",
-        lineage: getLineageStr(metrics["custoCandidato"])
-      }
-    ];
+    return buildPresentationPeriodChanges({
+      rows: records as unknown as Record<string, unknown>[],
+      mappings: moduleMappings,
+      metrics: Object.values(metrics).filter((metric): metric is BusinessMetric => Boolean(metric)),
+      currentPeriod,
+      previousPeriod,
+    });
   }
 
   private buildSummary(

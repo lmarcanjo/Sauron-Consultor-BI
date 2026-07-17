@@ -61,15 +61,15 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
   const [inputValue, setInputValue] = useState("");
   const [progressVal, setProgressVal] = useState(65);
 
-  const mockTableData = [
-    { id: "1", client: "Alpha Nissan", city: "Feira de Santana", status: "Crítico" },
-    { id: "2", client: "Safira Calçados", city: "Campina Grande", status: "Sincronizado" },
-    { id: "3", client: "Grupo Arcanjo", city: "Salvador", status: "Pendente" },
+  const sampleTableData = [
+    { id: "1", client: "Cliente A", city: "Unidade Norte", status: "Crítico" },
+    { id: "2", client: "Cliente B", city: "Unidade Centro", status: "Sincronizado" },
+    { id: "3", client: "Cliente C", city: "Unidade Sul", status: "Pendente" },
   ];
 
-  const mockTimelineEvents = [
+  const sampleTimelineEvents = [
     { id: "1", title: "Ritual de Abertura Concluído", timestamp: "10:15", description: "Alinhamento de cronograma de auditoria" },
-    { id: "2", title: "Análise de CMVs e Faturamento", timestamp: "11:30", description: "Identificação de anomalias na filial Feira de Santana" },
+    { id: "2", title: "Análise de CMVs e Faturamento", timestamp: "11:30", description: "Identificação de anomalias na unidade analisada" },
   ];
 
   return (
@@ -208,7 +208,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
               5. Tables (SauronTable)
             </h2>
             <SauronTable
-              data={mockTableData}
+              data={sampleTableData}
               keyExtractor={(r) => r.id}
               columns={[
                 { header: "ID", accessor: (r) => <span className="font-mono">{r.id}</span> },
@@ -252,7 +252,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
               </SauronCard>
 
               <SauronCard title="Timeline de Auditoria">
-                <SauronTimeline events={mockTimelineEvents} />
+                <SauronTimeline events={sampleTimelineEvents} />
               </SauronCard>
             </div>
           </div>
@@ -266,9 +266,9 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
             <h2 className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 font-mono tracking-widest border-b border-slate-100 dark:border-slate-850 pb-2">
               1. Case Header & Breadcrumbs
             </h2>
-            <SauronCaseBreadcrumb paths={["Casos", "Auditoria", "Grupo Sauron"]} />
+            <SauronCaseBreadcrumb paths={["Casos", "Auditoria", "Cliente Empresarial"]} />
             <SauronCaseHeader
-              title="Grupo Sauron Concessionárias"
+              title="Cliente Empresarial"
               category="Caso Estratégico"
               status="active"
               onActionClick={() => {}}
@@ -282,8 +282,8 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
               2. Executive Brief
             </h2>
             <SauronExecutiveBrief
-              objective="Recuperação de 3.5% na Margem de Peças até Dezembro de 2026."
-              scope="Reestruturação de canais de suprimentos, alteração de comissionamento de vendas e auditoria de compras de giro."
+              objective="Recuperação de 3.5% na margem operacional até Dezembro de 2026."
+              scope="Reestruturação de canais de suprimentos, alteração de comissionamento e auditoria de compras de giro."
               nextRitual="28/06/2026 15:30 - Comitê de Resultados"
             />
           </div>
@@ -295,13 +295,13 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <SauronDecisionCard
-                description="Reduzir a comissão de novos veículos Nissan de 1.5% para 1% para balancear EBITDA."
+                description="Ajustar a comissão de uma linha comercial de 1.5% para 1% para balancear EBITDA."
                 responsible="Ana Cláudia (Diretoria)"
                 meetingTitle="Ritual de Comitê Semanal"
                 timestamp="Hoje 14:15"
               />
               <SauronActionCard
-                description="Negociar reajuste de taxa fixa de pós-venda com a montadora."
+                description="Negociar reajuste de taxa fixa com o parceiro operacional."
                 responsible="Carlos Henrique"
                 deadline="30/06/2026"
                 priority="high"
@@ -337,7 +337,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
               <SauronUserContext
                 name="Maria Convidada"
                 role="Guest"
-                organization="Grupo Sauron Nissan"
+                organization="Cliente Empresarial"
               />
               <div className="bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2">
                 <span className="text-[10px] font-bold text-slate-450 dark:text-slate-500 uppercase block font-mono">
@@ -370,7 +370,7 @@ export const SDLStudio: React.FC<SDLStudioProps> = ({ onExit }) => {
             isOpen={isDrawerOpen}
             onClose={() => setIsDrawerOpen(false)}
             title="Dossiê Grupo Sauron"
-            subtitle="Detalhamento operacional da holding"
+            subtitle="Detalhamento operacional do cliente"
             footer={
               <div className="flex gap-2">
                 <SauronButton variant="ghost" onClick={() => setIsDrawerOpen(false)}>

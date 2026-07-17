@@ -158,7 +158,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col justify-center items-center py-12 px-4 relative overflow-hidden">
+    <main className="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col justify-center items-center py-12 px-4 relative overflow-hidden">
       
       {/* Visual background enhancements */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
@@ -344,9 +344,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
 
         {/* FOOTER */}
         <p className="text-[10px] text-center text-slate-550 leading-normal font-medium font-mono">
-          Holding Sauron &copy; 2026 • Sauron Operating System
+          Sauron Platform &copy; 2026
         </p>
       </div>
-    </div>
+    </main>
   );
 };

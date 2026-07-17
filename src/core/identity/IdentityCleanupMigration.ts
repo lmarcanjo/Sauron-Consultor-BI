@@ -85,7 +85,7 @@ export class IdentityCleanupMigration {
       const email = user.profile?.email || "";
       if (legacyEmails.some(domain => email.toLowerCase().includes(domain.toLowerCase()))) return true;
       const name = user.profile?.fullName || "";
-      if (name.includes("Top" + "á" + "zio") || name.includes("Grupo" + " " + "Al" + "pha") || name.includes("Roberto Consultor") || name.includes("Carlos Loja Nissan") || name.includes("Gabriel Arcanjo")) return true;
+      if (name.includes("Top" + "á" + "zio") || name.includes("Grupo" + " " + "Al" + "pha") || name.includes("Roberto Consultor") || name.includes("Carlos Loja") || name.includes("Gabriel Arcanjo")) return true;
       return false;
     };
 

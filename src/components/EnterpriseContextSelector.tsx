@@ -11,6 +11,7 @@ import { Network, Building, Layers, ChevronDown, CheckCircle2, ShieldAlert } fro
 import { enterpriseRepository, Enterprise, BusinessGroup, Company, Unit } from "../core/persistence/EnterpriseRepository";
 import { getEnterpriseContext, setEnterpriseContext, subscribeEnterpriseContext } from "../core/enterprise-consolidation";
 import { useDataSourceManager } from "../hooks/useDataSourceManager";
+import { PLATFORM_EVENTS, subscribePlatformEvent } from "../core/events/PlatformEvents";
 
 export const EnterpriseContextSelector: React.FC = () => {
   const { activeRecords } = useDataSourceManager();
@@ -49,12 +50,12 @@ export const EnterpriseContextSelector: React.FC = () => {
     // Listen to changes in persistence to reload lists
     const handleDictUpdate = () => loadData();
     window.addEventListener("sauron:dictionary-updated", handleDictUpdate);
-    window.addEventListener("sauron:context-updated", handleDictUpdate);
+    const unsubscribePlatform = subscribePlatformEvent(PLATFORM_EVENTS.ENTERPRISE_CONTEXT_CHANGED, handleDictUpdate);
 
     return () => {
       unsubscribe();
       window.removeEventListener("sauron:dictionary-updated", handleDictUpdate);
-      window.removeEventListener("sauron:context-updated", handleDictUpdate);
+      unsubscribePlatform();
     };
   }, [activeRecords]);
 

@@ -7,6 +7,8 @@ import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapp
 import { buildModuleDashboard, ExecutiveDashboard } from "../core/dashboard-engine";
 import { DashboardBlocksRenderer } from "./DashboardBlocksRenderer";
 import { ModuleFieldMappingPanel } from "./ModuleFieldMappingPanel";
+import { platformLogger } from "../core/platform/PlatformLogger";
+import { getEnterpriseContext } from "../core/enterprise-consolidation";
 
 interface FinanceiroTabProps {
   metrics: MetricasConsolidadas;
@@ -21,9 +23,9 @@ export const FinanceiroTab: React.FC<FinanceiroTabProps> = ({ activeDataset: act
 
   useEffect(() => {
     if (activeDataset) {
-      console.log(`[Sauron Instrumentation] FINANCEIRO_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+      platformLogger.info(`[Sauron Instrumentation] FINANCEIRO_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
     } else {
-      console.log(`[Sauron Instrumentation] FINANCEIRO_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+      platformLogger.info(`[Sauron Instrumentation] FINANCEIRO_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
     }
   }, [activeDataset]);
 
@@ -37,7 +39,15 @@ export const FinanceiroTab: React.FC<FinanceiroTabProps> = ({ activeDataset: act
 
     const projectId = getDefaultProjectId(activeDataset);
     const moduleMappings = listModuleMappings(activeDataset.datasetId, projectId);
-    buildModuleDashboard("Financeiro", { activeDataset, moduleMappings }).then(result => {
+    const context = getEnterpriseContext();
+    buildModuleDashboard("Financeiro", {
+      activeDataset,
+      moduleMappings,
+      contextType: context.scope,
+      contextId: context.unitId || context.companyId || context.groupId || activeDataset.datasetId,
+      workspaceId: context.workspaceId,
+      period: context.period,
+    }).then(result => {
       if (isMounted) setDashboard(result);
     });
 
@@ -61,10 +71,10 @@ export const FinanceiroTab: React.FC<FinanceiroTabProps> = ({ activeDataset: act
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
         <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2 mb-3">
           <Database size={15} className="text-blue-500" />
-          <span>Dashboard financeiro com dados reais</span>
+          <span>Visão financeira</span>
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-4">
-          O módulo mostra métricas reais quando houver mapeamento e sinaliza configuração pendente quando faltarem colunas financeiras.
+          Veja os valores encontrados na planilha. Se faltar uma informação, confirme os campos abaixo.
         </p>
         <ModuleFieldMappingPanel
           moduleName="Financeiro"
@@ -76,8 +86,8 @@ export const FinanceiroTab: React.FC<FinanceiroTabProps> = ({ activeDataset: act
       {!dashboard ? (
         <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans">
           <Database className="text-emerald-500 w-12 h-12" />
-          <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Carregando Dados Reais</h3>
-          <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">Preparando blocos financeiros auditáveis.</p>
+          <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Preparando sua visão financeira</h3>
+          <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">Lendo os valores da planilha.</p>
         </div>
       ) : (
         <DashboardBlocksRenderer blocks={dashboard.blocks} />

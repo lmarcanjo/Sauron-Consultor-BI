@@ -216,7 +216,7 @@ export const CommissionClosingPanel: React.FC<CommissionClosingPanelProps> = ({ 
               {validation.availableCommissionSheets.length === 0 && validation.commissionMapping?.sheetName && (
                 <option value={validation.commissionMapping.sheetName}>{validation.commissionMapping.sheetName}</option>
               )}
-              {validation.availableCommissionSheets.map(sheet => (
+              {Array.from(new Set(validation.availableCommissionSheets)).map(sheet => (
                 <option key={sheet} value={sheet}>{sheet}</option>
               ))}
             </select>

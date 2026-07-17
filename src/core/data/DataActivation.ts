@@ -3,12 +3,14 @@ import { setEnterpriseContext, getEnterpriseContext } from "../enterprise-consol
 import { spreadsheetStorageAdapter } from "../storage/IndexedSpreadsheetStorageAdapter";
 import { workbookRepository as libraryWorkbookRepository } from "../workbook-library/WorkbookRepository";
 import { workbookRepository as coreWorkbookRepository } from "../workbook/WorkbookRepository";
-import { enterpriseRepository, Company } from "../persistence/EnterpriseRepository";
-import { ActiveDataset, ActiveDatasetRow, ColumnProfile } from "../../types/dataSource";
+import { ActiveDataset, ActiveDatasetRow } from "../../types/dataSource";
 import { EnterpriseContext } from "../enterprise-consolidation/EnterpriseContextTypes";
 import { activeSourceSelectionStore } from "./ActiveSourceSelectionStore";
 import { workspaceIntelligenceEngine } from "../workspace-intelligence/WorkspaceIntelligenceEngine";
 import { businessDomainEngine } from "../business-domains/BusinessDomainEngine";
+import { platformLogger } from "../platform/PlatformLogger";
+import { withSourceIdentity } from "./sourceIdentity";
+import { identityEngine } from "../identity/IdentityEngine";
 
 export interface ActivateImportedSourcesParams {
   workbookIds: string[];
@@ -30,9 +32,8 @@ function saveWorkspaceRegistry(state: any): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem("sauron_workspace_registry", JSON.stringify(state));
-    window.dispatchEvent(new CustomEvent("SAURON_WORKSPACE_REGISTRY_UPDATED", { detail: state }));
   } catch (e) {
-    console.error("[DataActivation] Failed to save workspace registry:", e);
+    platformLogger.error("[DataActivation] Failed to save workspace registry:", e);
   }
 }
 
@@ -41,7 +42,7 @@ export async function activateImportedSources({
   datasetIds,
   enterpriseContext
 }: ActivateImportedSourcesParams): Promise<void> {
-  console.log(`[DataActivation] Starting transacting unified activation for workbooks:`, workbookIds, `datasets:`, datasetIds);
+  platformLogger.info(`[DataActivation] Starting transacting unified activation for workbooks:`, workbookIds, `datasets:`, datasetIds);
 
   // 1. PREPARE: Capture previous state for transaction recovery
   const prevDataset = activeDatasetStore.getActiveDataset();
@@ -51,13 +52,13 @@ export async function activateImportedSources({
   
   const registry = getWorkspaceRegistry();
   const workspaceId = registry?.currentWorkspaceId || "workspace_default";
+  const canonicalWorkspaceId = identityEngine.getCurrentWorkspace()?.id || workspaceId;
   const prevSelection = activeSourceSelectionStore.get(workspaceId);
 
   try {
     // 2. Perform validation and data load
-    const allEnterprises = await enterpriseRepository.getAll();
     const allDatasets: ActiveDataset[] = [];
-    const allRows: any[] = [];
+    const allEnterprises = await (await import("../persistence/EnterpriseRepository")).enterpriseRepository.getAll();
 
     for (const id of datasetIds) {
       let dataset: ActiveDataset | null = null;
@@ -78,7 +79,7 @@ export async function activateImportedSources({
           }
         }
       } catch (e) {
-        console.warn(`[DataActivation] Error checking library repo for dataset ${id}:`, e);
+        platformLogger.warn(`[DataActivation] Error checking library repo for dataset ${id}:`, e);
       }
 
       // Check core repo
@@ -89,7 +90,7 @@ export async function activateImportedSources({
             dataset = (coreWb as any).activeDataset;
           }
         } catch (e) {
-          console.warn(`[DataActivation] Error checking core repo for dataset ${id}:`, e);
+          platformLogger.warn(`[DataActivation] Error checking core repo for dataset ${id}:`, e);
         }
       }
 
@@ -134,59 +135,30 @@ export async function activateImportedSources({
         throw new Error(`Persistência de dados incompleta ou corrompida no IndexedDB para a fonte ${id}`);
       }
 
-      allDatasets.push(dataset);
-
-      // Load all rows
-      const datasetRows = await spreadsheetStorageAdapter.getRows(id);
-
-      // Resolve linked company / group names
-      const linkedEnt = allEnterprises.find(e => 
-        e.id === id || 
-        (e as any).workbookIds?.includes(id)
-      );
-      const parentGroup = (linkedEnt && (linkedEnt as any).parentId)
-        ? allEnterprises.find(e => e.id === (linkedEnt as any).parentId) 
-        : null;
-
-      const companyName = linkedEnt ? linkedEnt.name : (enterpriseContext.companyId ? allEnterprises.find(e => e.id === enterpriseContext.companyId)?.name : "");
-      const groupName = parentGroup 
-        ? parentGroup.name 
-        : (linkedEnt && linkedEnt.type === "Grupo" 
-            ? linkedEnt.name 
-            : (enterpriseContext.groupId ? allEnterprises.find(e => e.id === enterpriseContext.groupId)?.name : "")
-          );
-
-      const normalizedRows = datasetRows.map((row, idx) => {
-        const getNum = (v: any) => {
-          if (v === undefined || v === null || v === "") return 0;
-          if (typeof v === "number") return v;
-          const sanit = String(v).replace(/\./g, "").replace(",", ".").replace(/[^\d.-]/g, "");
-          const parsed = parseFloat(sanit);
-          return isNaN(parsed) ? 0 : parsed;
+      // Keep only a bounded preview in the active bus. The complete source is
+      // already persisted per workbook/sheet and remains queryable on demand.
+      if (dataset.previewRows.length === 0) {
+        const previewRows = await spreadsheetStorageAdapter.getRowsPaged(
+          id,
+          dataset.activeSheet || "Dados",
+          0,
+          100
+        );
+        dataset = {
+          ...dataset,
+          previewRows: previewRows.map((row, idx) => ({
+            raw: row,
+            normalized: row,
+            metadata: {
+              rowIndex: idx + 1,
+              sheetName: dataset!.activeSheet || "Dados",
+              fileName: dataset!.sourceName,
+            },
+          })),
         };
+      }
 
-        return {
-          id: `row_${id}_${idx}_${Date.now()}`,
-          Grupo: groupName || row["Grupo"] || row["Grupo Economico"] || row["Grupo Econômico"] || "Geral",
-          CNPJ: row["CNPJ"] || row["Cnpj"] || "00.000.000/0001-00",
-          Marca: row["Marca"] || row["Bandeira"] || "N/D",
-          Empresa: companyName || row["Empresa"] || row["Razão Social"] || row["Razao Social"] || "Empresa Geral",
-          Mês: row["Mês"] || row["Mes"] || row["Competência"] || row["Competencia"] || "N/D",
-          Razão: row["Razão"] || row["Razao"] || "Outros",
-          Categoria: row["Categoria"] || row["Classificação"] || row["Classificacao"] || "Sem Categoria",
-          Receita: row["Receita"] !== undefined ? getNum(row["Receita"]) : getNum(row["Valor"] || 0),
-          Custo: row["Custo"] !== undefined ? getNum(row["Custo"]) : 0,
-          Despesa: row["Despesa"] !== undefined ? getNum(row["Despesa"]) : 0,
-          Lucro: row["Lucro"] !== undefined ? getNum(row["Lucro"]) : 0,
-          Margem: row["Margem"] !== undefined ? getNum(row["Margem"]) : 0,
-          Vendedor: row["Vendedor"] || row["Consultor"] || "Padrão",
-          arquivo: dataset!.sourceName,
-          dataImportacao: dataset!.importedAt,
-          ...row
-        };
-      });
-
-      allRows.push(...normalizedRows);
+      allDatasets.push(withSourceIdentity(dataset));
     }
 
     // 3. Domain detection & separation rules
@@ -228,33 +200,30 @@ export async function activateImportedSources({
       saveWorkspaceRegistry(registry);
     }
 
-    // 4. COMMIT phase
-    // Persist selection entity explicitly
-    const activeSelection = {
-      contextId: workspaceId,
-      sourceIds: workbookIds,
-      updatedAt: new Date().toISOString()
-    };
-    activeSourceSelectionStore.set(activeSelection);
-
-    // Save to enterprise repository
-    const targetCompanyId = enterpriseContext.companyId;
-    if (targetCompanyId) {
-      const comp = allEnterprises.find(e => e.id === targetCompanyId) as Company;
-      if (comp) {
-        const currentWbIds = comp.workbookIds || [];
-        comp.workbookIds = Array.from(new Set([...currentWbIds, ...workbookIds]));
-        await enterpriseRepository.save(comp);
-      }
+    // 4. COMMIT phase. Active selections are scoped by organizational context;
+    // the legacy workspace lookup remains read-compatible for old sessions.
+    const scopeId = enterpriseContext.scope === "GROUP"
+      ? enterpriseContext.groupId
+      : enterpriseContext.scope === "COMPANY"
+        ? enterpriseContext.companyId
+        : enterpriseContext.unitId;
+    if (enterpriseContext.scope !== "WORKBOOK" && scopeId) {
+      activeSourceSelectionStore.setForScope({
+        tenantId: "local",
+        workspaceId: canonicalWorkspaceId,
+        scopeType: enterpriseContext.scope,
+        scopeId,
+      }, workbookIds);
     }
 
     // Set enterprise context
     const updatedContext: EnterpriseContext = {
       ...enterpriseContext,
+      workspaceId: enterpriseContext.workspaceId || canonicalWorkspaceId,
       workbookIds,
       datasetIds
     };
-    setEnterpriseContext(updatedContext);
+    setEnterpriseContext(updatedContext, { refreshSources: false });
 
     // Set dataset store
     if (allDatasets.length === 0) {
@@ -269,17 +238,20 @@ export async function activateImportedSources({
       const combinedId = `combined_${datasetIds.slice().sort().join("_")}`;
       const sourceNames = allDatasets.map(d => d.sourceName).join(", ");
       
-      const combinedPreview: ActiveDatasetRow[] = allRows.slice(0, 5).map((row, idx) => ({
-        raw: row,
-        normalized: row,
+      const combinedPreview: ActiveDatasetRow[] = allDatasets
+        .flatMap(dataset => dataset.previewRows.slice(0, 5))
+        .slice(0, 20)
+        .map((row, idx) => ({
+        raw: row.raw,
+        normalized: row.normalized,
         metadata: {
-          rowIndex: idx + 1,
-          sheetName: row.aba || "Dados",
-          fileName: row.arquivo || "Consolidado",
+          rowIndex: row.metadata.rowIndex || idx + 1,
+          sheetName: row.metadata.sheetName || "Dados",
+          fileName: row.metadata.fileName || "Consolidado",
         }
       }));
 
-      const allProfiles: ColumnProfile[] = [];
+      const allProfiles = [] as ActiveDataset["columnProfiles"];
       const seenCols = new Set<string>();
       allDatasets.forEach(d => {
         d.columnProfiles?.forEach(p => {
@@ -295,31 +267,27 @@ export async function activateImportedSources({
         sourceType: "SPREADSHEET_DATA",
         sourceName: sourceNames,
         importedAt: new Date().toISOString(),
-        rowCount: allRows.length,
+        rowCount: allDatasets.reduce((sum, dataset) => sum + dataset.rowCount, 0),
         columnCount: Math.max(...allDatasets.map(d => d.columnCount)),
         sheets: allDatasets.flatMap(d => d.sheets),
         activeSheet: allDatasets[0].activeSheet,
         previewRows: combinedPreview,
         columnProfiles: allProfiles,
         importProfile: null,
-        rawStorageRef: combinedId,
+        rawStorageRef: allDatasets[0].rawStorageRef,
+        sourceDatasetIds: datasetIds,
+        sourceWorkbookIds: workbookIds,
         status: "ACTIVE"
       };
     }
 
-    activeDatasetStore.setActiveDataset(finalActiveDataset, allRows);
+    activeDatasetStore.setActiveDataset(finalActiveDataset);
 
     // Sync template state with resolved domain
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("SAURON_ACTIVE_DOMAIN_CHANGED", { detail: resolvedDomain }));
-      window.dispatchEvent(new CustomEvent("DATASET_ACTIVATED", { detail: finalActiveDataset }));
-      window.dispatchEvent(new CustomEvent("sauron:data-loaded"));
-    }
-
-    console.log(`[DataActivation] Transacting activation complete. Resolved Domain: ${resolvedDomain}. Consolidated ${allRows.length} rows.`);
+    platformLogger.info(`[DataActivation] Transacting activation complete. Resolved Domain: ${resolvedDomain}. Activated ${finalActiveDataset.rowCount} source rows through metadata and preview.`);
 
   } catch (err) {
-    console.error(`[DataActivation] Unified activation failed! Commencing ROLLBACK phase...`, err);
+    platformLogger.error(`[DataActivation] Unified activation failed! Commencing ROLLBACK phase...`, err);
 
     // 5. ROLLBACK phase
     if (prevDataset) {
@@ -328,7 +296,7 @@ export async function activateImportedSources({
       activeDatasetStore.clearActiveDataset();
     }
 
-    setEnterpriseContext(prevContext);
+    setEnterpriseContext(prevContext, { refreshSources: false });
 
     if (prevRegistry) {
       saveWorkspaceRegistry(prevRegistry);

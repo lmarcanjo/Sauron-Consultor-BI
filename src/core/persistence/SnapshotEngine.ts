@@ -1,7 +1,9 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- */
+*/
+
+import { platformLogger } from "../platform/PlatformLogger";
 
 export interface DomainSnapshot {
   snapshotId: string;
@@ -52,7 +54,7 @@ export class SnapshotEngine {
     list.push(snapshot);
     this.snapshots.set(entityId, list);
 
-    console.log(`[SnapshotEngine] Captured freeze for domain [${domain}], ID: [${entityId}]. Checksum: ${snapshot.checksum}`);
+    platformLogger.info(`[SnapshotEngine] Captured freeze for domain [${domain}], ID: [${entityId}]. Checksum: ${snapshot.checksum}`);
     return snapshot;
   }
 
@@ -70,7 +72,7 @@ export class SnapshotEngine {
       throw new Error(`SnapshotEngine error: Snapshot ID ${snapshotId} not found in history of ${entityId}`);
     }
 
-    console.log(`[SnapshotEngine] Executed successful rollback of entity [${entityId}] to checksum: ${found.checksum}`);
+    platformLogger.info(`[SnapshotEngine] Executed successful rollback of entity [${entityId}] to checksum: ${found.checksum}`);
     return found;
   }
 

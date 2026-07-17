@@ -38,7 +38,7 @@ export class PluginEngine {
   /**
    * Retrieves segment-specific cost centers for the active tenant.
    */
-  public getSegmentCostCenters(segment: "automotivo" | "agro" | "servicos" | "industria"): CostCenter[] {
+  public getSegmentCostCenters(segment: "especializado" | "agro" | "servicos" | "industria"): CostCenter[] {
     const plugin = this.getPlugin(segment);
     if (plugin) {
       return plugin.getCostCenters();

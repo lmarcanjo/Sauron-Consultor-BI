@@ -8,23 +8,23 @@ import { CostCenter } from "../../business/businessObjects";
 
 export class AutomotivePlugin implements SegmentPlugin {
   public getSegmentName(): string {
-    return "automotivo";
+    return "especializado";
   }
 
   public getCostCenters(): CostCenter[] {
     return [
-      { id: "cc_vn", code: "VN", name: "Veículos Novos", segment: "automotivo" },
-      { id: "cc_vs", code: "VS", name: "Seminovos", segment: "automotivo" },
-      { id: "cc_vf", code: "VF", name: "Venda Frotista", segment: "automotivo" },
-      { id: "cc_pe", code: "PE", name: "Peças", segment: "automotivo" },
-      { id: "cc_ac", code: "AC", name: "Acessórios", segment: "automotivo" },
-      { id: "cc_me", code: "ME", name: "Mecânica", segment: "automotivo" },
-      { id: "cc_fu", code: "FU", name: "Funilaria", segment: "automotivo" },
-      { id: "cc_co", code: "CO", name: "Consórcio", segment: "automotivo" },
-      { id: "cc_fi", code: "FI", name: "F&I/FNA", segment: "automotivo" },
-      { id: "cc_ad", code: "AD", name: "Administrativo", segment: "automotivo" },
-      { id: "cc_fn", code: "FN", name: "Financeiro", segment: "automotivo" },
-      { id: "cc_di", code: "DI", name: "Diretoria", segment: "automotivo" }
+      { id: "cc_vn", code: "LC", name: "Linha Comercial", segment: "especializado" },
+      { id: "cc_vs", code: "LR", name: "Linha Recorrente", segment: "especializado" },
+      { id: "cc_vf", code: "CC", name: "Canal Corporativo", segment: "especializado" },
+      { id: "cc_pe", code: "IT", name: "Itens", segment: "especializado" },
+      { id: "cc_ac", code: "CA", name: "Categorias Adicionais", segment: "especializado" },
+      { id: "cc_me", code: "OP", name: "Operações", segment: "especializado" },
+      { id: "cc_fu", code: "SV", name: "Serviços", segment: "especializado" },
+      { id: "cc_co", code: "CT", name: "Contratos", segment: "especializado" },
+      { id: "cc_fi", code: "FI", name: "Financeiro", segment: "especializado" },
+      { id: "cc_ad", code: "AD", name: "Administrativo", segment: "especializado" },
+      { id: "cc_fn", code: "FN", name: "Financeiro", segment: "especializado" },
+      { id: "cc_di", code: "DI", name: "Diretoria", segment: "especializado" }
     ];
   }
 
@@ -35,7 +35,7 @@ export class AutomotivePlugin implements SegmentPlugin {
   public getSuggestedKpis(records: any[]): any[] {
     return [
       { code: "F_I_PENETRATION", name: "Penetração de F&I", unit: "percentage" },
-      { code: "ABSORPTION_RATE", name: "Taxa de Absorção de Pós-Vendas", unit: "percentage" }
+      { code: "ABSORPTION_RATE", name: "Taxa de Absorção Operacional", unit: "percentage" }
     ];
   }
 
@@ -57,5 +57,5 @@ export class AutomotivePlugin implements SegmentPlugin {
 
 // Auto-register plugin
 const automotivePlugin = new AutomotivePlugin();
-pluginEngine.registerPlugin("automotivo", automotivePlugin);
+pluginEngine.registerPlugin("especializado", automotivePlugin);
 export default automotivePlugin;

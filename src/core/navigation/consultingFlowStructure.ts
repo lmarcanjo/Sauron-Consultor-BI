@@ -3,16 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { 
+import {
   Users, Database, Presentation, MonitorPlay, Settings, Briefcase, FolderOpen, Building,
   ShieldCheck, BarChart3, Target, FileText, BrainCircuit, Calculator,
-  Network, ShieldAlert, ClipboardList, CheckSquare, History, Key, Layers, Lock
+  Network, ShieldAlert, ClipboardList, CheckSquare, History, Key, Layers, Lock, TrendingUp
 } from 'lucide-react';
+import { ModuleCapabilityState } from "./moduleCapabilities";
 
 export interface ConsultingSubItem {
   title: string;
   id: string;
   icon: any;
+  availability?: ModuleCapabilityState;
 }
 
 export interface ConsultingGroup {
@@ -25,12 +27,12 @@ export interface ConsultingGroup {
 export interface ConsultingStructureOptions {
   domainId?: string;
   terminology?: Record<string, string>;
-  capabilities?: Record<string, boolean>;
+  capabilities?: Record<string, ModuleCapabilityState>;
 }
 
 /**
  * Returns the structured menu matching the 9 flows of consulting.
- * Removes automotive/holding terminology from defaults, using neutral terms unless specified.
+ * Removes segment-specific terminology from defaults, using neutral terms unless specified.
  * Supports legacy boolean argument for backward compatibility in tests.
  */
 export function getConsultingFlowStructure(options?: ConsultingStructureOptions | boolean): ConsultingGroup[] {
@@ -50,13 +52,13 @@ export function getConsultingFlowStructure(options?: ConsultingStructureOptions 
   const empTerm = terminology.enterprise || "Empresa";
   const unitTerm = terminology.unit || "Unidade";
 
-  return [
+  const structure: ConsultingGroup[] = [
     {
       groupKey: "centro_comando",
       title: "Centro de Comando",
       icon: Briefcase,
       subItems: [
-        { title: "Enterprise Center", id: "enterprise_center", icon: Building },
+        { title: "Empresas e Grupos", id: "enterprise_center", icon: Building },
         { title: "Centro de Comando", id: "executive_workspace", icon: Briefcase }
       ]
     },
@@ -74,8 +76,8 @@ export function getConsultingFlowStructure(options?: ConsultingStructureOptions 
       title: "Conectar Dados",
       icon: Database,
       subItems: [
-        { title: "Central de Dados", id: "importacao", icon: FileText },
-        { title: "Biblioteca de Workbooks", id: "biblioteca_workbooks", icon: FolderOpen }
+        { title: "Importar Planilhas", id: "importacao", icon: FileText },
+        { title: "Biblioteca de Planilhas", id: "biblioteca_workbooks", icon: FolderOpen }
       ]
     },
     {
@@ -84,7 +86,9 @@ export function getConsultingFlowStructure(options?: ConsultingStructureOptions 
       icon: Target,
       subItems: [
         { title: "Diagnóstico Executivo", id: "resumo", icon: BarChart3 },
-        { title: "KPIs & DRE", id: "comercial", icon: Target },
+        { title: "KPIs & DRE", id: "dre_inteligente", icon: Target },
+        { title: "Financeiro", id: "financeiro", icon: Calculator },
+        { title: "Comercial", id: "comercial", icon: TrendingUp },
         { title: "Anomalias", id: "obstaculos", icon: ShieldAlert },
         { title: "Recomendações", id: "consultor_ia", icon: BrainCircuit },
         { title: "Dossiês", id: "relatorios", icon: FileText }
@@ -145,4 +149,12 @@ export function getConsultingFlowStructure(options?: ConsultingStructureOptions 
       ]
     }
   ];
+
+  return structure.map(group => ({
+    ...group,
+    subItems: group.subItems.map(item => ({
+      ...item,
+      availability: options && typeof options !== "boolean" ? options.capabilities?.[item.id] : undefined,
+    })),
+  }));
 }

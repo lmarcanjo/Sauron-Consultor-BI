@@ -23,6 +23,7 @@ import { buildWorkbookOverview, WorkbookOverview } from "../core/data/businessVi
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { spreadsheetStorageAdapter } from "../core/storage/IndexedSpreadsheetStorageAdapter";
 import { getEnterpriseContext, setEnterpriseContext, subscribeEnterpriseContext } from "../core/enterprise-consolidation/EnterpriseContextStore";
+import { enterpriseConsolidationService } from "../core/enterprise-consolidation";
 import { activateImportedSources } from "../core/data/DataActivation";
 import { workbookRepository as libraryWorkbookRepository } from "../core/workbook-library/WorkbookRepository";
 import { enterpriseRepository, Enterprise, BusinessGroup, Company, Unit } from "../core/persistence/EnterpriseRepository";
@@ -31,12 +32,7 @@ import { identityEngine } from "../core/identity/IdentityEngine";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/WorkspaceIntelligenceEngine";
 import { showToast } from "./Toast";
 import { EnterpriseTimeline } from "./EnterpriseTimeline";
-
-const DOMAIN_LABELS: Record<string, string> = {
-  neutral: "Neutro / Geral",
-  agribusiness: "Agronegócio",
-  automotive: "Automotivo"
-};
+import { getDomainDisplayLabel, getDomainDisplayOptions } from "../core/business-domains";
 
 interface CentralDadosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -114,6 +110,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
   // Modals / Overlays States
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isDbConnectorOpen, setIsDbConnectorOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewWb, setPreviewWb] = useState<any | null>(null);
@@ -124,11 +121,23 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   const [isMoveBatchOpen, setIsMoveBatchOpen] = useState(false);
   const [batchTargetCompanyId, setBatchTargetCompanyId] = useState("");
 
+  useEffect(() => {
+    const receiveFiles = (event: Event) => {
+      const files = (event as CustomEvent<{ files?: File[] }>).detail?.files || [];
+      if (files.length === 0) return;
+      setPendingFiles(files);
+      setIsUploaderOpen(true);
+    };
+    window.addEventListener("sauron:spreadsheet-files-selected", receiveFiles);
+    return () => window.removeEventListener("sauron:spreadsheet-files-selected", receiveFiles);
+  }, []);
+
   // Enterprise / Context structures state
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [groups, setGroups] = useState<BusinessGroup[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [units, setUnitList] = useState<Unit[]>([]);
+  const [sourceBindings, setSourceBindings] = useState<Awaited<ReturnType<typeof enterpriseRepository.listSourceBindings>>>([]);
   const [currentWorkspace, setCurrentWorkspace] = useState<any>(null);
 
   // Subscribe to context updates
@@ -171,6 +180,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     setGroups(list.filter(e => e.type === "Grupo") as BusinessGroup[]);
     setCompanies(list.filter(e => e.type === "Empresa") as Company[]);
     setUnitList(list.filter(e => e.type === "Unidade") as Unit[]);
+    setSourceBindings(await enterpriseRepository.listSourceBindings());
 
     const activeWs = identityEngine.getCurrentWorkspace() as any;
     if (activeWs) {
@@ -205,13 +215,48 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       importedAt: f.importedAt,
       sheetsData: f.sheets
     }));
-    return workspaceFiles;
-  }, [workspace, tick]);
+    const libraryFiles = libraryWorkbookRepository.listWorkbooks({ includeArchived: true }).map(workbook => {
+      const version = libraryWorkbookRepository.getCurrentVersion(workbook.id);
+      const dataset = version?.activeDataset;
+      return {
+        id: workbook.id,
+        name: workbook.name,
+        size: 0,
+        sheets: dataset?.sheets.map(sheet => typeof sheet === "string" ? sheet : sheet.sheetName) || [],
+        date: workbook.importedAt.split("T")[0],
+        status: workbook.status === "ARCHIVED" ? "INACTIVE" : "ACTIVE",
+        version: version?.label || "v1",
+        qualityScore: 100,
+        qualityLabel: "Pronto para leitura",
+        totalRows: dataset?.rowCount || version?.rowCount || 0,
+        totalColumns: dataset?.columnCount || version?.columnCount || 0,
+        totalAbas: dataset?.sheets.length || version?.sheetCount || 0,
+        approvedByConsultant: true,
+        importedBy: "Consultor",
+        importedAt: workbook.importedAt,
+        sheetsData: [],
+      };
+    });
+    const byId = new Map([...libraryFiles, ...workspaceFiles].map(file => [file.id, file]));
+    return Array.from(byId.values());
+  }, [workspace, tick, contextTick]);
+
+  const bindingFor = (workbookId: string) => sourceBindings.find(binding => binding.workbookId === workbookId || binding.sourceId === workbookId);
+  const linkedCompanyFor = (workbookId: string) => {
+    const binding = bindingFor(workbookId);
+    return companies.find(company => company.id === binding?.companyId);
+  };
+  const linkedUnitFor = (workbookId: string) => {
+    const binding = bindingFor(workbookId);
+    return units.find(unit => unit.id === binding?.unitId);
+  };
 
   // Active files subset based on EnterpriseContext selection
   const activeFiles = useMemo(() => {
     const context = getEnterpriseContext();
-    const selectedWbIds = context.workbookIds || [];
+    const selectedWbIds = context.workbookIds?.length
+      ? context.workbookIds
+      : activeDatasetStore.getActiveDataset()?.sourceWorkbookIds || [];
     return visibleFilesList.filter(f => selectedWbIds.includes(f.id));
   }, [contextTick, visibleFilesList]);
 
@@ -221,11 +266,11 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     if (f.status === "PENDING_MAPPING") warnings.push("Mapeamento pendente");
     
     // Check company link
-    const linkedCompany = companies.find(c => c.workbookIds?.includes(f.id));
+    const linkedCompany = linkedCompanyFor(f.id);
     if (!linkedCompany) warnings.push("Empresa não vinculada");
 
     // Check unit link
-    const linkedUnit = units.find(u => u.workbookIds?.includes(f.id));
+    const linkedUnit = linkedUnitFor(f.id);
     if (!linkedUnit && linkedCompany && linkedCompany.unitIds?.length > 0) warnings.push("Unidade ausente");
 
     // Check segment
@@ -285,9 +330,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       tasks.push({
         id: "group",
         problem: "Nenhum Grupo empresarial cadastrado",
-        impact: "Impossibilita análises consolidadas de holding.",
+        impact: "Impossibilita análises consolidadas de grupo empresarial.",
         solution: "Cadastre o grupo proprietário no painel corporativo.",
-        actionLabel: "Ir para Enterprise Center",
+        actionLabel: "Abrir Empresas e Grupos",
         actionTab: "enterprise_center"
       });
     }
@@ -297,8 +342,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
         id: "company",
         problem: "Nenhuma Empresa cadastrada no sistema",
         impact: "Os dados não podem ser divididos por marcas ou estabelecimentos.",
-        solution: "Cadastre as marcas/empresas reais no Enterprise Center.",
-        actionLabel: "Ir para Enterprise Center",
+        solution: "Cadastre as empresas e grupos reais em Empresas e Grupos.",
+        actionLabel: "Abrir Empresas e Grupos",
         actionTab: "enterprise_center"
       });
     }
@@ -306,7 +351,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     if (visibleFilesList.length === 0) {
       tasks.push({
         id: "spreadsheets",
-        problem: "Nenhuma planilha real importada no workspace",
+        problem: "Nenhuma planilha importada no projeto",
         impact: "Os relatórios operacionais e DRE estão vazios.",
         solution: "Importe uma planilha de lançamentos contábeis reais (.csv, .xlsx).",
         actionLabel: "Importar Nova Fonte",
@@ -357,9 +402,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       if (searchText && !f.name.toLowerCase().includes(searchText.toLowerCase())) return false;
       
       // Lookups for filters
-      const linkedCompany = companies.find(c => c.workbookIds?.includes(f.id));
+      const linkedCompany = linkedCompanyFor(f.id);
       const linkedGroup = linkedCompany ? groups.find(g => g.id === linkedCompany.parentId) : null;
-      const linkedUnit = units.find(u => u.workbookIds?.includes(f.id));
+      const linkedUnit = linkedUnitFor(f.id);
       const segment = (linkedCompany && (linkedCompany as any).segment) || "neutral";
 
       // 2. Filters matches
@@ -371,7 +416,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
       return true;
     });
-  }, [visibleFilesList, searchText, filterGroup, filterCompany, filterUnit, filterSegment, filterStatus, companies, groups, units]);
+  }, [visibleFilesList, searchText, filterGroup, filterCompany, filterUnit, filterSegment, filterStatus, companies, groups, units, sourceBindings]);
 
   // SINGLE WORKBOOK ACTIONS
   const handleOpenWorkbook = async (wbId: string) => {
@@ -449,22 +494,19 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     if (!window.confirm("Deseja realmente excluir este workbook da biblioteca permanentemente?")) return;
     
     // Status DELETED
-    libraryWorkbookRepository.setWorkbookStatus(wbId, "DELETED");
+    const workbook = libraryWorkbookRepository.getWorkbook(wbId);
+    if (!workbook) {
+      showToast("warning", "Esta fonte não está mais disponível. Atualize a biblioteca para continuar.");
+      return;
+    }
+    libraryWorkbookRepository.setWorkbookStatus(workbook.id, "DELETED");
+    await enterpriseRepository.removeSourceBinding(wbId);
     dataSourceManager.deleteSpreadsheetFile(wbId);
     await spreadsheetStorageAdapter.deleteRows(wbId);
     await spreadsheetStorageAdapter.deleteMetadata(wbId);
 
-    // Context updating
-    const context = getEnterpriseContext();
-    const nextWbIds = (context.workbookIds || []).filter(id => id !== wbId);
-    const nextDsIds = (context.datasetIds || []).filter(id => id !== wbId);
-
     try {
-      await activateImportedSources({
-        workbookIds: nextWbIds,
-        datasetIds: nextDsIds,
-        enterpriseContext: { ...context, workbookIds: nextWbIds, datasetIds: nextDsIds }
-      });
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
       const name = visibleFilesList.find(f => f.id === wbId)?.name || wbId;
       await timelineRepository.log("DELETE", "Workbook excluído", name);
       showToast("success", "Workbook excluído permanentemente.");
@@ -493,24 +535,16 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     if (!targetComp) return;
 
     try {
-      // Clean previous links
-      for (const ent of enterprises) {
-        if (ent.type === "Empresa" || ent.type === "Unidade") {
-          const cast = ent as any;
-          if (cast.workbookIds?.includes(linkWb.id)) {
-            await enterpriseRepository.save({
-              ...cast,
-              workbookIds: cast.workbookIds.filter((id: string) => id !== linkWb.id)
-            });
-          }
-        }
-      }
-      // Add new link
-      const nextWbs = targetComp.workbookIds || [];
-      await enterpriseRepository.save({
-        ...targetComp,
-        workbookIds: [...nextWbs, linkWb.id]
+      const workbook = libraryWorkbookRepository.getWorkbook(linkWb.id);
+      const version = workbook ? libraryWorkbookRepository.getCurrentVersion(workbook.id) : null;
+      await enterpriseRepository.bindSource({
+        sourceId: version?.activeDataset?.datasetId || linkWb.id,
+        workbookId: linkWb.id,
+        datasetId: version?.activeDataset?.datasetId || linkWb.id,
+        groupId: targetComp.parentId,
+        companyId: targetComp.id,
       });
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
 
       await timelineRepository.log("LINK", "Vínculo de Workbook alterado", `${linkWb.name} -> ${targetComp.name}`);
       showToast("success", "Planilha vinculada à empresa com sucesso.");
@@ -529,22 +563,20 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     if (!window.confirm(`Excluir permanentemente os ${selectedWbIds.length} workbooks selecionados do sistema?`)) return;
 
     for (const id of selectedWbIds) {
-      libraryWorkbookRepository.setWorkbookStatus(id, "DELETED");
-      dataSourceManager.deleteSpreadsheetFile(id);
-      await spreadsheetStorageAdapter.deleteRows(id);
-      await spreadsheetStorageAdapter.deleteMetadata(id);
+      const workbook = libraryWorkbookRepository.getWorkbook(id);
+      if (!workbook) continue;
+      const version = libraryWorkbookRepository.getCurrentVersion(id);
+      const storageId = version?.activeDataset?.datasetId || id;
+      await spreadsheetStorageAdapter.deleteRows(storageId);
+      await spreadsheetStorageAdapter.deleteMetadata(storageId);
+      const binding = await enterpriseRepository.getSourceBinding(id);
+      if (binding) await enterpriseRepository.removeSourceBinding(binding.sourceId);
+      libraryWorkbookRepository.deleteWorkbook(id);
     }
 
     const context = getEnterpriseContext();
-    const nextWbIds = (context.workbookIds || []).filter(id => !selectedWbIds.includes(id));
-    const nextDsIds = (context.datasetIds || []).filter(id => !selectedWbIds.includes(id));
-
     try {
-      await activateImportedSources({
-        workbookIds: nextWbIds,
-        datasetIds: nextDsIds,
-        enterpriseContext: { ...context, workbookIds: nextWbIds, datasetIds: nextDsIds }
-      });
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(context);
       await timelineRepository.log("DELETE", `${selectedWbIds.length} workbooks excluídos em lote`, `${selectedWbIds.length} registros purgados`);
       showToast("success", "Exclusão em lote concluída.");
       setSelectedWbIds([]);
@@ -562,6 +594,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       libraryWorkbookRepository.archiveWorkbook(id);
     }
 
+    await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
     await timelineRepository.log("ARCHIVE", `${selectedWbIds.length} workbooks arquivados em lote`, `${selectedWbIds.length} itens inativados`);
     showToast("info", "Planilhas arquivadas com sucesso.");
     setSelectedWbIds([]);
@@ -573,28 +606,12 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     const actionStr = activate ? "ativar" : "desativar";
     if (!window.confirm(`Deseja realmente ${actionStr} as ${selectedWbIds.length} planilhas selecionadas?`)) return;
 
-    const context = getEnterpriseContext();
-    let nextWbIds = context.workbookIds || [];
-    let nextDsIds = context.datasetIds || [];
-
-    if (activate) {
-      selectedWbIds.forEach(id => {
-        if (!nextWbIds.includes(id)) {
-          nextWbIds.push(id);
-          nextDsIds.push(id);
-        }
-      });
-    } else {
-      nextWbIds = nextWbIds.filter(id => !selectedWbIds.includes(id));
-      nextDsIds = nextDsIds.filter(id => !selectedWbIds.includes(id));
-    }
-
     try {
-      await activateImportedSources({
-        workbookIds: nextWbIds,
-        datasetIds: nextDsIds,
-        enterpriseContext: { ...context, workbookIds: nextWbIds, datasetIds: nextDsIds }
+      selectedWbIds.forEach(id => {
+        if (activate) libraryWorkbookRepository.restoreWorkbook(id);
+        else libraryWorkbookRepository.archiveWorkbook(id);
       });
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
       const logAction = activate ? "ATIVADAS" : "DESATIVADAS";
       await timelineRepository.log("ACTIVATE", `${selectedWbIds.length} planilhas ${logAction.toLowerCase()} em lote`, `${selectedWbIds.length} fontes alteradas`);
       showToast("success", `Planilhas ${activate ? "ativadas" : "desativadas"} com sucesso.`);
@@ -614,27 +631,18 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
     try {
       for (const wbId of selectedWbIds) {
-        // Clean previous links
-        for (const ent of enterprises) {
-          if (ent.type === "Empresa" || ent.type === "Unidade") {
-            const cast = ent as any;
-            if (cast.workbookIds?.includes(wbId)) {
-              await enterpriseRepository.save({
-                ...cast,
-                workbookIds: cast.workbookIds.filter((id: string) => id !== wbId)
-              });
-            }
-          }
-        }
-        // Link to target
-        const nextWbs = targetComp.workbookIds || [];
-        if (!nextWbs.includes(wbId)) {
-          await enterpriseRepository.save({
-            ...targetComp,
-            workbookIds: [...nextWbs, wbId]
-          });
-        }
+        const workbook = libraryWorkbookRepository.getWorkbook(wbId);
+        const version = workbook ? libraryWorkbookRepository.getCurrentVersion(workbook.id) : null;
+        await enterpriseRepository.bindSource({
+          sourceId: version?.activeDataset?.datasetId || wbId,
+          workbookId: wbId,
+          datasetId: version?.activeDataset?.datasetId || wbId,
+          groupId: targetComp.parentId,
+          companyId: targetComp.id,
+        });
       }
+
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
 
       await timelineRepository.log("LINK", `${selectedWbIds.length} planilhas vinculadas em lote`, `Destino: ${targetComp.name}`);
       showToast("success", "Planilhas movidas e vinculadas com sucesso.");
@@ -653,16 +661,12 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     const actionStr = activate ? "ativar" : "desativar";
     if (!window.confirm(`Deseja realmente ${actionStr} todas as planilhas do workspace?`)) return;
 
-    const context = getEnterpriseContext();
-    const nextWbIds = activate ? targetIds : [];
-    const nextDsIds = activate ? targetIds : [];
-
     try {
-      await activateImportedSources({
-        workbookIds: nextWbIds,
-        datasetIds: nextDsIds,
-        enterpriseContext: { ...context, workbookIds: nextWbIds, datasetIds: nextDsIds }
+      targetIds.forEach(id => {
+        if (activate) libraryWorkbookRepository.restoreWorkbook(id);
+        else libraryWorkbookRepository.archiveWorkbook(id);
       });
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
       await timelineRepository.log("ACTIVATE", `Todas as planilhas foram ${activate ? "ativadas" : "desativadas"}`, `${targetIds.length} planilhas`);
       showToast("success", `Todas as planilhas foram ${activate ? "ativadas" : "desativadas"}.`);
       refreshDataSource();
@@ -674,8 +678,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   // Resolved dynamic values for Operational Center
   const activePeriodStr = activeDataset?.importedAt ? new Date(activeDataset.importedAt).toLocaleDateString("pt-BR") : "N/A";
   const numColumns = activeDataset?.columnCount || 0;
-  const detectedSegmentLabel = DOMAIN_LABELS[currentWorkspace?.detectedDomain || "neutral"] || "Neutro";
-  const confirmedSegmentLabel = DOMAIN_LABELS[currentWorkspace?.manualDomain || "neutral"] || "Neutro";
+  const detectedSegmentLabel = getDomainDisplayLabel(currentWorkspace?.detectedDomain);
+  const confirmedSegmentLabel = getDomainDisplayLabel(currentWorkspace?.manualDomain);
 
   return (
     <div className="space-y-6 text-slate-800 dark:text-slate-100 text-left font-sans text-xs max-w-full overflow-x-hidden">
@@ -755,19 +759,19 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                       <span className="font-bold text-slate-700 dark:text-slate-200">{activeUnit?.name || "Nenhuma/Geral"}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold">Workspace:</span>
+                      <span className="text-slate-400 font-semibold">Projeto:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-200">{currentWorkspace?.name || "Nenhum"}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold">Segmento Workspace:</span>
+                      <span className="text-slate-400 font-semibold">Área de atuação:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-200">{confirmedSegmentLabel}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold">Domínio Detectado:</span>
+                      <span className="text-slate-400 font-semibold">Área identificada:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-200">{detectedSegmentLabel}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold">Confiança da Detecção:</span>
+                      <span className="text-slate-400 font-semibold">Confiança:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-200">
                         {currentWorkspace?.domainConfidence ? `${Math.round(currentWorkspace.domainConfidence * 100)}%` : "N/A"}
                       </span>
@@ -956,7 +960,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
             {/* Quick Actions Console */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4 text-left">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block border-b border-slate-100 dark:border-slate-900 pb-2">Console Operacional de Ações Rápidas</span>
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block border-b border-slate-100 dark:border-slate-900 pb-2">Ações rápidas</span>
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   onClick={() => handleActivateAllWorkspaceSources(true)}
@@ -995,7 +999,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
               <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
                 <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
                   <FolderOpen size={16} className="text-blue-500" />
-                  Catálogo de Documentos e Planilhas do Workspace
+                  Biblioteca de planilhas do projeto
                 </h3>
                 
                 {/* Search field */}
@@ -1068,9 +1072,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-855 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-350 focus:outline-none text-[11px]"
                   >
                     <option value="">-- Todos os Segmentos --</option>
-                    <option value="neutral">Neutro / Geral</option>
-                    <option value="agribusiness">Agronegócio</option>
-                    <option value="automotive">Automotivo</option>
+                    {getDomainDisplayOptions().map(option => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -1179,12 +1183,14 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
                   {filteredLibrary.map((f) => {
                     const audit = auditWorkbook(f);
-                    const linkedCompany = companies.find(c => c.workbookIds?.includes(f.id));
+                    const linkedCompany = linkedCompanyFor(f.id);
                     const linkedGroup = linkedCompany ? groups.find(g => g.id === linkedCompany.parentId) : null;
                     const segment = (linkedCompany && (linkedCompany as any).segment) || "neutral";
                     
                     const isSelected = selectedWbIds.includes(f.id);
-                    const isActive = getEnterpriseContext().workbookIds?.includes(f.id);
+                    const isActive = getEnterpriseContext().workbookIds?.includes(f.id)
+                      || activeDataset?.sourceWorkbookIds?.includes(f.id)
+                      || activeDataset?.sourceDatasetIds?.includes(f.id);
 
                     return (
                       <tr 
@@ -1263,7 +1269,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                         {/* Segment */}
                         <td className="p-3">
                           <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded font-bold uppercase text-[9px]">
-                            {DOMAIN_LABELS[segment] || "Neutro"}
+                            {getDomainDisplayLabel(segment)}
                           </span>
                         </td>
 
@@ -1490,7 +1496,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                 <table className="w-full text-[10px] font-mono border-collapse text-left">
                   <thead>
                     <tr className="bg-slate-950 border-b border-slate-850 text-slate-500 uppercase text-[8px] font-black">
-                      {previewRows.length > 0 && Object.keys(previewRows[0]).filter(k => k !== "id" && k !== "__isDemo").map(key => (
+                      {previewRows.length > 0 && Object.keys(previewRows[0]).filter(k => k !== "id").map(key => (
                         <th key={key} className="p-2 border-r border-slate-850">{key}</th>
                       ))}
                     </tr>
@@ -1498,7 +1504,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                   <tbody>
                     {previewRows.map((r, i) => (
                       <tr key={i} className="border-b border-slate-900 hover:bg-slate-900/50">
-                        {Object.keys(r).filter(k => k !== "id" && k !== "__isDemo").map((key, idx) => (
+                        {Object.keys(r).filter(k => k !== "id").map((key, idx) => (
                           <td key={idx} className="p-2 border-r border-slate-900 text-slate-350 truncate max-w-[120px]">{String(r[key])}</td>
                         ))}
                       </tr>
@@ -1536,14 +1542,17 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
               <button onClick={() => setIsUploaderOpen(false)} className="text-slate-400 hover:text-white font-extrabold text-xs">Fechar</button>
             </div>
             <SimpleSpreadsheetImporter
+              initialFiles={pendingFiles}
               onImported={async (dataset) => {
                 setIsUploaderOpen(false);
+                setPendingFiles([]);
                 refreshDataSource();
                 await timelineRepository.log("IMPORT", "Planilha importada com sucesso", dataset.sourceName);
                 showToast("success", "Planilha importada com sucesso.");
               }}
               onCancel={() => {
                 setIsUploaderOpen(false);
+                setPendingFiles([]);
               }}
             />
           </div>

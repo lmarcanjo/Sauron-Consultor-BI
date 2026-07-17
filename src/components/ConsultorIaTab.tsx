@@ -224,7 +224,7 @@ export const ConsultorIaTab: React.FC<ConsultorIaTabProps> = ({
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder="Pergunte ao Sauron EX: Qual concessionária teve melhor margem e como reverter custos?"
+          placeholder="Pergunte ao Sauron EX: Qual unidade teve melhor margem e como reverter custos?"
           className="flex-1 bg-slate-50 dark:bg-slate-850 p-2.5 px-3 rounded-xl border border-slate-150 dark:border-slate-800 focus:border-blue-500 focus:outline-none text-xs"
         />
         <button

@@ -4,6 +4,7 @@
  */
 
 import { IPersistenceProvider } from "./IPersistenceProvider";
+import { platformLogger } from "../platform/PlatformLogger";
 
 /**
  * Standard conflict resolution strategy types.
@@ -75,7 +76,7 @@ export class OfflineEngine {
    */
   public setOnline(status: boolean): void {
     this.isOnlineStatus = status;
-    console.log(`[OfflineEngine] Network connection status changed: ${status ? "ONLINE" : "OFFLINE"}`);
+      platformLogger.info(`[OfflineEngine] Network connection status changed: ${status ? "ONLINE" : "OFFLINE"}`);
   }
 
   public isOnline(): boolean {

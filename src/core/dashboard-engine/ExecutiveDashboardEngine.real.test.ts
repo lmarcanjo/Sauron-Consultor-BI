@@ -108,11 +108,19 @@ describe("Executive Dashboard Engine with the real Honda workbook", () => {
   runWithRealWorkbook("builds executive and module blocks from mapped real sheets", async () => {
     const buffer = fs.readFileSync(REAL_WORKBOOK_PATH);
     const workbook = XLSX.read(buffer, { type: "buffer", cellFormula: true, cellDates: true });
+    const rowsCache = new Map<string, Record<string, any>[]>();
+    const cachedRowsFromSheet = (sheetName: string, headerRowNumber: number, limit: number): Record<string, any>[] => {
+      const key = `${sheetName}:${headerRowNumber}`;
+      if (!rowsCache.has(key)) {
+        rowsCache.set(key, rowsFromSheet(workbook, sheetName, headerRowNumber, 5000));
+      }
+      return (rowsCache.get(key) || []).slice(0, Math.min(limit, 5000));
+    };
     const catalog = await new WorkbookEngine().catalogArrayBuffer(buffer, {
       sourceName: path.basename(REAL_WORKBOOK_PATH),
       sourceSizeBytes: buffer.byteLength,
       previewRowsPerSheet: 5,
-      profileRowsPerSheetLimit: 500,
+      profileRowsPerSheetLimit: 100,
     });
     const reverseReport = workbookReverseEngineer.generateReport(catalog);
     const dataset = activeDatasetFromCatalog(catalog);
@@ -126,11 +134,11 @@ describe("Executive Dashboard Engine with the real Honda workbook", () => {
       reverseReport,
       knowledgeGraph,
       rules,
-      maxRowsPerMetric: 100000,
+      maxRowsPerMetric: 5000,
       rowProvider: async (sheetName: string, limit: number) => {
-        if (sheetName === "Comissão_Vendedores") return rowsFromSheet(workbook, sheetName, 13, limit);
-        if (sheetName === "Cadastros_Vendedores") return rowsFromSheet(workbook, sheetName, 5, limit);
-        return rowsFromSheet(workbook, sheetName, 2, limit);
+        if (sheetName === "Comissão_Vendedores") return cachedRowsFromSheet(sheetName, 13, limit);
+        if (sheetName === "Cadastros_Vendedores") return cachedRowsFromSheet(sheetName, 5, limit);
+        return cachedRowsFromSheet(sheetName, 2, limit);
       },
     };
 

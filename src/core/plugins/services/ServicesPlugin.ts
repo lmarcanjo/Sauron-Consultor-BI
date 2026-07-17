@@ -20,7 +20,7 @@ export class ServicesPlugin implements SegmentPlugin {
   }
 
   public getRequiredColumns(): string[] {
-    return ["Holding", "Documento", "Portfólio", "Unidade Negócio", "Horas Faturadas", "Custo Consultores", "Overhead", "Mês", "Contrato Tipo", "Canal"];
+    return ["Grupo", "Documento", "Portfólio", "Unidade Negócio", "Horas Faturadas", "Custo Consultores", "Overhead", "Mês", "Contrato Tipo", "Canal"];
   }
 
   public getSuggestedKpis(records: any[]): any[] {
@@ -31,7 +31,7 @@ export class ServicesPlugin implements SegmentPlugin {
 
   public getSuggestedMappings(): Record<string, string> {
     return {
-      Grupo: "Holding",
+      Grupo: "Grupo",
       CNPJ: "Documento",
       Marca: "Portfólio",
       Empresa: "Unidade Negócio",

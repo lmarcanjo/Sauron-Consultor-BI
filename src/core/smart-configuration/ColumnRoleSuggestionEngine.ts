@@ -8,55 +8,28 @@ import {
   SmartSuggestionSource,
   WorkspaceModuleMappingMemory,
 } from "./SmartConfigurationTypes";
-import { businessDomainEngine } from "../business-domains/BusinessDomainEngine";
-import { businessVocabularyEngine } from "../business-domains/BusinessVocabularyEngine";
+import { businessDomainEngine, businessDomainRegistry } from "../business-domains";
 
-const ROLE_TO_VOCAB_TERM: Record<string, Record<string, string>> = {
-  automotive: {
-    product: "Veículo",
-    seller: "Consultor de vendas",
-    store: "Concessionária",
-    department: "Oficina"
-  },
-  agribusiness: {
-    product: "Insumo",
-    seller: "Produtor",
-    store: "Fazenda",
-    department: "Talhão",
-    date: "Safra"
-  },
-  retail: {
-    product: "Produto",
-    seller: "Cliente",
-    store: "Loja",
-    department: "PDV"
-  },
-  services: {
-    product: "Projeto",
-    seller: "Consultor",
-    client: "Cliente"
-  },
-  healthcare: {
-    client: "Paciente",
-    department: "Internação"
-  },
-  education: {
-    client: "Aluno",
-    seller: "Professor",
-    department: "Turma",
-    product: "Disciplina"
-  },
-  construction: {
-    store: "Obra",
-    seller: "Engenheiro",
-    department: "Etapa",
-    date: "Cronograma"
-  },
-  industry: {
-    store: "Fábrica",
-    department: "Linha",
-    product: "Ordem"
-  }
+const GENERIC_TARGET_TO_ROLES: Record<string, string[]> = {
+  empresa: ["store"],
+  unidade: ["store"],
+  filial: ["store"],
+  loja: ["store"],
+  vendedor: ["seller"],
+  consultor: ["seller"],
+  colaborador: ["name", "employee"],
+  funcionario: ["name", "employee"],
+  departamento: ["department", "category", "costCenter"],
+  setor: ["department", "category", "costCenter"],
+  produto: ["product"],
+  item: ["product"],
+  cliente: ["client"],
+  data: ["date"],
+  competencia: ["date"],
+  receita: ["revenue"],
+  custo: ["cost"],
+  despesa: ["expense"],
+  comissao: ["commission", "amount"],
 };
 
 const ROLE_LABELS: Partial<Record<ModuleName, Record<string, string>>> = {
@@ -191,14 +164,7 @@ export function columnTokenSimilarity(left: string, right: string): number {
 function rolePatterns(moduleName: ModuleName, definition: ModuleRoleDefinition): string[] {
   const basePatterns = definition.patterns || [];
   const extraPatterns = EXTRA_PATTERNS[moduleName]?.[definition.role] || [];
-  
-  const domainId = businessDomainEngine.getActiveDomainId();
-  const termName = ROLE_TO_VOCAB_TERM[domainId]?.[definition.role];
-  let domainPatterns: string[] = [];
-  if (termName) {
-    const synonyms = businessVocabularyEngine.getSynonyms(domainId, termName);
-    domainPatterns = [termName, ...synonyms];
-  }
+  const domainPatterns = getDomainTermsForRole(definition.role);
 
   return Array.from(new Set([...domainPatterns, ...extraPatterns, ...basePatterns].map(normalizeSmartConfigText).filter(Boolean)));
 }
@@ -226,11 +192,32 @@ function patternMatchScore(column: string, patterns: string[]): { score: number;
 }
 
 function getRoleLabel(moduleName: ModuleName, definition: ModuleRoleDefinition): string {
-  const domainId = businessDomainEngine.getActiveDomainId();
-  const termName = ROLE_TO_VOCAB_TERM[domainId]?.[definition.role];
-  if (termName) return termName;
-
+  const domainLabel = getDomainTermsForRole(definition.role)[0];
+  if (domainLabel) return domainLabel;
   return ROLE_LABELS[moduleName]?.[definition.role] || definition.label;
+}
+
+function getDomainTermsForRole(role: string): string[] {
+  const domainId = businessDomainEngine.getActiveDomainId();
+  if (!domainId || domainId === "shared" || domainId === "unknown") return [];
+
+  const pack = businessDomainRegistry.get(domainId);
+  if (!pack?.mapping?.suggestedMappings) return [];
+
+  const vocabulary = pack.vocabulary?.terms || [];
+  const terms: string[] = [];
+
+  Object.entries(pack.mapping.suggestedMappings).forEach(([sourceTerm, genericTarget]) => {
+    const normalizedTarget = normalizeSmartConfigText(genericTarget);
+    const targetRoles = GENERIC_TARGET_TO_ROLES[normalizedTarget] || [];
+    if (!targetRoles.includes(role)) return;
+
+    terms.push(sourceTerm);
+    const vocabularyTerm = vocabulary.find(item => normalizeSmartConfigText(item.term) === normalizeSmartConfigText(sourceTerm));
+    if (vocabularyTerm) terms.push(...vocabularyTerm.synonyms);
+  });
+
+  return Array.from(new Set(terms));
 }
 
 function isExcludedForRole(moduleName: ModuleName, role: string, column: string): boolean {

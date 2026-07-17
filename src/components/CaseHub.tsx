@@ -23,32 +23,21 @@ import { consultantWorkspaceManager } from "../modules/consultant-workspace/Cons
 import { WorkspaceProject } from "../modules/consultant-workspace/types";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/WorkspaceIntelligenceEngine";
 import { WorkspaceContext } from "../core/workspace-intelligence/types";
-import { workspaceDNAEngine } from "../core/workspace-intelligence/WorkspaceDNAEngine";
+import { buildWorkspaceSuggestions } from "../core/workspace-intelligence/WorkspaceSuggestions";
 import { caseDossierEngine, CaseDossierReport } from "../core/workspace-intelligence/CaseDossierEngine";
 import { caseHistoryEngine, CaseHistoryEvent } from "../core/workspace-intelligence/CaseHistoryEngine";
 
 // Static Default Context
 const DEFAULT_CONTEXT: WorkspaceContext = {
-  currentUser: { id: "u_1", name: "Lennon Marcanjo", role: "Super Admin", permissions: [] } as any,
-  currentOrganization: { id: "org_1", name: "Arcanjo Consulting" } as any,
+  currentUser: { id: "local_user", name: "Consultor", role: "Consultant", permissions: [] } as any,
+  currentOrganization: { id: "local_org", name: "Organização" } as any,
   currentCase: null,
-  currentWorkspace: { id: "ws_1", name: "Sauron Core Workspace" } as any,
+  currentWorkspace: { id: "local_workspace", name: "Projeto atual" } as any,
   currentPeriod: { id: "junho_2026", name: "Junho/2026" },
-  segmento: "Automotivo", grupo: "Corporativo", empresa: null, CNPJ: null, marca: null, loja: null,
+  segmento: "Geral", grupo: "Corporativo", empresa: null, CNPJ: null, marca: null, loja: null,
   departamento: null, centroDeCusto: null, vendedor: null, permissions: [], filtrosAtivos: {},
-  fonteDeDadosAtiva: "SPREADSHEET_DATA", modoDemoReal: "real", escopoDeAcesso: "global", entidadeSelecionada: null
+  fonteDeDadosAtiva: "SPREADSHEET_DATA", dataMode: "real", escopoDeAcesso: "global", entidadeSelecionada: null
 } as WorkspaceContext;
-
-// Default Bootstrap Project Layout
-const BOOTSTRAP_PROJECT_METADATA = {
-  client: "Projeto de Consultoria Padrão", group: "Corporativo", segment: "Automotivo",
-  companies: [], brands: [], cnpjs: [],
-  dbConnections: [], spreadsheets: [], importProfile: null, filters: [],
-  kpis: [],
-  dashboards: [], presentations: [],
-  actionPlans: [],
-  observations: "Projeto de consultoria padrão para o conselho exec.", history: [], auditLog: []
-};
 
 interface CaseHubProps {
   filteredData: any[];
@@ -69,7 +58,7 @@ export const CaseHub: React.FC<CaseHubProps> = ({
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectGroup, setNewProjectGroup] = useState("");
-  const [newProjectSegment, setNewProjectSegment] = useState("Automotivo");
+  const [newProjectSegment, setNewProjectSegment] = useState("Geral");
   const [activeTabId, setActiveTabId] = useState<string>("resumo");
   const [isPanelOpen, setIsPanelOpen] = useState<boolean>(true);
   const [dossierLog, setDossierLog] = useState<CaseDossierReport | null>(null);
@@ -79,25 +68,7 @@ export const CaseHub: React.FC<CaseHubProps> = ({
     workspaceIntelligenceEngine.contextManager.getContext() || DEFAULT_CONTEXT
   );
 
-  const dummyMetrics = useMemo(() => {
-    const hasData = filteredData.length > 0;
-    const receitaTotal = hasData ? filteredData.reduce((sum, d) => sum + (d.Receita || 0), 0) : 0;
-    const custoTotal = hasData ? filteredData.reduce((sum, d) => sum + (d.Custo || 0), 0) : 0;
-    const despesaTotal = hasData ? filteredData.reduce((sum, d) => sum + (d.Despesa || 0), 0) : 0;
-    const lucroTotal = receitaTotal - custoTotal - despesaTotal;
-    const margemMedia = receitaTotal > 0 ? (lucroTotal / receitaTotal) * 100 : 0;
-    return {
-      receitaTotal,
-      custoTotal,
-      despesaTotal,
-      lucroTotal,
-      margemMedia,
-      porMarca: [],
-      porCnpj: [],
-      porRazao: [],
-      porMes: []
-    };
-  }, [filteredData]);
+  const emptyMetrics = {} as any;
 
   useEffect(() => {
     const unsub = workspaceIntelligenceEngine.contextManager.subscribe(setContext);
@@ -114,11 +85,6 @@ export const CaseHub: React.FC<CaseHubProps> = ({
 
   const loadWorkspace = async () => {
     let list = await consultantWorkspaceManager.listActiveProjects();
-    if (list.length === 0) {
-      const defaultProject = await consultantWorkspaceManager.createProject(BOOTSTRAP_PROJECT_METADATA as any);
-      list = [defaultProject];
-      await consultantWorkspaceManager.setActiveProject(defaultProject.id);
-    }
     setProjects(list);
     const active = await consultantWorkspaceManager.getActiveProject();
     const proj = active || list[0];
@@ -147,7 +113,7 @@ export const CaseHub: React.FC<CaseHubProps> = ({
     }
   }, [activeProject, activeTabId]);
 
-  const dnaSuggestions = useMemo(() => workspaceDNAEngine.getSuggestions(context), [context]);
+  const dnaSuggestions = useMemo(() => buildWorkspaceSuggestions(context), [context]);
 
   const handleSelectCase = async (projectId: string) => {
     await consultantWorkspaceManager.setActiveProject(projectId);
@@ -166,9 +132,9 @@ export const CaseHub: React.FC<CaseHubProps> = ({
     if (!newProjectName) return;
 
     const newProj = await consultantWorkspaceManager.createProject({
-      client: newProjectName, group: newProjectGroup || "Grupo Geral", segment: newProjectSegment,
+      client: newProjectName, group: newProjectGroup.trim(), segment: newProjectSegment,
       companies: [newProjectName], brands: [], cnpjs: [], dbConnections: [], spreadsheets: [],
-      importProfile: null, filters: [], kpis: [{ id: `k_${Date.now()}`, name: "Margem Operacional de Produção", target: 45 }],
+      importProfile: null, filters: [], kpis: [],
       dashboards: [], presentations: [], actionPlans: [], observations: `Caso inicializado para ${newProjectName}.`,
       history: [], auditLog: []
     });
@@ -223,16 +189,16 @@ export const CaseHub: React.FC<CaseHubProps> = ({
 
           {activeTabId === "financeiro" && (
             <div className="space-y-6">
-              <IntelligentDRETab filteredData={filteredData} formatCurrency={formatCurrency} activeIndustryTemplateId={activeProject?.segment.toLowerCase() || "automotive"} />
+              <IntelligentDRETab filteredData={filteredData} formatCurrency={formatCurrency} activeIndustryTemplateId={activeProject?.segment.toLowerCase() || "neutral"} />
             </div>
           )}
 
           {activeTabId === "comercial" && (
-            <ComercialTab metrics={dummyMetrics as any} formatCurrency={formatCurrency} />
+            <ComercialTab metrics={emptyMetrics} formatCurrency={formatCurrency} />
           )}
 
           {activeTabId === "pessoas" && (
-            <CasePeoplePanel filteredData={filteredData} formatCurrency={formatCurrency} dummyMetrics={dummyMetrics} />
+            <CasePeoplePanel filteredData={filteredData} formatCurrency={formatCurrency} metrics={emptyMetrics} />
           )}
 
           {activeTabId === "reunioes" && (
@@ -250,7 +216,7 @@ export const CaseHub: React.FC<CaseHubProps> = ({
           {activeTabId === "planos" && <CasePlansPanel filteredData={filteredData} />}
 
           {activeTabId === "apresentacoes" && (
-            <PresentationBuilderPage dataOrigem={filteredData} filteredData={filteredData} formatCurrency={formatCurrency} metrics={dummyMetrics as any} />
+            <PresentationBuilderPage dataOrigem={filteredData} filteredData={filteredData} formatCurrency={formatCurrency} metrics={emptyMetrics} />
           )}
 
           {activeTabId === "dossie" && dossierLog && <CaseDossierPanel dossierLog={dossierLog} />}

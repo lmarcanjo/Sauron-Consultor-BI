@@ -26,7 +26,7 @@ const DataStatusComponent: React.FC<SauronDataStatusProps> = ({
   }[sourceType];
 
   const label = {
-    simulated: "Ambiente de Simulação (Demo)",
+    simulated: "Fonte local não conectada",
     spreadsheet: "Planilha de Importação Ativa",
     database: "Sincronizado via Banco Corporativo",
   }[sourceType];

@@ -1,7 +1,9 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- */
+*/
+
+import { platformLogger } from "../platform/PlatformLogger";
 
 /**
  * ============================================================================
@@ -334,7 +336,7 @@ export abstract class BaseSyncJobExecutor {
     options: SyncOptions,
     ctx: ConnectorContext
   ): Promise<{ success: boolean; totalRecords: number; errorsCount: number }> {
-    console.log(`[IntegrationPipeline] Starting pipeline for ${connector.metadata.name}, Correlation: ${ctx.correlationId}`);
+    platformLogger.info(`[IntegrationPipeline] Starting pipeline for ${connector.metadata.name}, Correlation: ${ctx.correlationId}`);
     
     let totalRecords = 0;
     let errorsCount = 0;

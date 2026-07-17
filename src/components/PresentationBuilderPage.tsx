@@ -10,10 +10,12 @@ import {
 } from 'lucide-react';
 import { LancamentoFinanceiro } from '../types';
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
+import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
 import { dataSourceManager } from "../services/dataSourceManager";
 import { Enterprise, enterpriseRepository } from "../core/persistence/EnterpriseRepository";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence";
 import { executivePresentationEngine, ExecutivePresentation } from "../core/business-intelligence/ExecutivePresentationEngine";
+import { FinancialConsistencyStatus } from "./FinancialConsistencyStatus";
 
 interface PresentationBuilderPageProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -69,7 +71,8 @@ export const PresentationBuilderPage: React.FC<PresentationBuilderPageProps> = (
       enterpriseId: selectedEnterpriseId || undefined,
       workspace: ws,
       activeDataset,
-      allRows: filteredData.length > 0 ? filteredData : dataOrigem
+      allRows: filteredData.length > 0 ? filteredData : dataOrigem,
+      moduleMappings: activeDataset ? listModuleMappings(activeDataset.datasetId, getDefaultProjectId(activeDataset)) : [],
     }).then(res => {
       setPresentation(res);
       if (res.status === "ready") {
@@ -240,7 +243,7 @@ Sauron OS - Inteligência BI de Alta Performance
         <Presentation className="text-emerald-500 w-12 h-12 animate-pulse" />
         <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Configuração Pendente</h3>
         <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
-          Dados insuficientes. Importe uma planilha ou associe fontes válidas para visualizar apresentações com dados reais.
+          Ainda não há informações suficientes. Adicione uma planilha ou confirme uma fonte para visualizar a apresentação.
         </p>
       </div>
     );
@@ -299,6 +302,8 @@ Sauron OS - Inteligência BI de Alta Performance
               </button>
             </div>
           </div>
+
+          {presentation.consistency && <FinancialConsistencyStatus consistency={presentation.consistency} />}
 
           <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0 overflow-hidden">
             

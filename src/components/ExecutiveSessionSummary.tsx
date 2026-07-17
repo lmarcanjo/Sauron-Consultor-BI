@@ -97,7 +97,7 @@ export const ExecutiveSessionSummary: React.FC<ExecutiveSessionSummaryProps> = (
                 <div>
                   <p><strong>Data de Emissão:</strong> {new Date().toLocaleDateString('pt-BR')}</p>
                   <p><strong>Duração Registrada:</strong> {formatTime(timerSeconds)}</p>
-                  <p><strong>Consultor:</strong> Lennon Marcanjo</p>
+                  <p><strong>Consultor:</strong> Responsável pela sessão</p>
                 </div>
               </div>
 
@@ -155,7 +155,7 @@ export const ExecutiveSessionSummary: React.FC<ExecutiveSessionSummaryProps> = (
               <div className="pt-12 grid grid-cols-2 gap-8 text-center text-xs font-sans">
                 <div className="space-y-1">
                   <div className="border-b border-slate-400 mx-auto w-3/4 h-5" />
-                  <p className="font-bold text-slate-700">Lennon Marcanjo</p>
+                  <p className="font-bold text-slate-700">Consultor responsável</p>
                   <p className="text-[10px] text-slate-500">Sauron OS Consulting</p>
                 </div>
                 <div className="space-y-1">

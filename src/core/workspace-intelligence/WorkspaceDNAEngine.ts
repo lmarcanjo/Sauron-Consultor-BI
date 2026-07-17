@@ -16,6 +16,10 @@ export interface DNASuggestions {
   acoesRecomendadas: { label: string; description: string; actionType: string }[];
 }
 
+/**
+ * @deprecated Case compatibility engine. New workbook flows use
+ * WorkspaceIntelligenceEngine and the selected ActiveDataset.
+ */
 export class WorkspaceDNAEngine {
   private static instance: WorkspaceDNAEngine;
 
@@ -48,7 +52,7 @@ export class WorkspaceDNAEngine {
     }
     
     // Default or check organization/workspace info
-    return "Automotivo";
+    return "Geral";
   }
 
   /**
@@ -157,38 +161,37 @@ export class WorkspaceDNAEngine {
           ]
         };
 
-      case "Automotivo":
       default:
         return {
-          segmentName: "Concessionárias Automotivas",
-          widgets: ["executive_brief", "maturity_index", "client_pulse", "vendedores_destaque"],
+          segmentName: "Operação Geral",
+          widgets: ["executive_brief", "maturity_index", "client_pulse", "responsaveis_destaque"],
           contextTabs: [
-            { id: "resumo", label: "Cockpit Concessionária", icon: "LayoutGrid" },
+            { id: "resumo", label: "Cockpit Executivo", icon: "LayoutGrid" },
             { id: "financeiro", label: "Finanças & DRE", icon: "TrendingUp" },
-            { id: "comercial", label: "Comercial & Vendedores", icon: "ShoppingBag" },
-            { id: "pos_vendas", label: "Pós-Vendas & Oficina", icon: "Wrench" },
-            { id: "estoque", label: "Estoque & Seminovos", icon: "Database" },
+            { id: "comercial", label: "Comercial & Responsáveis", icon: "ShoppingBag" },
+            { id: "operacoes", label: "Operações & Serviços", icon: "Wrench" },
+            { id: "estoque", label: "Estoque & Giro", icon: "Database" },
             { id: "comissoes", label: "Pessoas & Performance", icon: "Users" }
           ],
           kpis: [
-            { name: "Volume Bruto Geral", target: "R$ 3.8M", description: "Faturamento consolidado de veículos novos e seminovos" },
-            { name: "Margem de Contribuição F&I", target: "35%", description: "Margem média gerada por financiamentos e seguros acoplados" },
-            { name: "Absorção de Pós-Venda", target: "60%", description: "Percentual de custos fixos da loja pagos pela receita da Oficina" }
+            { name: "Volume Bruto Geral", target: "R$ 3.8M", description: "Faturamento consolidado das linhas comerciais" },
+            { name: "Margem de Contribuição", target: "35%", description: "Margem média gerada pelas linhas mapeadas" },
+            { name: "Absorção Operacional", target: "60%", description: "Percentual de custos fixos cobertos por receitas operacionais" }
           ],
           rituais: [
-            { name: "Rito de Fechamento de Vendas", description: "Revisão matinal diária do pipeline de test-drives e propostas", frequency: "Diário" },
-            { name: "Análise de Giro de Estoque de Seminovos", description: "Revisão de carros com mais de 45 dias no pátio para re-precificação", frequency: "Semanal" }
+            { name: "Rito de Fechamento Comercial", description: "Revisão diária do pipeline e propostas", frequency: "Diário" },
+            { name: "Análise de Giro de Estoque", description: "Revisão de itens com maior tempo de permanência para reprecificação", frequency: "Semanal" }
           ],
           dossies: [
-            { name: "Dossiê Consolidado de Unidade", description: "Análise integrada de desempenho de novos, seminovos, peças, oficina, penetração de F&I e despesas fixas." }
+            { name: "Dossiê Consolidado de Unidade", description: "Análise integrada de desempenho comercial, operação, estoque, comissões e despesas fixas." }
           ],
           alertas: [
-            { title: "Absorção do Pós-Venda em Queda", description: "Oficina caiu para 48% de cobertura das despesas fixas da Nissan Feira.", priority: "high" },
-            { title: "Giro de Estoque Elevado", description: "Média de seminovos Renault Feira atingiu 52 dias (alvo: 40 dias).", priority: "medium" }
+            { title: "Absorção Operacional em Queda", description: "Receitas operacionais cobriram 48% das despesas fixas no período analisado.", priority: "high" },
+            { title: "Giro de Estoque Elevado", description: "Itens de baixo giro atingiram média de 52 dias contra alvo de 40 dias.", priority: "medium" }
           ],
           acoesRecomendadas: [
-            { label: "Campanha de check-up gratuito", description: "Ativar base inativa de clientes de 2 a 4 anos para impulsionar fluxo da Oficina.", actionType: "service_marketing" },
-            { label: "Campanha de bônus por giro", description: "Oferecer incentivo adicional aos consultores de vendas para carros com +60 dias de pátio.", actionType: "stock_bonus" }
+            { label: "Campanha de reativação", description: "Ativar base inativa de clientes para impulsionar fluxo operacional.", actionType: "service_marketing" },
+            { label: "Campanha de bônus por giro", description: "Oferecer incentivo adicional aos responsáveis comerciais para itens com alto tempo de permanência.", actionType: "stock_bonus" }
           ]
         };
     }

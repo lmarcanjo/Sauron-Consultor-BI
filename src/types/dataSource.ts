@@ -6,7 +6,6 @@
 import { LancamentoFinanceiro } from "../types";
 
 export type ActiveDataSource =
-  | "DEMO_DATA"
   | "SPREADSHEET_DATA"
   | "DATABASE_DATA"
   | "CONSULTANT_DATA"
@@ -154,6 +153,9 @@ export interface SheetMetadata {
 
 export interface ActiveDataset {
   datasetId: string;
+  /** Source datasets represented by a multi-workbook selection. */
+  sourceDatasetIds?: string[];
+  sourceWorkbookIds?: string[];
   sourceType: ActiveDataSource;
   sourceName: string;
   importedAt: string;
@@ -201,11 +203,20 @@ export interface SourceIdentity {
   sourceId: string;
   workbookId: string;
   datasetId: string;
-  storageKey: string;
+  importJobId?: string;
+  fingerprint: string;
+  fileName: string;
+  storageMetadataKey: string;
+  storageRowsKey: string;
+  tenantId?: string;
   enterpriseId?: string;
   companyId?: string;
   unitId?: string;
-  workspaceId: string;
+  groupId?: string;
+  workspaceId?: string;
+  /** Compatibility alias retained while older persisted datasets migrate. */
+  storageKey?: string;
+  /** Compatibility alias retained while older persisted datasets migrate. */
   originalFileName: string;
 }
 
@@ -214,4 +225,8 @@ export interface ActiveSourceSelection {
   contextId: string;
   sourceIds: string[];
   updatedAt: string;
+  tenantId?: string;
+  workspaceId?: string;
+  scopeType?: "GROUP" | "COMPANY" | "UNIT";
+  scopeId?: string;
 }

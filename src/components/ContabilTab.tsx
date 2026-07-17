@@ -3,6 +3,7 @@ import { BookOpen, Search, AlertTriangle, FileSpreadsheet, Play, ArrowRight, Dat
 import { LancamentoFinanceiro, MetricasConsolidadas } from "../types";
 import { dataSourceManager } from "../services/dataSourceManager";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
+import { platformLogger } from "../core/platform/PlatformLogger";
 
 interface ContabilTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -34,9 +35,9 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
   
   useEffect(() => {
     if (activeDataset) {
-      console.log(`[Sauron Instrumentation] CONTABIL_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+      platformLogger.info(`[Sauron Instrumentation] CONTABIL_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
     } else {
-      console.log(`[Sauron Instrumentation] CONTABIL_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+      platformLogger.info(`[Sauron Instrumentation] CONTABIL_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
     }
   }, [activeDataset]);
 
@@ -64,12 +65,12 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
 
   // Extract unique values for filter selects
   const availableDepartamentos = useMemo(() => {
-    const list = dataOrigem.map(item => item.Departamento || "Geral");
+    const list = dataOrigem.map(item => item.Departamento || "Não informado");
     return Array.from(new Set(list)).sort();
   }, [dataOrigem]);
 
   const availableContasContabeis = useMemo(() => {
-    const list = dataOrigem.map(item => item.ContaContabil || "3.1.04.10000.10 - Combustível");
+    const list = dataOrigem.map(item => item.ContaContabil || "Conta não mapeada");
     return Array.from(new Set(list)).sort();
   }, [dataOrigem]);
 
@@ -93,37 +94,30 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
   }, [finalContabilData]);
 
   // Get active account for extracts
-  const activeAccountForExtract = clickedAccount || selectedConta || "3.1.04.10000.10 - Combustível";
+  const activeAccountForExtract = clickedAccount || selectedConta;
+  const sourceExtracts = useMemo(() => {
+    const dateKeys = ["Data", "data", "Data Lançamento", "DataLancamento", "Mês", "mês"];
+    const historyKeys = ["Histórico", "Historico", "Descrição", "Descricao", "Item", "Produto"];
+    const typeKeys = ["Tipo", "tipo", "Natureza", "natureza"];
+    const valueKeys = ["Valor", "valor", "Receita", "receita", "Despesa", "despesa", "Custo", "custo"];
 
-  // Mock individual transaction logs (Extratos de Lançamento) for the selected account
-  const simulatedExtracts = useMemo(() => {
-    const records = [];
-    const deptoAssigned = finalContabilData.find(d => d.ContaContabil === activeAccountForExtract)?.Departamento || "Geral";
-    const valueBase = contabilTotals.receita > 0 ? (contabilTotals.receita / 12) : 24000;
-    
-    const descriptions = [
-      { text: "NF 94212 - Compra de suprimentos regional", op: "DÉBITO" },
-      { text: "Lançamento de depreciação mensal de ativos", op: "DÉBITO" },
-      { text: "NF 84001 - Faturamento direto de contrapartida", op: "CRÉDITO" },
-      { text: "Apropriação contábil de folha de salários", op: "DÉBITO" },
-      { text: "Serviço terceirizado de consultoria de rede", op: "DÉBITO" }
-    ];
-
-    for (let i = 0; i < 5; i++) {
-      const entryVal = Math.round((valueBase * (0.15 + (i * 0.12))) * 100) / 100;
-      records.push({
-        id: `CN-2026-${1000 + i}`,
-        data: `0${i + 3}/03/2026`,
-        conta: activeAccountForExtract,
-        historico: descriptions[i % descriptions.length].text,
-        tipo: descriptions[i % descriptions.length].op,
-        valor: entryVal,
-        usuario: `faturamento.sauron${i}@gm.com`,
-        depto: deptoAssigned
+    return finalContabilData
+      .filter(row => !activeAccountForExtract || row.ContaContabil === activeAccountForExtract)
+      .slice(0, 20)
+      .map((row: any, index) => {
+        const read = (keys: string[]) => keys.map(key => row[key]).find(value => value !== undefined && value !== null && value !== "");
+        const value = Number(read(valueKeys) || 0);
+        return {
+          id: String(row.id || row.ID || `registro-${index + 1}`),
+          data: String(read(dateKeys) || "Data não mapeada"),
+          conta: String(row.ContaContabil || row.conta || "Conta não mapeada"),
+          historico: String(read(historyKeys) || "Registro da fonte"),
+          tipo: String(read(typeKeys) || "Valor"),
+          valor: Number.isFinite(value) ? value : 0,
+          depto: String(row.Departamento || row.departamento || "Não informado")
+        };
       });
-    }
-    return records;
-  }, [activeAccountForExtract, contabilTotals, finalContabilData]);
+  }, [activeAccountForExtract, finalContabilData]);
 
   return (
     <div className="space-y-4 font-sans animate-fade-in text-slate-800 dark:text-slate-150">
@@ -239,7 +233,7 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
                             onClick={() => setClickedAccount(row.ContaContabil || "")}
                             className="font-mono font-extrabold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer text-left text-[10px] sm:text-[11px]"
                           >
-                            {row.ContaContabil || "3.1.04.10000.10 - Combustível"}
+                            {row.ContaContabil || "Conta não mapeada"}
                           </button>
                         </td>
                         <td className="py-2 px-3 font-semibold text-slate-600 dark:text-slate-350">{row.Departamento || "Geral"}</td>
@@ -284,7 +278,7 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
             </p>
 
             <div className="space-y-2 max-h-[260px] overflow-y-auto pr-0.5 custom-scrollbar pt-1.5">
-              {simulatedExtracts.map((ent, idx) => (
+              {sourceExtracts.map((ent, idx) => (
                 <div key={idx} className="bg-slate-50 dark:bg-slate-850 p-2.5 rounded-lg border border-slate-150 dark:border-slate-800 space-y-1">
                   <div className="flex justify-between text-[9px] font-mono font-bold text-slate-400">
                     <span>Doc: {ent.id}</span>
@@ -299,6 +293,9 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
                   </div>
                 </div>
               ))}
+              {sourceExtracts.length === 0 && (
+                <p className="text-[10px] text-slate-500 italic">Nenhum registro encontrado para a conta selecionada.</p>
+              )}
             </div>
           </div>
 

@@ -143,28 +143,28 @@ export class ApiProvider implements IPersistenceProvider {
  * 3. PostgresProvider: Full server-side SQL mapper interface
  */
 export class PostgresProvider implements IPersistenceProvider {
-  private inMemoryDbMock = new Map<string, string>(); // Node-native fallback simulation
+  private inMemoryDbFallback = new Map<string, string>(); // Node-native fallback when SQL is unavailable
 
   public async getItem(key: string): Promise<string | null> {
     // In production, this issues SQL queries:
     // SELECT value FROM sauron_key_value WHERE key = $1
-    return this.inMemoryDbMock.get(key) || null;
+    return this.inMemoryDbFallback.get(key) || null;
   }
 
   public async setItem(key: string, value: string): Promise<void> {
     // In production, this issues:
     // INSERT INTO sauron_key_value(key, value) VALUES($1, $2) ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value
-    this.inMemoryDbMock.set(key, value);
+    this.inMemoryDbFallback.set(key, value);
   }
 
   public async removeItem(key: string): Promise<void> {
     // DELETE FROM sauron_key_value WHERE key = $1
-    this.inMemoryDbMock.delete(key);
+    this.inMemoryDbFallback.delete(key);
   }
 
   public async clear(): Promise<void> {
     // TRUNCATE sauron_key_value
-    this.inMemoryDbMock.clear();
+    this.inMemoryDbFallback.clear();
   }
 
   public async healthCheck(): Promise<boolean> {
@@ -186,7 +186,7 @@ export class PostgresProvider implements IPersistenceProvider {
     const results: T[] = [];
     const prefix = `${collection}:`;
     
-    for (const [key, val] of this.inMemoryDbMock.entries()) {
+    for (const [key, val] of this.inMemoryDbFallback.entries()) {
       if (key.startsWith(prefix)) {
         try {
           const parsed = JSON.parse(val) as T;

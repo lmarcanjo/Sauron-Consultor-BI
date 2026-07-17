@@ -3,6 +3,7 @@ import { AlertCircle, ArrowRight, ShieldAlert, Sparkles, TrendingDown, HelpCircl
 import { LancamentoFinanceiro } from "../types";
 import { dataSourceManager } from "../services/dataSourceManager";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
+import { platformLogger } from "../core/platform/PlatformLogger";
 
 interface DiagnosticoObstaculosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -19,13 +20,14 @@ export const DiagnosticoObstaculosTab: React.FC<DiagnosticoObstaculosTabProps> =
   
   useEffect(() => {
     if (activeDataset) {
-      console.log(`[Sauron Instrumentation] DIAGNOSTICO_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+      platformLogger.info(`[Sauron Instrumentation] DIAGNOSTICO_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
     } else {
-      console.log(`[Sauron Instrumentation] DIAGNOSTICO_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+      platformLogger.info(`[Sauron Instrumentation] DIAGNOSTICO_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
     }
   }, [activeDataset]);
 
   const isPendingConfiguration = useMemo(() => {
+    if (!activeDataset) return false;
     if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
     if (activeDataset && activeDataset.columnProfiles) {
       // Diagnostico requires KPIs or DREs to detect anomalies
@@ -34,6 +36,18 @@ export const DiagnosticoObstaculosTab: React.FC<DiagnosticoObstaculosTabProps> =
     }
     return true; // if no profiles, pending
   }, [activeDataset]);
+
+  if (!activeDataset) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans">
+        <ShieldAlert className="text-slate-400 w-12 h-12" />
+        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Nenhuma fonte de dados ativa.</h3>
+        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
+          Importe uma planilha real para visualizar diagnósticos.
+        </p>
+      </div>
+    );
+  }
 
   if (isPendingConfiguration) {
     return (
@@ -47,90 +61,26 @@ export const DiagnosticoObstaculosTab: React.FC<DiagnosticoObstaculosTabProps> =
     );
   }
 
-  // Dynamically analyze the records array to create 6 highly relevant, real-time diagnostic folders representing potential business obstacles
-  const obstaculos = useMemo(() => {
-    const list = [];
-
-    // Obstaculo 1: Low margins for premium brands vs target
-    const bydSales = dataOrigem.filter(d => d.Marca === "BYD");
-    const bydMargin = bydSales.length > 0 ? (bydSales.reduce((acc, curr) => acc + curr.Lucro, 0) / bydSales.reduce((acc, curr) => acc + curr.Receita, 1)) * 100 : 18.2;
-    list.push({
-      id: "obs-1",
-      title: "Descompressão Crítica de Margem Líquida em Veículos BYD",
-      severity: "critico",
-      what: "A margem de comercialização da marca recuou drasticamente para a base de " + Math.round(bydMargin * 10) / 10 + "%, apresentando desvio de 6.5 pontos percentuais contra o target regional de 24%.",
-      where: "Lojas do Grupo Prime Auto (BYD Centro e BYD Norte)",
-      when: "Maio de 2026",
-      reason: "Desconto Comercial Excessivo no Canhão Varejo para Batimento de Volume Míope.",
-      impact: bydMargin < 20 ? 145000 : 85000,
-      cause: "Vendedores concederam descontos agressivos na linha de opcionais e aceitaram carros seminovos supravariados no trade-in para faturar e garantir bônus de performance comercial à revelia das margens líquidas corporativas recomendadas.",
-      recommendation: "Suspender autonomia dos gerentes locais para concessão de descontos superiores a 3% sem anuência prévia da diretoria financeira. Instituir comissão associada à margem ponderada, não mais exclusivamente ao volume bruto (Yield-driven comissions)."
-    });
-
-    // Obstaculo 2: Administrative expenses growth
-    const adminExp = dataOrigem.filter(d => d.Razão === "Pessoal Administrativo").reduce((acc, cur) => acc + cur.Despesa, 0);
-    list.push({
-      id: "obs-2",
-      title: "Crescimento Descompassado de Despesas Administrativas (Sistemas TI)",
-      severity: "alto",
-      what: "As contas de materiais gerais e assinaturas digitais superaram a previsão oficial do orçamento mensal em cerca de 18% de forma persistente.",
-      where: "Grupo Carbon Motors (Toyota, Chevrolet, Jeep)",
-      when: "Maço a Maio de 2026",
-      reason: "Sistemas de TI e Telecom - Conta Contábil 3.1.04.10000.25 (Suporte e Licenças Software)",
-      impact: Math.round(adminExp * 0.12),
-      cause: "Contratação duplicada de licenças de CRMs antigos não migrados e custos recorrentes com telefonia e links dedicados redundantes após migração na nuvem legada.",
-      recommendation: "Auditar licenças ativas do painel Cloud e rescindir imediatamente os acessos de usuários inativos. Centralizar todas as solicitações de ferramentas de comunicação sob um único orçamento consolidado da TI unificada do grupo."
-    });
-
-    // Obstaculo 3: Loja de Baixa Conversão
-    list.push({
-      id: "obs-3",
-      title: "Desvio Produtivo Crítico e Queda de Conversão de Pedidos",
-      severity: "alto",
-      what: "Diferença alarmante de performance e faturamento entre as duas filiais equivalentes do mesmo grupo econômico. A filial Norte faturou apenas 54% do volume gerado pelo Showroom Centro.",
-      where: "Filiais Toyota Norte e Toyota Centro",
-      when: "Abril e Maio em fechamento concorrente",
-      reason: "Desempenho Comercial - Conversão de leads digitais na esteira física.",
-      impact: 220000,
-      cause: "A filial Norte demorou em média 4.2 horas para responder ao primeiro lead web, enquanto a filial Centro registrou tempo médio de resposta de apenas 14 minutos. Isso acarretou obsolescência e perda de leads qualificados.",
-      recommendation: "Realizar transposição do Gerente de Leads da filial Centro para coordenar temporariamente a força Norte. Automatizar a distribuição de leads da web usando regras com tempo máximo de resposta de 30 minutos (SLA de engajamento acelerado)."
-    });
-
-    // Obstaculo 4: Comissões desproporcionais
-    list.push({
-      id: "obs-4",
-      title: "Desproporção Financeira de Comissões vs Retorno de Margem",
-      severity: "critico",
-      what: "Despesa com pagamentos de incentivos comerciais superou o razoável, crescendo cerca de 32% no acumulado, enquanto a receita de novos veículos faturados cresceu somente 4%.",
-      where: "Todas as Concessionárias de Voo Ativas",
-      when: "Maio de 2026",
-      reason: "Pessoal de Vendas - Conta Conta 3.1.03.11100.05",
-      impact: 95000,
-      cause: "Ausência de gatilho financeiro limitador (Cláusula de Margem Mínima) no regulamento do comissionamento corporativo. O sistema pagou comissão integral a vendas que foram faturadas com lucros marginais quase nulos.",
-      recommendation: "Alterar a política comercial imediatamente: proibir comissão sobre vendas realizadas com margem inferior a 1.5%. Introduzir prêmio de superação condicionado ao Ebitda final apurado na filial."
-    });
-
-    // Obstaculo 5: Stagnant stock
-    list.push({
-      id: "obs-5",
-      title: "Ociosidade Crítica e Estoque Parado de Seminovos de Baixo Giro",
-      severity: "alto",
-      what: "Acúmulo de capital de giro ocioso representado por veículos com tempo médio de exposição em pátio superior a 78 dias, contra target ideal tolerado de 45 dias.",
-      where: "Lojas Chevrolet de Varejo S/A",
-      when: "Fevereiro a Junho de 2026",
-      reason: "Custos de Pátio e Ocupação Financeira - Ativo Imobilizado Provisório",
-      impact: 180050,
-      cause: "Avaliação imprecisa na captação inicial com precificação desalinhada das tabelas regionais de mercado de varejo.",
-      recommendation: "Executar imediatamente um feirão com descontos táticos e bônus em revisões oficiais programadas para girar o capital acumulado e estancar perdas por depreciação."
-    });
-
-    return list;
-  }, [dataOrigem]);
+  // This legacy surface no longer invents obstacles. Certified metrics must be
+  // supplied by the Business Intelligence and Dashboard engines first.
+  const obstaculos: Array<{ id: string; severity: "alto" | "critico"; title: string; what: string; where: string; when: string; reason: string; impact: number; cause: string; recommendation: string }> = [];
 
   const filtrados = useMemo(() => {
     if (selectedImpactLevel === "todos") return obstaculos;
     return obstaculos.filter(o => o.severity === selectedImpactLevel);
   }, [obstaculos, selectedImpactLevel]);
+
+  if (filtrados.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans">
+        <ShieldAlert className="text-amber-500 w-12 h-12" />
+        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Configuração pendente</h3>
+        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
+          Há uma fonte de dados ativa, mas faltam informações financeiras e operacionais. Revise os campos para gerar diagnósticos.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4 font-sans text-slate-800 dark:text-slate-150 animate-fade-in" id="diagnostico-obstaculos-view">

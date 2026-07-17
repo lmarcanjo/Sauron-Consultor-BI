@@ -4,48 +4,18 @@ import {
   WorkbookFingerprint,
 } from "./WorkspaceIntelligenceTypes";
 import { normalizeBusinessToken, tokenizeBusinessText } from "./WorkbookFingerprint";
+import { businessDomainRegistry } from "../business-domains/BusinessDomainRegistry";
+import "../business-domains";
 
-const DOMAIN_TERMS: Record<BusinessDomain, string[]> = {
-  automotive: [
-    "acessorio",
-    "chassi",
-    "comissao",
-    "concessionaria",
-    "garantia",
-    "marca",
-    "modelo",
-    "oficina",
-    "os",
-    "peca",
-    "pecas",
-    "revisao",
-    "veiculo",
-    "vendedor",
-  ],
-  agribusiness: [
-    "boi",
-    "colheita",
-    "cultura",
-    "fazenda",
-    "grao",
-    "hectare",
-    "insumo",
-    "leite",
-    "lote",
-    "plantio",
-    "produtor",
-    "propriedade",
-    "safra",
-    "talhao",
-  ],
-  retail: ["caixa", "categoria", "cliente", "cupom", "estoque", "loja", "produto", "sku", "varejo", "venda"],
-  services: ["agenda", "atendimento", "chamado", "cliente", "contrato", "hora", "projeto", "servico", "sla"],
-  finance: ["banco", "caixa", "centro", "conta", "credito", "custo", "dre", "financeiro", "margem", "receita"],
-  healthcare: ["clinica", "consulta", "exame", "medico", "paciente", "procedimento", "saude"],
-  education: ["aluno", "aula", "curso", "disciplina", "escola", "matricula", "nota", "professor"],
-  construction: ["canteiro", "construcao", "empreendimento", "engenharia", "medicao", "obra", "orcamento"],
-  unknown: [],
-};
+function domainTerms(domain: BusinessDomain): string[] {
+  const pack = businessDomainRegistry.get(domain);
+  if (!pack) return [];
+  return [
+    pack.manifest.id,
+    pack.manifest.name,
+    ...pack.vocabulary.terms.flatMap(term => [term.term, ...term.synonyms]),
+  ];
+}
 
 function emptyScores(): Record<BusinessDomain, number> {
   return {
@@ -72,8 +42,10 @@ export function classifyBusinessDomain(fingerprint: WorkbookFingerprint): Busine
   const scores = emptyScores();
   const matchedByDomain = new Map<BusinessDomain, string[]>();
 
-  (Object.keys(DOMAIN_TERMS) as BusinessDomain[]).forEach(domain => {
-    const matches = DOMAIN_TERMS[domain].filter(term => tokens.has(term));
+  (Object.keys(scores) as BusinessDomain[]).filter(domain => domain !== "unknown").forEach(domain => {
+    const matches = domainTerms(domain)
+      .map(normalizeBusinessToken)
+      .filter(term => tokens.has(term));
     matchedByDomain.set(domain, matches);
     scores[domain] = matches.length;
   });
@@ -105,16 +77,5 @@ export function classifyBusinessDomain(fingerprint: WorkbookFingerprint): Busine
 }
 
 export function getBusinessDomainLabel(domain: BusinessDomain): string {
-  const labels: Record<BusinessDomain, string> = {
-    automotive: "Automotivo",
-    agribusiness: "Agro",
-    retail: "Varejo",
-    services: "Serviços",
-    finance: "Financeiro",
-    healthcare: "Saúde",
-    education: "Educação",
-    construction: "Construção",
-    unknown: "Indefinido",
-  };
-  return labels[domain];
+  return businessDomainRegistry.get(domain)?.manifest.name || "Indefinido";
 }

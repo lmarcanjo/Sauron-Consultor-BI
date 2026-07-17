@@ -1,3 +1,5 @@
+import type { CertifiedMetricSnapshot } from "../core/financial-consistency";
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -123,4 +125,6 @@ export interface MeetingPrepReport {
   suggestedTopics: SuggestedTopic[];
   /** Avisos gerais de configuração */
   globalWarnings: string[];
+  /** Evidence envelope shared with presentation and meeting artifacts. */
+  certifiedSnapshot?: CertifiedMetricSnapshot;
 }

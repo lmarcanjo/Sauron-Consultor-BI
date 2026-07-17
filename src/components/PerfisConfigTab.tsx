@@ -25,7 +25,7 @@ export const PerfisConfigTab: React.FC = () => {
 
   const getWorkspaceDomain = (): string => {
     const ws = identityEngine.getCurrentWorkspace();
-    const wsId = ws?.id || "ws_primary";
+    const wsId = ws?.id || "workspace_default";
     let domain = "shared";
     try {
       const rawRegistry = localStorage.getItem("sauron_workspace_registry");
@@ -44,7 +44,7 @@ export const PerfisConfigTab: React.FC = () => {
 
   const loadDictionary = () => {
     const ws = identityEngine.getCurrentWorkspace();
-    const wsId = ws?.id || "ws_primary";
+    const wsId = ws?.id || "workspace_default";
     const domain = getWorkspaceDomain();
     setDict(workspaceDictionaryRepository.getDictionary(wsId, domain));
   };
@@ -205,7 +205,7 @@ export const PerfisConfigTab: React.FC = () => {
   const getPreviewResult = (): string => {
     if (!dict) return previewText;
     
-    // Construct local mock engine containing transient state changes
+    // Build a transient preview from the current dictionary edits.
     const originalText = previewText;
     
     // Perform transient term replacements based on current state of dictionary
@@ -266,7 +266,7 @@ export const PerfisConfigTab: React.FC = () => {
             <span className="bg-amber-500/20 text-amber-400 border border-amber-500/40 text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">MÓDULO DE CONFIGURAÇÕES</span>
             <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">ADAPTATIVE UX CERTIFICADO</span>
           </div>
-          <h2 className="text-sm font-extrabold uppercase tracking-widest text-slate-100">Configurações Gerais do Workspace</h2>
+          <h2 className="text-sm font-extrabold uppercase tracking-widest text-slate-100">Configurações gerais do projeto</h2>
           <p className="text-[10px] text-slate-400">Edição e governança em tempo de execução dos perfis de acesso e dicionário semântico de termos.</p>
         </div>
 
@@ -482,7 +482,7 @@ export const PerfisConfigTab: React.FC = () => {
                       department: "Departamentos / Setores / Centros",
                       branch: "Filiais / Lojas / Fazendas",
                       company: "Empresa / Fornecedores / Cooperativa",
-                      group: "Grupo Empresarial / Holding",
+                      group: "Grupo Empresarial",
                       commission: "Comissões / Bônus / Prêmios",
                       dashboard: "Painel / Dashboard",
                       report: "Relatórios / Diagnósticos / Dossiês",

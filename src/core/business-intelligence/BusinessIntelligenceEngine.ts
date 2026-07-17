@@ -8,6 +8,9 @@ import {
   BusinessMetricLineage,
   BusinessMetricName,
 } from "./BusinessMetricTypes";
+import { ActiveDataset } from "../../types/dataSource";
+import { ModuleFieldMapping } from "../data/moduleMapping";
+import { buildPresentationMetricValues, inferPresentationMappings, PresentationMetricValues } from "./PresentationMetricContext";
 
 export class BusinessIntelligenceEngine {
   private readonly metrics = new Map<string, BusinessMetric>();
@@ -37,6 +40,38 @@ export class BusinessIntelligenceEngine {
   getMetricLineage(metricId: string): BusinessMetricLineage | null {
     return getMetricLineage(metricId, this.listMetrics());
   }
+}
+
+export async function calculatePresentationMetricValues(params: {
+  activeDataset: ActiveDataset;
+  rows: Record<string, unknown>[];
+  moduleMappings?: ModuleFieldMapping[];
+}): Promise<{ values: PresentationMetricValues; metrics: BusinessMetric[]; mappings: ModuleFieldMapping[] }> {
+  const mappings = params.moduleMappings?.length
+    ? params.moduleMappings
+    : inferPresentationMappings(params.activeDataset, params.rows);
+  const engine = new BusinessIntelligenceEngine({
+    activeDataset: params.activeDataset,
+    moduleMappings: mappings,
+    rowProvider: async (_sheetName, limit) => params.rows.slice(0, limit),
+  });
+  const names: BusinessMetricName[] = [
+    "totalVendido",
+    "receitaCandidata",
+    "custoCandidato",
+    "despesaCandidata",
+    "resultadoLiquido",
+    "totalComissao",
+    "quantidadeVendedores",
+    "ticketMedio",
+    "margemCandidata",
+  ];
+  const metrics = await Promise.all(names.map(name => engine.calculateMetric(name)));
+  return {
+    values: buildPresentationMetricValues(metrics, params.rows, mappings),
+    metrics,
+    mappings,
+  };
 }
 
 export { calculateMetric, calculateModuleMetrics, explainMetric, getMetricLineage };

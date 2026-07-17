@@ -108,8 +108,6 @@ export class ContextResolver {
       escopoDeAcesso = "organization";
     }
 
-    const modoDemoReal: "demo" | "real" = "real";
-
     return {
       currentUser,
       currentOrganization: currentOrg,
@@ -128,7 +126,7 @@ export class ContextResolver {
       permissions,
       filtrosAtivos: activeFilters,
       fonteDeDadosAtiva: activeDataSource,
-      modoDemoReal,
+      dataMode: "real",
       escopoDeAcesso,
       entidadeSelecionada: selectedEntity
     };

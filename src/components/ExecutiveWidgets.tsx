@@ -22,9 +22,10 @@ export const ExecutiveBriefWidget: React.FC<{ context: WidgetContext }> = ({ con
   const activeEntity = workspaceContext?.entidadeSelecionada;
 
   // Derive stats
-  const baseRevenue = filteredData && filteredData.length > 0 
+  const hasData = filteredData && filteredData.length > 0;
+  const baseRevenue = hasData
     ? filteredData.reduce((acc, d) => acc + Number(d.Valor || d.valor || d.Total || 0), 0)
-    : 3850000;
+    : 0;
 
   if (activeEntity) {
     if (activeEntity.type === "vendedor") {
@@ -40,7 +41,7 @@ export const ExecutiveBriefWidget: React.FC<{ context: WidgetContext }> = ({ con
                 Foco Individual: <span className="text-blue-500 font-extrabold">{activeEntity.name}</span>
               </h3>
               <p className={DesignSystem.Typography.body}>
-                Vendedor destaque da unidade <strong className="text-slate-700 dark:text-slate-200">{activeEntity.metadata?.store || "Alpha Nissan"}</strong>. Vendeu <strong className="text-slate-700 dark:text-slate-200">11 de 12 veículos</strong> estabelecidos como meta para <strong className="text-slate-700 dark:text-slate-200">{workspaceContext.currentPeriod?.name}</strong>.
+                Há uma fonte de dados ativa para <strong className="text-slate-700 dark:text-slate-200">{activeEntity.name}</strong>. Confirme os campos para gerar o resumo individual.
               </p>
             </div>
             <button
@@ -61,13 +62,15 @@ export const ExecutiveBriefWidget: React.FC<{ context: WidgetContext }> = ({ con
             <div className="space-y-1">
               <h4 className="font-extrabold text-sm text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Building size={14} className="text-emerald-400" />
-                <span>Desempenho da Concessionária</span>
+                <span>Desempenho da Unidade</span>
               </h4>
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">
                 Foco Unidade: <span className="text-emerald-500 font-extrabold">{activeEntity.name}</span>
               </h3>
               <p className={DesignSystem.Typography.body}>
-                Faturamento líquido da unidade no período aponta para <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(activeEntity.name.includes("Renault") ? 1450000 : 2400000)}</strong>, representando uma performance saudável com atingimento de <strong className="text-slate-700 dark:text-slate-200">92% da meta corporativa</strong>.
+                {hasData
+                  ? <>Faturamento calculado a partir dos dados reais: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(baseRevenue)}</strong>.</>
+                  : <>Há uma fonte de dados ativa. Confirme os campos desta unidade para calcular o faturamento.</>}
               </p>
             </div>
             <button
@@ -90,7 +93,9 @@ export const ExecutiveBriefWidget: React.FC<{ context: WidgetContext }> = ({ con
             Dossiê de Desempenho Ativo
           </h4>
           <p className={DesignSystem.Typography.body}>
-            Consolidação do faturamento geral aponta para <strong className="text-slate-700 dark:text-slate-200">{formatCurrency(baseRevenue)}</strong>.
+            {hasData
+              ? <>Consolidação do faturamento geral aponta para <strong className="text-slate-700 dark:text-slate-200">{formatCurrency(baseRevenue)}</strong>.</>
+              : <>Nenhuma fonte de dados ativa para este resumo.</>}
           </p>
         </div>
         <button
@@ -112,19 +117,19 @@ export const HealthCenterWidget: React.FC<{ context: WidgetContext }> = ({ conte
 
   const checklistItems: Record<string, string[]> = {
     dados: [
-      "Ingestão automatizada ativa",
-      "Mascaramento LGPD em conformidade",
-      "Validação de contas concluída"
+      "Configuração de fonte de dados pendente",
+      "Validação de qualidade pendente",
+      "Linhas reais serão avaliadas após importação"
     ],
     kpis: [
-      "Margem mínima por segmento homologada",
-      "Meta de vendas Q3 definida",
-      "Aprovação do CMV alvo"
+      "KPIs dependem de mapeamento do módulo",
+      "Metas não configuradas",
+      "Regras financeiras não homologadas"
     ],
     rituais: [
-      "Ata de diretoria homologada",
-      "Ritual de faturamento ativo",
-      "Dossiê preparado para Conselho"
+      "Rituais pendentes de configuração",
+      "Dossiês dependem de dados reais",
+      "Apresentações dependem de métricas auditáveis"
     ]
   };
 
@@ -134,7 +139,7 @@ export const HealthCenterWidget: React.FC<{ context: WidgetContext }> = ({ conte
         <span className={DesignSystem.Typography.titleSmall}>
           Maturidade Operacional (Health Score)
         </span>
-        <span className={DesignSystem.Badge.build("success")}>Score: 88/100</span>
+        <span className={DesignSystem.Badge.build("warning")}>Configuração pendente</span>
       </div>
       <div className="p-4 space-y-4">
         <div className="grid grid-cols-3 gap-2">
@@ -176,45 +181,45 @@ export const ClientPulseWidget: React.FC<{ context: WidgetContext }> = ({ contex
 
   const activeFocus = workspaceContext?.entidadeSelecionada;
 
-  const revenue = filteredData && filteredData.length > 0 
+  const hasData = filteredData && filteredData.length > 0;
+  const revenue = hasData
     ? filteredData.reduce((acc, d) => acc + Number(d.Valor || d.valor || d.Total || 0), 0)
-    : 3850000;
+    : 0;
 
-  // Context-specific targets and attainment calculation
-  let kpi1Name = "Margem Comercial";
-  let kpi1ValueText = "Alvo: R$ 4.5M";
-  let kpi1Progress = 84;
-  let kpi1RealizedText = `Realizado: ${formatCurrency(revenue)}`;
+  // Context-specific values only when real rows are available.
+  let kpi1Name = "Resultado Comercial";
+  let kpi1ValueText = hasData ? "Dados reais" : "Configuração pendente";
+  let kpi1Progress = hasData ? 100 : 0;
+  let kpi1RealizedText = hasData ? `Realizado: ${formatCurrency(revenue)}` : "Sem dados calculados";
   let badgeText = "Consolidado";
 
-  let kpi2Name = "CMV Alvo de Peças";
-  let kpi2ValueText = "Alvo: 14.5%";
-  let kpi2Progress = 72;
-  let kpi2RealizedText = "Média: 13.8%";
+  let kpi2Name = "Métrica Secundária";
+  let kpi2ValueText = "Configuração pendente";
+  let kpi2Progress = 0;
+  let kpi2RealizedText = "Sem mapeamento";
 
   if (activeFocus) {
     badgeText = activeFocus.name;
     if (activeFocus.type === "vendedor") {
-      kpi1Name = "Meta de Emplacamento";
-      kpi1ValueText = "Alvo: 12 Carros";
-      kpi1Progress = 91;
-      kpi1RealizedText = "Realizado: 11 Carros";
+      kpi1Name = "Resumo Individual";
+      kpi1ValueText = hasData ? "Dados reais" : "Configuração pendente";
+      kpi1Progress = hasData ? 100 : 0;
+      kpi1RealizedText = hasData ? `Realizado: ${formatCurrency(revenue)}` : "Sem dados calculados";
 
-      kpi2Name = "Fidelização e F&I";
-      kpi2ValueText = "Alvo: 35%";
-      kpi2Progress = 85;
-      kpi2RealizedText = "Atingido: 30%";
+      kpi2Name = "Comissão";
+      kpi2ValueText = "Regra pendente";
+      kpi2Progress = 0;
+      kpi2RealizedText = "Sem regra configurada";
     } else if (activeFocus.type === "company") {
-      const isRenault = activeFocus.name.includes("Renault");
-      kpi1Name = "Volume Bruto Mensal";
-      kpi1ValueText = isRenault ? "Alvo: R$ 1.6M" : "Alvo: R$ 2.6M";
-      kpi1Progress = isRenault ? 90 : 92;
-      kpi1RealizedText = `Realizado: ${formatCurrency(isRenault ? 1450000 : 2400000)}`;
+      kpi1Name = "Volume Real";
+      kpi1ValueText = hasData ? "Dados reais" : "Configuração pendente";
+      kpi1Progress = hasData ? 100 : 0;
+      kpi1RealizedText = hasData ? `Realizado: ${formatCurrency(revenue)}` : "Sem dados calculados";
 
-      kpi2Name = "Absorção Pós-Venda";
-      kpi2ValueText = "Alvo: 60%";
-      kpi2Progress = isRenault ? 78 : 83;
-      kpi2RealizedText = isRenault ? "Medido: 47%" : "Medido: 50%";
+      kpi2Name = "Indicador Complementar";
+      kpi2ValueText = "Mapeamento pendente";
+      kpi2Progress = 0;
+      kpi2RealizedText = "Sem dado calculado";
     }
   }
 
@@ -269,10 +274,7 @@ export const ClientPulseWidget: React.FC<{ context: WidgetContext }> = ({ contex
 // 4. DECISION CENTER WIDGET
 // ────────────────────────────────────────────────────────────────────────
 export const DecisionCenterWidget: React.FC<{ context: WidgetContext }> = () => {
-  const [decisions, setDecisions] = useState([
-    { id: "d1", title: "Redução de CMV por compras integradas", impact: "Alto (+R$ 42k/m)", status: "pending" },
-    { id: "d2", title: "Reenquadramento tributário autopeças", impact: "Médio (+R$ 18k/m)", status: "pending" }
-  ]);
+  const [decisions, setDecisions] = useState<Array<{ id: string; title: string; impact: string; status: "pending" | "approved" | "archived" }>>([]);
 
   const handleResolve = (id: string, status: "approved" | "archived") => {
     setDecisions(prev => prev.map(d => d.id === id ? { ...d, status } : d));
@@ -292,9 +294,14 @@ export const DecisionCenterWidget: React.FC<{ context: WidgetContext }> = () => 
         <span className={DesignSystem.Typography.titleSmall}>
           Decision Center — Deliberações
         </span>
-        <span className={DesignSystem.Badge.build("warning")}>2 Pendentes</span>
+        <span className={DesignSystem.Badge.build("warning")}>{decisions.length} Pendentes</span>
       </div>
       <div className="p-4 space-y-3">
+        {decisions.length === 0 && (
+          <p className="text-xs text-slate-500 font-medium">
+            Nenhuma deliberação gerada. Configure dados reais e regras para criar recomendações auditáveis.
+          </p>
+        )}
         {decisions.map((dec) => (
           <div 
             key={dec.id} 
@@ -339,10 +346,7 @@ export const DecisionCenterWidget: React.FC<{ context: WidgetContext }> = () => 
 // 5. ACTION BOARD / TIMELINE WIDGET
 // ────────────────────────────────────────────────────────────────────────
 export const ActionBoardWidget: React.FC<{ context: WidgetContext }> = () => {
-  const [plans, setPlans] = useState([
-    { id: "p1", desc: "Ajuste de comissão de técnicos da Oficina", resp: "Roberto Consultor", status: "completed" },
-    { id: "p2", desc: "Renegociação de recebíveis banco Nissan", resp: "Ana Finanças", status: "pending" }
-  ]);
+  const [plans, setPlans] = useState<Array<{ id: string; desc: string; resp: string; status: "completed" | "pending" }>>([]);
 
   const toggleStatus = (id: string) => {
     setPlans(prev => prev.map(p => p.id === id ? { ...p, status: p.status === "completed" ? "pending" : "completed" } : p));
@@ -357,6 +361,11 @@ export const ActionBoardWidget: React.FC<{ context: WidgetContext }> = () => {
         <span className={DesignSystem.Badge.build("neutral")}>Ciclo Q2</span>
       </div>
       <div className="p-4 space-y-3">
+        {plans.length === 0 && (
+          <p className="text-xs text-slate-500 font-medium">
+            Nenhum plano operacional ativo. Planos serão exibidos somente quando criados a partir de dados reais.
+          </p>
+        )}
         {plans.map((p) => (
           <div key={p.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-950 rounded-xl transition">
             <button 
@@ -395,15 +404,15 @@ export const DataHealthWidget: React.FC<{ context: WidgetContext }> = () => {
       <div className="p-4 space-y-3 text-xs">
         <div className="flex justify-between items-center text-slate-600 dark:text-slate-300 font-medium">
           <span className="flex items-center gap-1.5"><Database size={13} className="text-blue-500" /> Banco Cloud:</span>
-          <span className="font-mono text-[10px] text-emerald-500">Conectado (PostgreSQL)</span>
+          <span className="font-mono text-[10px] text-amber-500">Configuração pendente</span>
         </div>
         <div className="flex justify-between items-center text-slate-600 dark:text-slate-300 font-medium">
           <span className="flex items-center gap-1.5"><FileText size={13} className="text-blue-500" /> Dicionário de Dados:</span>
-          <span className="font-mono text-[10px] text-slate-400">12 Tabelas Indexadas</span>
+          <span className="font-mono text-[10px] text-slate-400">Nenhuma tabela confirmada</span>
         </div>
         <div className="flex justify-between items-center text-slate-600 dark:text-slate-300 font-medium">
           <span className="flex items-center gap-1.5"><AlertCircle size={13} className="text-amber-500" /> Qualidade de Dados:</span>
-          <span className="font-mono text-[10px] text-emerald-500">Score 98.4%</span>
+          <span className="font-mono text-[10px] text-amber-500">Pendente</span>
         </div>
       </div>
     </div>
@@ -462,4 +471,3 @@ widgetRegistry.registerWidget({
   defaultSize: "sm",
   component: DataHealthWidget
 });
-

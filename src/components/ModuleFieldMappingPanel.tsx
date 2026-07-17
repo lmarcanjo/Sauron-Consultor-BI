@@ -89,7 +89,10 @@ export const ModuleFieldMappingPanel: React.FC<ModuleFieldMappingPanelProps> = (
   onSaved,
   defaultOpen = false,
 }) => {
-  const sheets = React.useMemo(() => getWorkbookSheets().map(sheet => sheet.sheetName), [activeDataset?.datasetId, activeDataset?.importedAt]);
+  const sheets = React.useMemo(
+    () => Array.from(new Set(getWorkbookSheets().map(sheet => sheet.sheetName))),
+    [activeDataset?.datasetId, activeDataset?.importedAt]
+  );
   const projectId = getDefaultProjectId(activeDataset);
   const persistedMapping = activeDataset
     ? getModuleMapping(moduleName, activeDataset.datasetId, projectId)
@@ -180,9 +183,9 @@ export const ModuleFieldMappingPanel: React.FC<ModuleFieldMappingPanelProps> = (
     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/30 p-3">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">Configurar Campos do Módulo</h4>
+          <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">Encontramos estas informações</h4>
           <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-            {savedAt ? `Mapeamento salvo em ${new Date(savedAt).toLocaleString("pt-BR")}` : "Escolha uma aba e as colunas reais que alimentam este módulo."}
+            {savedAt ? `Informações confirmadas em ${new Date(savedAt).toLocaleString("pt-BR")}` : "Confirme a sugestão ou edite somente o que não estiver correto."}
           </p>
         </div>
         <button
@@ -191,14 +194,14 @@ export const ModuleFieldMappingPanel: React.FC<ModuleFieldMappingPanelProps> = (
           className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-[11px] font-black uppercase text-slate-700 dark:text-slate-200 hover:border-blue-400"
         >
           <Settings2 size={14} />
-          <span>Configurar campos</span>
+          <span>Editar informações</span>
         </button>
       </div>
 
       {isOpen && (
         <div className="mt-4 space-y-4">
           <div>
-            <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Aba da planilha</label>
+            <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Em qual aba estão as informações?</label>
             <select
               value={selectedSheet}
               onChange={(event) => setSelectedSheet(event.target.value)}
@@ -212,8 +215,8 @@ export const ModuleFieldMappingPanel: React.FC<ModuleFieldMappingPanelProps> = (
 
           <div>
             <div className="flex items-center justify-between gap-3 mb-2">
-              <label className="block text-[10px] font-black uppercase text-slate-500">Colunas reais</label>
-              {loadingColumns && <span className="text-[10px] font-bold text-slate-400">Lendo prévia...</span>}
+              <label className="block text-[10px] font-black uppercase text-slate-500">Informações encontradas</label>
+              {loadingColumns && <span className="text-[10px] font-bold text-slate-400">Lendo os primeiros registros...</span>}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 max-h-[360px] overflow-auto pr-1">
@@ -236,7 +239,7 @@ export const ModuleFieldMappingPanel: React.FC<ModuleFieldMappingPanelProps> = (
                         onChange={(event) => setSemanticRoles(current => setRoleForColumn(current, column, event.target.value))}
                         className="mt-2 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200"
                       >
-                        <option value="">Sem papel específico</option>
+                        <option value="">Usar apenas nesta área</option>
                         {roleDefinitions.map(role => (
                           <option key={role.role} value={role.role}>{role.label}</option>
                         ))}
@@ -254,7 +257,7 @@ export const ModuleFieldMappingPanel: React.FC<ModuleFieldMappingPanelProps> = (
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-200 dark:border-slate-800 pt-3">
             <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              {selectedColumns.length} coluna(s) selecionada(s). Os dados originais não são alterados.
+              {selectedColumns.length} informação(ões) selecionada(s). A planilha original não é alterada.
             </p>
             <button
               type="button"
@@ -263,7 +266,7 @@ export const ModuleFieldMappingPanel: React.FC<ModuleFieldMappingPanelProps> = (
               className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-[11px] font-black uppercase disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {savedAt ? <CheckCircle2 size={14} /> : <Save size={14} />}
-              <span>Salvar configuração</span>
+              <span>Confirmar informações</span>
             </button>
           </div>
         </div>
@@ -271,4 +274,3 @@ export const ModuleFieldMappingPanel: React.FC<ModuleFieldMappingPanelProps> = (
     </div>
   );
 };
-

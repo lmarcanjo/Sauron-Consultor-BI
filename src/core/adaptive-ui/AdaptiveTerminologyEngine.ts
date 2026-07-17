@@ -10,7 +10,7 @@ import { AdaptiveDisplayLabel } from "./WorkspaceDictionary";
 export class AdaptiveTerminologyEngine {
   public getTerm(key: string): AdaptiveDisplayLabel {
     const ws = identityEngine.getCurrentWorkspace();
-    const wsId = ws?.id || "ws_primary";
+    const wsId = ws?.id || "workspace_default";
 
     let domain = "shared";
     if (typeof localStorage !== "undefined") {

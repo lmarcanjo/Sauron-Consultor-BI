@@ -27,8 +27,8 @@ export class DomainMarketPackMapper {
           domainId,
           quotesToWatch: ["SELIC_RATE", "FIPE_CARROS", "USD_BRL"],
           signalsToWatch: ["TAXA_JUROS_CREDITO", "DADOS_MONTADORAS", "EMPLACAMENTOS_FENABRAVE"],
-          externalIndicators: ["Taxa Selic Anual", "Índice de Preços FIPE", "Crédito Automotivo", "Vendas concessionárias"],
-          feedQueries: ["mercado automotivo", "veiculos novos", "concessionarias", "emplacamentos carros"],
+          externalIndicators: ["Taxa Selic Anual", "Índice de Preços Setoriais", "Crédito Comercial", "Vendas do segmento"],
+          feedQueries: ["mercado especializado", "vendas do segmento", "indicadores comerciais"],
         };
       case "construction":
         return {

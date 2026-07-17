@@ -18,22 +18,11 @@ import { Workspace } from "../core/workspace-intelligence/WorkspaceIntelligenceT
 import { useDataSourceManager } from "../hooks/useDataSourceManager";
 import { timelineRepository } from "../core/persistence/TimelineRepository";
 import { showToast } from "./Toast";
-
-const DOMAIN_LABELS: Record<string, string> = {
-  shared: "Geral / Neutro",
-  neutral: "Geral / Neutro",
-  automotive: "Automotivo",
-  agribusiness: "Agronegócio",
-  retail: "Varejo",
-  industry: "Indústria",
-  construction: "Construção Civil",
-  healthcare: "Saúde",
-  education: "Educação",
-  services: "Serviços"
-};
+import { PLATFORM_EVENTS, subscribePlatformEvent } from "../core/events/PlatformEvents";
+import { getDomainDisplayOptions, getDomainDisplayLabel } from "../core/business-domains";
 
 export const GlobalContextBar: React.FC = () => {
-  const { activeRecords } = useDataSourceManager();
+  const { activeRecords, activeDataset } = useDataSourceManager();
 
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [context, setContext] = useState(getEnterpriseContext());
@@ -45,6 +34,7 @@ export const GlobalContextBar: React.FC = () => {
   const [periods, setPeriods] = useState<string[]>([]);
   
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
+  const [isUpdatingContext, setIsUpdatingContext] = useState(false);
 
   const [displayHistory, setDisplayHistory] = useState(() => {
     if (typeof localStorage !== "undefined") {
@@ -89,12 +79,12 @@ export const GlobalContextBar: React.FC = () => {
     
     const handleUpdate = () => loadData();
     window.addEventListener("sauron:dictionary-updated", handleUpdate);
-    window.addEventListener("sauron:context-updated", handleUpdate);
+    const unsubscribePlatform = subscribePlatformEvent(PLATFORM_EVENTS.ENTERPRISE_CONTEXT_CHANGED, handleUpdate);
 
     return () => {
       unsubscribe();
       window.removeEventListener("sauron:dictionary-updated", handleUpdate);
-      window.removeEventListener("sauron:context-updated", handleUpdate);
+      unsubscribePlatform();
     };
   }, [loadData]);
 
@@ -107,18 +97,43 @@ export const GlobalContextBar: React.FC = () => {
       scope: "GROUP" as const,
       groupId,
       companyId: undefined,
-      unitId: undefined
+      unitId: undefined,
+      // Resolved sources belong to the previous scope. The consolidation
+      // service repopulates them for the new scope after this event.
+      workbookIds: [],
+      datasetIds: []
     };
-    setEnterpriseContext(nextContext);
-    await timelineRepository.log("LINK", "Foco do Grupo alterado", `Novo Grupo: ${target.name}`);
-    showToast("success", `Grupo alterado para: ${target.name}`);
+    setIsUpdatingContext(true);
+    try {
+      setEnterpriseContext(nextContext);
+      await timelineRepository.log("LINK", "Foco do Grupo alterado", `Novo Grupo: ${target.name}`);
+      showToast("success", `Visualizando ${target.name}.`);
+    } finally {
+      window.setTimeout(() => setIsUpdatingContext(false), 800);
+    }
   };
 
   const handleCompanyChange = async (companyId: string) => {
     if (companyId === "all") {
-      // Switch back to Group Scope if possible
+      // Switch back to Group Scope without retaining the previous company
+      // or unit source selection.
       if (context.groupId) {
-        handleGroupChange(context.groupId);
+        const nextContext = {
+          ...context,
+          scope: "GROUP" as const,
+          companyId: undefined,
+          unitId: undefined,
+          workbookIds: [],
+          datasetIds: []
+        };
+        setIsUpdatingContext(true);
+        try {
+          setEnterpriseContext(nextContext);
+          await timelineRepository.log("LINK", "Foco do Grupo alterado", "Visão consolidada do grupo");
+          showToast("success", "Visão consolidada do grupo ativada.");
+        } finally {
+          window.setTimeout(() => setIsUpdatingContext(false), 800);
+        }
       }
       return;
     }
@@ -129,11 +144,18 @@ export const GlobalContextBar: React.FC = () => {
       scope: "COMPANY" as const,
       companyId,
       groupId: target.parentId,
-      unitId: undefined
+      unitId: undefined,
+      workbookIds: [],
+      datasetIds: []
     };
-    setEnterpriseContext(nextContext);
-    await timelineRepository.log("LINK", "Foco da Empresa alterado", `Nova Empresa: ${target.name}`);
-    showToast("success", `Empresa alterada para: ${target.name}`);
+    setIsUpdatingContext(true);
+    try {
+      setEnterpriseContext(nextContext);
+      await timelineRepository.log("LINK", "Foco da Empresa alterado", `Nova Empresa: ${target.name}`);
+      showToast("success", `Visualizando ${target.name}.`);
+    } finally {
+      window.setTimeout(() => setIsUpdatingContext(false), 800);
+    }
   };
 
   const handleUnitChange = async (unitId: string) => {
@@ -151,21 +173,33 @@ export const GlobalContextBar: React.FC = () => {
       scope: "UNIT" as const,
       unitId,
       companyId: target.parentId,
-      groupId: companies.find(c => c.id === target.parentId)?.parentId
+      groupId: companies.find(c => c.id === target.parentId)?.parentId,
+      workbookIds: [],
+      datasetIds: []
     };
-    setEnterpriseContext(nextContext);
-    await timelineRepository.log("LINK", "Foco da Unidade alterado", `Nova Unidade: ${target.name}`);
-    showToast("success", `Unidade alterada para: ${target.name}`);
+    setIsUpdatingContext(true);
+    try {
+      setEnterpriseContext(nextContext);
+      await timelineRepository.log("LINK", "Foco da Unidade alterado", `Nova Unidade: ${target.name}`);
+      showToast("success", `Visualizando ${target.name}.`);
+    } finally {
+      window.setTimeout(() => setIsUpdatingContext(false), 800);
+    }
   };
 
   const handleWorkspaceChange = async (wsId: string) => {
     try {
+      const available = identityEngine.getVisibleWorkspaces().some(workspace => workspace.id === wsId);
+      if (!available) {
+        showToast("warning", "Este projeto não está mais disponível. Selecione outro projeto para continuar.");
+        return;
+      }
       identityEngine.switchWorkspace(wsId);
       await timelineRepository.log("LINK", "Mudança de Workspace", `Selecionado: ${wsId}`);
-      showToast("success", "Workspace alternado com sucesso.");
+      showToast("success", "Projeto alternado com sucesso.");
       window.location.reload();
     } catch (e: any) {
-      showToast("error", e.message);
+      showToast("warning", "Este projeto não está mais disponível. Selecione outro projeto para continuar.");
     }
   };
 
@@ -179,12 +213,19 @@ export const GlobalContextBar: React.FC = () => {
   };
 
   const handleSegmentChange = async (domainId: string) => {
-    if (!currentWorkspace) return;
-    workspaceIntelligenceEngine.updateWorkspaceDomain(currentWorkspace.id, domainId);
-    await timelineRepository.log("LINK", "Segmento/Domínio redefinido", `Domínio manual: ${DOMAIN_LABELS[domainId]}`);
-    showToast("success", `Segmento do Workspace redefinido para: ${DOMAIN_LABELS[domainId]}`);
-    // Reload mappings and reload page logic
-    window.location.reload();
+    if (!currentWorkspace) {
+      showToast("warning", "Este projeto não está mais disponível. Selecione outro projeto para continuar.");
+      return;
+    }
+    try {
+      workspaceIntelligenceEngine.updateWorkspaceDomain(currentWorkspace.id, domainId);
+      await timelineRepository.log("LINK", "Área de atuação redefinida", `Área escolhida: ${getDomainDisplayLabel(domainId)}`);
+      showToast("success", `Área de atuação definida como: ${getDomainDisplayLabel(domainId)}.`);
+      // Reload mappings and reload page logic
+      window.location.reload();
+    } catch {
+      showToast("warning", "Este projeto não está mais disponível. Selecione outro projeto para continuar.");
+    }
   };
 
   // Resolved Display Values
@@ -193,7 +234,9 @@ export const GlobalContextBar: React.FC = () => {
   const activeUnit = units.find(u => u.id === context.unitId);
   
   const currentSegment = currentWorkspace?.manualDomain || currentWorkspace?.detectedDomain || "neutral";
-  const numFontes = context.workbookIds?.length || 0;
+  const numFontes = activeDataset
+    ? activeDataset.sourceWorkbookIds?.length || activeDataset.sourceDatasetIds?.length || 1
+    : 0;
   const numRegistros = activeRecords.length;
 
   // Filter companies/units down by current parent hierarchy
@@ -206,7 +249,7 @@ export const GlobalContextBar: React.FC = () => {
     : units;
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 px-4 shadow-sm text-slate-350 text-[11px] font-sans flex flex-wrap items-center justify-between gap-4 select-none">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 px-4 shadow-sm text-slate-350 text-[11px] font-sans flex flex-wrap items-center justify-between gap-4 select-none" aria-busy={isUpdatingContext}>
       
       {/* Scope Selector Section */}
       <div className="flex flex-wrap items-center gap-3">
@@ -215,7 +258,8 @@ export const GlobalContextBar: React.FC = () => {
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
           <Network size={12} className="text-blue-400 shrink-0" />
           <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Grupo:</span>
-          <select 
+          <select
+            aria-label="Selecionar grupo"
             value={context.groupId || ""} 
             onChange={(e) => handleGroupChange(e.target.value)}
             className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px] max-w-[120px]"
@@ -231,7 +275,8 @@ export const GlobalContextBar: React.FC = () => {
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
           <Building size={12} className="text-emerald-450 shrink-0" />
           <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Empresa:</span>
-          <select 
+          <select
+            aria-label="Selecionar empresa"
             value={context.companyId || "all"} 
             onChange={(e) => handleCompanyChange(e.target.value)}
             className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px] max-w-[120px]"
@@ -247,7 +292,8 @@ export const GlobalContextBar: React.FC = () => {
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
           <Layers size={12} className="text-purple-400 shrink-0" />
           <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Unidade:</span>
-          <select 
+          <select
+            aria-label="Selecionar unidade"
             value={context.unitId || "all"} 
             disabled={!context.companyId}
             onChange={(e) => handleUnitChange(e.target.value)}
@@ -263,8 +309,9 @@ export const GlobalContextBar: React.FC = () => {
         {/* WORKSPACE SELECTOR */}
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
           <Building size={12} className="text-amber-400 shrink-0" />
-          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Workspace:</span>
-          <select 
+          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Projeto:</span>
+          <select
+            aria-label="Selecionar projeto"
             value={currentWorkspace?.id || ""} 
             onChange={(e) => handleWorkspaceChange(e.target.value)}
             className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px] max-w-[120px]"
@@ -284,7 +331,8 @@ export const GlobalContextBar: React.FC = () => {
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
           <Calendar size={12} className="text-indigo-400 shrink-0" />
           <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Período:</span>
-          <select 
+          <select
+            aria-label="Selecionar período"
             value={context.period?.start || ""} 
             onChange={(e) => handlePeriodChange(e.target.value)}
             className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px]"
@@ -299,14 +347,15 @@ export const GlobalContextBar: React.FC = () => {
         {/* SEGMENT/DOMAIN SELECTOR */}
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
           <Sliders size={12} className="text-slate-400 shrink-0" />
-          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Segmento:</span>
-          <select 
+          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Área de atuação:</span>
+          <select
+            aria-label="Selecionar área de atuação"
             value={currentSegment} 
             onChange={(e) => handleSegmentChange(e.target.value)}
             className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px]"
           >
-            {Object.keys(DOMAIN_LABELS).map(key => (
-              <option key={key} value={key} className="bg-slate-900 text-slate-200">{DOMAIN_LABELS[key]}</option>
+            {getDomainDisplayOptions().map(option => (
+              <option key={option.id} value={option.id} className="bg-slate-900 text-slate-200">{option.label}</option>
             ))}
           </select>
         </div>
@@ -337,6 +386,13 @@ export const GlobalContextBar: React.FC = () => {
         </div>
 
       </div>
+
+      {isUpdatingContext && (
+        <div className="w-full flex items-center gap-2 text-[10px] font-bold text-blue-300" role="status" aria-live="polite">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+          Atualizando a visão selecionada...
+        </div>
+      )}
 
     </div>
   );

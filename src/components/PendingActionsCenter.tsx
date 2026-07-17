@@ -98,7 +98,7 @@ function buildPendingActions(
       priority: "important",
       problem: "Segmento de mercado não identificado",
       impact: "O consultor perde o benchmark setorial, o vocabulário adaptativo e a inteligência de KPIs específicos do setor.",
-      howToFix: "Selecione o segmento operacional correto na ficha cadastral da empresa no Enterprise Center.",
+      howToFix: "Selecione o segmento operacional correto na ficha cadastral em Empresas e Grupos.",
       actionLabel: "Configurar Segmento",
       actionTab: "enterprise_center"
     });

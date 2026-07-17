@@ -3,12 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { test, expect, Page } from "@playwright/test";
+import { closeBlockingPanels, ensureConsultantSession, navigateSidebar, test, expect, Page } from "./e2eTest";
 
 // Helper para certificar a ausência de tela branca
 async function assertNoWhiteScreen(page: Page, stepLabel: string) {
   const root = page.locator("#root");
-  await expect(root).toBeVisible({ timeout: 5000 });
+  await expect(root).toBeAttached({ timeout: 15000 });
+  await expect.poll(async () => {
+    const content = await root.innerText().catch(() => "");
+    return content.trim().length;
+  }, { timeout: 15000, message: `White screen detected on step: ${stepLabel}` }).toBeGreaterThan(0);
   const content = await root.innerText();
   
   // O root não deve estar vazio ou contendo apenas quebras
@@ -45,71 +49,43 @@ test.describe("Sauron OS — Full Navigation Runtime Certification", () => {
     await page.waitForLoadState("networkidle");
     await assertNoWhiteScreen(page, "Boot inicial");
 
-    // 2. Identifica Onboarding de primeiro Super Admin ou tela de Login Normal
-    const isFirstAccess = await page.locator("text=Criar primeiro Super Admin").count() > 0;
-
-    if (isFirstAccess) {
-      // Registrar primeiro Super Admin
-      await page.fill("input[placeholder='Nome completo']", "Super Admin E2E");
-      await page.fill("input[placeholder='E-mail corporativo']", "superadmin@sauron.com.br");
-      await page.fill("input[placeholder='Senha secreta (mínimo 6 caracteres)']", "SenhaSuperSecreta123");
-      await page.fill("input[placeholder='Confirmar senha']", "SenhaSuperSecreta123");
-      await page.fill("input[placeholder='Nome da sua consultoria / organização']", "Consultoria Alpha E2E");
-      
-      await page.click("button:has-text('Inicializar Super Admin & Iniciar')");
-    } else {
-      // Efetua login normal
-      await page.fill("input[placeholder='E-mail']", "superadmin@sauron.com.br");
-      await page.fill("input[placeholder='Senha']", "SenhaSuperSecreta123");
-      await page.click("button:has-text('Entrar no Sauron')");
-    }
-
-    // Aguarda o carregamento do workspace principal
-    await page.waitForTimeout(2000);
+    await ensureConsultantSession(page);
     await assertNoWhiteScreen(page, "Painel Principal pós login");
 
-    // Mapeamento dos botões de abas na sidebar que queremos testar
-    // (Utilizando seletores flexíveis baseados em texto e IDs)
     const tabsToNavigate = [
-      { name: "Executive Center", selector: "text=Enterprise Center" },
-      { name: "Centro de Comando", selector: "text=Centro de Comando" },
-      { name: "Gêmeo Digital", selector: "text=Gêmeo Digital" },
-      { name: "Projetos de Consultoria", selector: "text=Projetos de Consultoria" },
-      { name: "Central de Dados", selector: "text=Central de Dados" },
-      { name: "Biblioteca de Workbooks", selector: "text=Biblioteca de Workbooks" },
-      { name: "Diagnóstico Executivo", selector: "text=Diagnóstico Executivo" },
-      { name: "KPIs & DRE", selector: "text=KPIs & DRE" },
-      { name: "Anomalias", selector: "text=Anomalias" },
-      { name: "Recomendações", selector: "text=Recomendações" },
-      { name: "Dossiês", selector: "text=Dossiês" },
-      { name: "Narrativa Executiva", selector: "text=Narrativa Executiva" },
-      { name: "Decks", selector: "text=Decks" },
-      { name: "Templates", selector: "text=Templates" },
-      { name: "Preparação da Reunião", selector: "text=Preparação da Reunião" },
-      { name: "Sessão Executiva", selector: "text=Sessão Executiva" },
-      { name: "Ata & Decisões", selector: "text=Ata & Decisões" },
-      { name: "Notas", selector: "text=Notas" },
-      { name: "Plano Executivo", selector: "text=Plano Executivo" },
-      { name: "Responsáveis & Prazos", selector: "text=Responsáveis & Prazos" },
-      { name: "People Intelligence", selector: "text=People Intelligence" },
-      { name: "Histórico", selector: "text=Histórico" },
-      { name: "Comparativos", selector: "text=Comparativos" },
-      { name: "Evolução", selector: "text=Evolução" },
-      { name: "Configurações", selector: "text=Configurações" }
+      { group: /Centro de Comando/i, item: /Empresas e Grupos/i, name: "Empresas e Grupos" },
+      { group: /Centro de Comando/i, item: /Centro de Comando/i, name: "Centro de Comando" },
+      { group: /Conhecer Cliente/i, item: /Gêmeo Digital/i, name: "Gêmeo Digital" },
+      { group: /Conhecer Cliente/i, item: /Projetos de Consultoria/i, name: "Projetos de Consultoria" },
+      { group: /Conectar Dados/i, item: /Importar Planilhas/i, name: "Importar Planilhas" },
+      { group: /Conectar Dados/i, item: /Biblioteca de Planilhas/i, name: "Biblioteca de Planilhas" },
+      { group: /Diagnosticar Negócio/i, item: /Diagnóstico Executivo/i, name: "Diagnóstico Executivo" },
+      { group: /Diagnosticar Negócio/i, item: /KPIs & DRE/i, name: "KPIs & DRE" },
+      { group: /Diagnosticar Negócio/i, item: /Anomalias/i, name: "Anomalias" },
+      { group: /Diagnosticar Negócio/i, item: /Recomendações/i, name: "Recomendações" },
+      { group: /Diagnosticar Negócio/i, item: /Dossiês|Relatórios/i, name: "Dossiês/Relatórios" },
+      { group: /Preparar Decisão/i, item: /Narrativa Executiva/i, name: "Narrativa Executiva" },
+      { group: /Preparar Decisão/i, item: /Decks|Apresentações/i, name: "Decks/Apresentações" },
+      { group: /Preparar Decisão/i, item: /Templates/i, name: "Templates" },
+      { group: /Conduzir Sessão/i, item: /Preparação da Reunião/i, name: "Preparação da Reunião" },
+      { group: /Conduzir Sessão/i, item: /Sessão Executiva/i, name: "Sessão Executiva" },
+      { group: /Conduzir Sessão/i, item: /Ata & Decisões/i, name: "Ata & Decisões" },
+      { group: /Conduzir Sessão/i, item: /Notas/i, name: "Notas" },
+      { group: /Executar Plano/i, item: /Plano Executivo/i, name: "Plano Executivo" },
+      { group: /Executar Plano/i, item: /Responsáveis & Prazos/i, name: "Responsáveis & Prazos" },
+      { group: /Executar Plano/i, item: /People Intelligence/i, name: "People Intelligence" },
+      { group: /Evoluir Resultado/i, item: /Histórico/i, name: "Histórico" },
+      { group: /Evoluir Resultado/i, item: /Comparativos/i, name: "Comparativos" },
+      { group: /Evoluir Resultado/i, item: /Evolução/i, name: "Evolução" },
+      { group: /Administração/i, item: /Configurações/i, name: "Configurações" }
     ];
 
     for (const tab of tabsToNavigate) {
       console.log(`Navegando para aba: ${tab.name}`);
-      const btn = page.locator(tab.selector).first();
-      
-      // Se o botão for visível, clica e valida
-      if (await btn.count() > 0 && await btn.isVisible()) {
-        await btn.click();
-        await page.waitForTimeout(400); // tempo de transição da aba
-        await assertNoWhiteScreen(page, `Aba: ${tab.name}`);
-      } else {
-        console.warn(`Aba ${tab.name} não visível ou oculta sob menu suspenso.`);
-      }
+      await navigateSidebar(page, tab.group, tab.item);
+      await page.waitForTimeout(250);
+      await assertNoWhiteScreen(page, `Aba: ${tab.name}`);
+      await closeBlockingPanels(page);
     }
 
     // 5. Executa logout e confirma o redirecionamento

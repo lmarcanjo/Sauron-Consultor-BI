@@ -80,7 +80,7 @@ export const CaseDossierPanel: React.FC<CaseDossierPanelProps> = ({ dossierLog }
               </div>
             ) : (
               <div className="p-3 bg-slate-50 dark:bg-slate-950 text-center text-xs text-slate-500 rounded-lg">
-                Nenhuma fonte externa conectada. Utilizando base padrão.
+                Nenhuma fonte de dados ativa. Adicione uma planilha para gerar o dossiê.
               </div>
             )}
           </div>

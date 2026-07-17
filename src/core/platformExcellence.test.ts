@@ -115,10 +115,28 @@ describe("Sauron Platform Excellence Suite (Sprint Ω)", () => {
 
   // 5. GLOBAL SEARCH ENGINE TESTS
   describe("Global Search Engine Unit Tests", () => {
-    it("searches matching clients, tasks and plans across registered index providers", () => {
-      const results = searchEngine.search("Carlos");
+    it("searches matching records from an explicitly registered index provider", () => {
+      const provider = {
+        name: "test-provider",
+        search: (q: string) => [
+          {
+            id: "test_seller_1",
+            title: "Pessoa Teste",
+            subtitle: "Registro criado pelo teste",
+            category: "Vendedor" as const,
+          },
+        ].filter(item =>
+          item.title.toLowerCase().includes(q) ||
+          item.subtitle.toLowerCase().includes(q)
+        ),
+      };
+
+      searchEngine.registerProvider(provider);
+      const results = searchEngine.search("Pessoa");
+      searchEngine.unregisterProvider(provider);
+
       expect(results.length).toBeGreaterThan(0);
-      expect(results.some(r => r.title.includes("Carlos"))).toBe(true);
+      expect(results.some(r => r.title.includes("Pessoa Teste"))).toBe(true);
     });
   });
 

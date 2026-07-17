@@ -1,7 +1,8 @@
-import { ActiveDataset, ActiveDatasetRow, ActiveWorkbookDataset, SheetMetadata, SourceIdentity } from "../../types/dataSource";
+import { ActiveDataset, ActiveDatasetRow, ActiveWorkbookDataset, SheetMetadata } from "../../types/dataSource";
 import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
 import type { ImportService } from "./ImportService";
 import { ImportJob, ImportJobProgress, ImportPreviewPage, UploadedSheetMetadata } from "./ImportJobTypes";
+import { withSourceIdentity } from "../data/sourceIdentity";
 
 type Workbook = {
   SheetNames: string[];
@@ -94,7 +95,7 @@ export function parseWorksheetRows(worksheet: any, xlsxUtils: any, sheetName: st
 }
 
 export function choosePrimaryDataSheet<T extends { sheetName: string; rowCount: number }>(sheets: T[]) {
-  const preferredNames = ["Importacao_Detalhada", "IMP_VENDAS", "IMP_VENDAS_AT", "RVD_Pecas", "AN_Pecas"];
+  const preferredNames = ["Importacao_Detalhada", "IMP_VENDAS", "IMP_VENDAS_AT"];
   return (
     preferredNames
       .map(name => sheets.find(sheet => sheet.sheetName.toLowerCase() === name.toLowerCase()))
@@ -303,16 +304,7 @@ export class LocalImportService implements ImportService {
       } catch {}
     }
 
-    const sourceIdentity: SourceIdentity = {
-      sourceId: jobId,
-      workbookId: jobId,
-      datasetId: jobId,
-      storageKey: jobId,
-      workspaceId,
-      originalFileName: state.file.name
-    };
-
-    const activeWorkbook: ActiveWorkbookDataset = {
+    const activeWorkbook: ActiveWorkbookDataset = withSourceIdentity({
       datasetId: jobId,
       workbookId: jobId,
       sourceType: "SPREADSHEET_DATA",
@@ -328,7 +320,13 @@ export class LocalImportService implements ImportService {
       rawStorageRef: jobId,
       formulaCount: selectedMetadata.reduce((sum, sheet) => sum + sheet.formulaCount, 0),
       status: "ACTIVE",
-      sourceIdentity,
+    } as ActiveDataset) as ActiveWorkbookDataset;
+    activeWorkbook.sourceIdentity = {
+      ...activeWorkbook.sourceIdentity!,
+      importJobId: jobId,
+      workspaceId,
+      fileName: state.file.name,
+      originalFileName: state.file.name,
     };
 
     await IndexedSpreadsheetStorage.saveMetadata(jobId, {

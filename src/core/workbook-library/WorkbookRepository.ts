@@ -1,4 +1,5 @@
 import { ActiveDataset, SheetMetadata } from "../../types/dataSource";
+import { assertCanonicalSourceId } from "../data/sourceIdentity";
 import {
   Brand,
   BusinessUnit,
@@ -252,7 +253,7 @@ export class WorkbookRepository {
   createWorkbook(input: CreateWorkbookInput): { workbook: Workbook; version: WorkbookVersion } {
     return applyMutation(state => {
       const timestamp = now();
-      const workbookId = input.id || createId("workbook");
+      const workbookId = input.id ? assertCanonicalSourceId(input.id) : createId("workbook");
       const versionId = input.currentVersion.id || createId("version");
       const projectId = normalizeProjectId(input.projectId);
       const truncatedDataset = input.currentVersion.activeDataset 

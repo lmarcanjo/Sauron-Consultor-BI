@@ -102,7 +102,7 @@ export interface WorkspaceContext {
   permissions: Permission[];
   filtrosAtivos: Record<string, string[] | undefined>;
   fonteDeDadosAtiva: string;
-  modoDemoReal: 'demo' | 'real';
+  dataMode: 'real';
   escopoDeAcesso: ContextScope;
   entidadeSelecionada: ContextEntity | null;
 }

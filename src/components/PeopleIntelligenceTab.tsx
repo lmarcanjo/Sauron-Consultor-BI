@@ -43,6 +43,8 @@ import { ModuleFieldMappingPanel } from "./ModuleFieldMappingPanel";
 import { buildSellerStatement, SellerStatement } from "../core/data/sellerStatement";
 import { CommissionClosingPanel } from "./CommissionClosingPanel";
 import { DashboardBlocksRenderer } from "./DashboardBlocksRenderer";
+import { platformLogger } from "../core/platform/PlatformLogger";
+import { getEnterpriseContext } from "../core/enterprise-consolidation";
 
 // SDK Components
 import { SauronTabs, TabItem } from "../sauron-sdk/ui/SauronTabs";
@@ -56,11 +58,9 @@ import { SauronKpiCard } from "../sauron-sdk/ui/SauronKpiCard";
 import { SauronMetric } from "../sauron-sdk/ui/SauronMetric";
 import { SauronInput } from "../sauron-sdk/ui/SauronInput";
 import { SauronSelect } from "../sauron-sdk/ui/SauronSelect";
-import { SauronLineageBadge } from "../sauron-sdk/domain/SauronLineageBadge";
 
 // Services and Engine
 import { CollaboratorDossier } from "../core/compensation/ExecutivePeopleService";
-import { compensationEngine, CompensationResult } from "../core/compensation/CompensationEngine";
 
 interface PeopleIntelligenceTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -88,8 +88,8 @@ interface PeopleIntelligenceTabProps {
   setPercentualComissaoBase: (v: number) => void;
   taxaComissaoAcessorios: number;
   setTaxaComissaoAcessorios: (v: number) => void;
-  taxaComissaoPecas: number;
-  setTaxaComissaoPecas: (v: number) => void;
+  taxaComissaoItens: number;
+  setTaxaComissaoItens: (v: number) => void;
   triggerSystemBackup: () => void;
   userRole?: string;
   peopleView?: any[];
@@ -167,7 +167,7 @@ const SellerStatementPreview: React.FC<{
         <h3 className="text-[10px] font-black uppercase text-slate-400 mb-3">Origem dos Dados</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono text-slate-600">
           <p><strong>Arquivo:</strong> {statement.source.fileName}</p>
-          <p><strong>Dataset:</strong> {statement.source.datasetId}</p>
+          <p><strong>Dados ativos:</strong> {statement.source.fileName}</p>
           <p><strong>Aba Pessoas:</strong> {statement.source.peopleSheetName || "Não configurada"}</p>
           <p><strong>Aba Comissão:</strong> {statement.source.commissionSheetName || "Não configurada"}</p>
           <p className="md:col-span-2"><strong>Colunas usadas:</strong> {statement.source.columnsUsed.join(", ") || "Nenhuma coluna mapeada"}</p>
@@ -198,7 +198,6 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
   const [activeTab, setActiveTab] = useState<string>("colaboradores");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedColabId, setSelectedColabId] = useState<string>("");
-  const [activePolicyId, setActivePolicyId] = useState<string>("automotive_premium");
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showSellerStatementPreview, setShowSellerStatementPreview] = useState(false);
   const [sellerStatement, setSellerStatement] = useState<SellerStatement | null>(null);
@@ -221,9 +220,9 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
 
   React.useEffect(() => {
     if (activeDataset) {
-      console.log(`[Sauron Instrumentation] PEOPLE_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
+      platformLogger.info(`[Sauron Instrumentation] PEOPLE_RECEIVED_ACTIVE_DATASET - datasetId: ${activeDataset.datasetId}, sourceName: ${activeDataset.sourceName}, rowCount: ${activeDataset.rowCount}, columnCount: ${activeDataset.columnCount}, sourceType: ${activeDataset.sourceType}`);
     } else {
-      console.log(`[Sauron Instrumentation] PEOPLE_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
+      platformLogger.info(`[Sauron Instrumentation] PEOPLE_RECEIVED_ACTIVE_DATASET - datasetId: null, sourceName: null, rowCount: 0, columnCount: 0, sourceType: null`);
     }
   }, [activeDataset]);
 
@@ -241,7 +240,17 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
 
     Promise.all([
       buildPeopleView(),
-      buildModuleDashboard("Pessoas", { activeDataset, moduleMappings }),
+      buildModuleDashboard("Pessoas", (() => {
+        const context = getEnterpriseContext();
+        return {
+          activeDataset,
+          moduleMappings,
+          contextType: context.scope,
+          contextId: context.unitId || context.companyId || context.groupId || activeDataset.datasetId,
+          workspaceId: context.workspaceId,
+          period: context.period,
+        };
+      })()),
     ]).then(([view, dashboard]) => {
       if (!isMounted) return;
       setPeopleBusinessView(view);
@@ -365,9 +374,9 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans">
         <Users className="text-emerald-500 w-12 h-12" />
-        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Carregando Dados Reais</h3>
+        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Preparando a visão de pessoas</h3>
         <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
-          Preparando visão de pessoas do ActiveDataset.
+          Preparando a visão de pessoas a partir da planilha.
         </p>
       </div>
     );
@@ -439,11 +448,6 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
   };
 
   const activeDossier = allDossiers.find(d => d.id === selectedColabId) || allDossiers[0] || emptyDossier;
-
-  const activeCompensation: CompensationResult = compensationEngine.calculate(
-    activeDossier.performance,
-    activePolicyId
-  );
 
   const handleGenerateSellerStatement = async () => {
     if (!activeDataset || activeDossier.id === "empty") return;
@@ -545,7 +549,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
             <h1 className="text-sm font-black tracking-widest uppercase text-blue-400">Sauron OS • Executive People Intelligence</h1>
           </div>
           <p className="text-slate-400 text-xs mt-2 max-w-3xl leading-relaxed">
-            Plataforma executiva de governança contábil, remuneração por desempenho, simulação de políticas de comissões determinísticas e dossiês individuais com auditoria de data lineage.
+            Veja as pessoas encontradas na planilha, seus resultados e os resumos que precisam de confirmação.
           </p>
         </div>
       </div>
@@ -608,7 +612,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
 
                 {/* Store Filter */}
                 <SauronSelect 
-                  label="Concessionária / Unidade"
+                  label="Unidade"
                   value={filterStore}
                   onChange={(e) => setFilterStore(e.target.value)}
                   options={[
@@ -636,7 +640,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
                   options={[
                     { value: "NONE", label: "Sem Agrupamento" },
                     { value: "DEPARTMENT", label: "Por Departamento" },
-                    { value: "STORE", label: "Por Unidade de Showroom" },
+                    { value: "STORE", label: "Por Unidade" },
                     { value: "MANAGER", label: "Por Gestor" },
                     { value: "STATUS", label: "Por Status de Trabalho" }
                   ]}
@@ -716,8 +720,8 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
               setPercentualComissaoBase={props.setPercentualComissaoBase}
               taxaComissaoAcessorios={props.taxaComissaoAcessorios}
               setTaxaComissaoAcessorios={props.setTaxaComissaoAcessorios}
-              taxaComissaoPecas={props.taxaComissaoPecas}
-              setTaxaComissaoPecas={props.setTaxaComissaoPecas}
+              taxaComissaoItens={props.taxaComissaoItens}
+              setTaxaComissaoItens={props.setTaxaComissaoItens}
               triggerSystemBackup={props.triggerSystemBackup}
               userRole={props.userRole}
             />
@@ -765,19 +769,6 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
                     );
                   })}
                 </div>
-              </SauronCard>
-
-              {/* Policy Selector for Compensation simulation */}
-              <SauronCard title="Simulação de Política" subtitle="Selecione a política de comissões ativa">
-                <SauronSelect 
-                  label="Política Salarial"
-                  value={activePolicyId}
-                  onChange={(e) => setActivePolicyId(e.target.value)}
-                  options={[
-                    { value: "automotive_premium", label: "Concessionária Premium Elite" },
-                    { value: "automotive_popular", label: "Concessionária Popular" }
-                  ]}
-                />
               </SauronCard>
 
               <SauronCard title="Resumo do Vendedor" subtitle="Preview imprimível com dados reais mapeados">
@@ -903,53 +894,30 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
                   <div className="border-t border-b border-slate-200 py-3 grid grid-cols-4 gap-4 bg-slate-50/50 px-4 rounded-xl text-center">
                     <div>
                       <span className="text-[9px] text-slate-400 uppercase font-mono">Faturamento Período</span>
-                      <p className="text-sm font-mono font-black text-slate-900 mt-0.5">R$ {activeDossier.performance.totalSales.toLocaleString("pt-BR")}</p>
+                      <p className="text-sm font-mono font-black text-slate-900 mt-0.5">
+                        {sellerStatement?.totalSold !== null && sellerStatement?.totalSold !== undefined ? props.formatCurrency(sellerStatement.totalSold) : "Configuração pendente"}
+                      </p>
                     </div>
                     <div>
                       <span className="text-[9px] text-slate-400 uppercase font-mono">CSAT Média</span>
-                      <p className="text-sm font-mono font-black text-slate-900 mt-0.5">{activeDossier.performance.csat.toFixed(1)} / 5.0</p>
+                      <p className="text-sm font-mono font-black text-slate-900 mt-0.5">Configuração pendente</p>
                     </div>
                     <div>
                       <span className="text-[9px] text-slate-400 uppercase font-mono">Comissão Líquida</span>
-                      <p className="text-sm font-mono font-black text-blue-700 mt-0.5">R$ {activeCompensation.netCommission.toLocaleString("pt-BR")}</p>
+                      <p className="text-sm font-mono font-black text-blue-700 mt-0.5">
+                        {sellerStatement?.commission.configured && sellerStatement.commission.value !== null ? props.formatCurrency(sellerStatement.commission.value) : "Comissão não configurada"}
+                      </p>
                     </div>
                     <div>
                       <span className="text-[9px] text-slate-400 uppercase font-mono">Remuneração Bruta</span>
-                      <p className="text-sm font-mono font-black text-emerald-700 mt-0.5">R$ {activeCompensation.totalEarnings.toLocaleString("pt-BR")}</p>
+                      <p className="text-sm font-mono font-black text-emerald-700 mt-0.5">Configuração pendente</p>
                     </div>
                   </div>
 
-                  {/* Calculation Details and Lineage */}
+                  {/* Financial fields are shown only when their real mapping exists. */}
                   <div className="space-y-2">
-                    <h3 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Rastreabilidade e Linhagem de Dados (Data Lineage)</h3>
-                    <table className="w-full text-left border-collapse text-[10px]">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-[8px] uppercase text-slate-400 font-bold">
-                          <th className="py-1 px-2">Etapa do Cálculo</th>
-                          <th className="py-1 px-2">Expressão Matemática Aplicada</th>
-                          <th className="py-1 px-2 text-right">Resultado</th>
-                          <th className="py-1 px-2 text-right">Linhagem de Origem</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-mono text-slate-700">
-                        {activeCompensation.trace.map((step, idx) => (
-                          <tr key={idx}>
-                            <td className="py-1.5 px-2 font-sans font-bold text-slate-900">{step.name}</td>
-                            <td className="py-1.5 px-2 text-slate-500">{step.formula}</td>
-                            <td className="py-1.5 px-2 text-right font-black">R$ {step.result.toLocaleString("pt-BR")}</td>
-                            <td className="py-1.5 px-2 text-right">
-                              {step.lineage ? (
-                                <span className="inline-flex items-center gap-0.5 px-1 bg-slate-100 border border-slate-300 text-[8px] text-slate-600 rounded">
-                                  {step.lineage.sheetName}!{step.lineage.sourceCell}
-                                </span>
-                              ) : (
-                                <span className="text-[8px] text-slate-300 uppercase">Calculado</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    <h3 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Origem dos dados financeiros</h3>
+                    <p className="text-xs text-slate-500">A remuneração só é exibida quando uma coluna de comissão e sua regra estiverem configuradas.</p>
                   </div>
 
                   {/* Signatures */}
@@ -1079,57 +1047,10 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
                     </SauronCard>
                   </div>
 
-                  {/* Compensation calculation & Trace details */}
+                  {/* Compensation values are never inferred from a default policy. */}
                   <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-                      <div>
-                        <h4 className="text-xs font-black uppercase text-slate-700 dark:text-white tracking-wider">Detalhamento Financeiro &amp; Trace Contábil</h4>
-                        <p className="text-[10px] text-slate-400">Visão parametrizada do repasse salarial por regras ativas</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 font-mono text-[10px]">
-                        <span className="text-slate-400">Fórmula Ativa:</span>
-                        <strong className="text-blue-500 uppercase">{activePolicyId === "automotive_premium" ? "Premium Elite" : "Popular"}</strong>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-150 dark:border-slate-800 p-3.5 rounded-xl">
-                        <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest block">Salário Base</span>
-                        <p className="text-base font-mono font-black text-slate-800 dark:text-slate-200 mt-1">R$ {activeCompensation.baseSalary.toLocaleString("pt-BR")}</p>
-                      </div>
-                      <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-150 dark:border-slate-800 p-3.5 rounded-xl">
-                        <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest block">Comissão Líquida</span>
-                        <p className="text-base font-mono font-black text-blue-600 dark:text-blue-400 mt-1">R$ {activeCompensation.netCommission.toLocaleString("pt-BR")}</p>
-                      </div>
-                      <div className="bg-blue-600 text-white p-3.5 rounded-xl">
-                        <span className="text-[9px] font-mono text-blue-100 uppercase tracking-widest block font-extrabold">Remuneração Bruta Total</span>
-                        <p className="text-base font-mono font-black mt-1">R$ {activeCompensation.totalEarnings.toLocaleString("pt-BR")}</p>
-                      </div>
-                    </div>
-
-                    {/* EXPLANATION OF CALCULATION (E2-D) */}
-                    <SauronCard title="Como chegamos neste valor (Data Lineage & Trace Contábil)" subtitle="Seção obrigatória de auditoria matemática sem dependência de inteligência artificial">
-                      <div className="space-y-3.5">
-                        {activeCompensation.trace.map((step, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-xs bg-slate-50 dark:bg-slate-950/30 p-3 rounded-xl border border-slate-150 dark:border-slate-800">
-                            <div className="space-y-1 flex-1 min-w-0 pr-4">
-                              <div className="flex items-center gap-2">
-                                <strong className="text-slate-800 dark:text-slate-100 uppercase tracking-tight text-xs font-extrabold">{step.name}</strong>
-                                {step.lineage && (
-                                  <SauronLineageBadge 
-                                    sourceCell={step.lineage.sourceCell} 
-                                    sheetName={step.lineage.sheetName} 
-                                  />
-                                )}
-                              </div>
-                              <p className="text-[11px] text-slate-400 font-mono tracking-wide truncate">{step.formula}</p>
-                            </div>
-                            <div className="text-right font-mono">
-                              <p className="font-black text-slate-900 dark:text-white">R$ {step.result.toLocaleString("pt-BR")}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    <SauronCard title="Remuneração variável" subtitle="Valores reais dependem de mapeamento e regra aprovados">
+                      <p className="text-xs font-semibold text-slate-500">Comissão não configurada. Nenhum salário, bônus ou percentual foi inventado.</p>
                     </SauronCard>
                   </div>
 
@@ -1185,7 +1106,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
                 Configuração Pendente
               </h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
-                Fonte real ativa. Configure os campos deste módulo para gerar análises.
+                Há uma fonte de dados ativa. Confirme os campos deste módulo para gerar análises.
               </p>
             </div>
           </div>

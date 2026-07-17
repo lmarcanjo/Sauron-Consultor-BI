@@ -4,6 +4,7 @@ import { LancamentoFinanceiro } from "../types";
 import { dataSourceManager } from "../services/dataSourceManager";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { evaluateModuleRequirements, findFirstColumn } from "../core/data/moduleDataRequirements";
+import { resolveComparison } from "../core/data/comparisonState";
 
 interface VendedoresTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -43,10 +44,10 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
         salesCount: number;
         ticketMedio: number;
         margem: number;
-        comissao: number;
-        conversao: number;
-        meta: number;
-        pctMeta: number;
+        comissao: number | null;
+        conversao: number | null;
+        meta: number | null;
+        pctMeta: number | null;
       }>();
 
       peopleRequirements.rows.forEach(row => {
@@ -58,10 +59,10 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
           salesCount: 0,
           ticketMedio: 0,
           margem: 0,
-          comissao: 0,
-          conversao: 0,
-          meta: 0,
-          pctMeta: 0,
+          comissao: null,
+          conversao: null,
+          meta: null,
+          pctMeta: null,
         };
         current.receita += revenueColumn ? parseNumber(row[revenueColumn]) : 0;
         current.margem += marginColumn ? parseNumber(row[marginColumn]) : 0;
@@ -74,67 +75,34 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
           ...seller,
           ticketMedio: seller.salesCount > 0 ? Math.round(seller.receita / seller.salesCount) : 0,
           margem: seller.receita > 0 ? Math.round((seller.margem / seller.receita) * 1000) / 10 : 0,
-          comissao: 0,
-          conversao: 0,
-          meta: 0,
-          pctMeta: 0,
+          comissao: null,
+          conversao: null,
+          meta: null,
+          pctMeta: null,
         }))
         .sort((a, b) => b.receita - a.receita);
     }
 
-    const vendedoresIniciais = dataOrigem
-      .map(item => item.Vendedor)
-      .filter((name): name is string => !!name);
-
-    if (vendedoresIniciais.length === 0) return [];
-
-    // calculate general revenue/lucro of active database
-    const generalReceita = dataOrigem.reduce((sum, d) => sum + d.Receita, 0) * 0.72; // assume 72% represents showroom sales
-    const generalLucro = dataOrigem.reduce((sum, d) => sum + d.Lucro, 0) * 0.72;
-
-    // Distribute with custom seasonal distributions (so they aren't identical)
-    return vendedoresIniciais.map((name, index) => {
-      // Deterministic factor per seller
-      const factor = 1 + Math.sin(index * 1.7) * 0.35; // ranges from 0.65 to 1.35
-      const numSales = Math.round(18 * factor * (dataOrigem.length > 0 ? (dataOrigem.length / 96) : 1));
-      
-      const receitaVendedor = Math.round((generalReceita / vendedoresIniciais.length) * factor);
-      const lucroVendedor = Math.round((generalLucro / vendedoresIniciais.length) * factor);
-      
-      const ticketMedio = numSales > 0 ? Math.round(receitaVendedor / numSales) : 0;
-      const margem = receitaVendedor > 0 ? Math.round((lucroVendedor / receitaVendedor) * 100 * 10) / 10 : 0;
-      
-      // commissions: average 1.5% commission rate
-      const comissao = Math.round(receitaVendedor * 0.015 + numSales * 180);
-      
-      // conversion rate ranges from 8% to 16% deterministic
-      const conversao = Math.round((10 + Math.cos(index * 2.3) * 4) * 10) / 10;
-      
-      // Target monthly ranges from 120k to 220k depending on factor
-      const meta = Math.round(152000 * factor);
-      const pctMeta = meta > 0 ? Math.round((receitaVendedor / meta) * 100) : 0;
-
-      return {
-        name,
-        receita: receitaVendedor,
-        salesCount: numSales,
-        ticketMedio,
-        margem,
-        comissao,
-        conversao,
-        meta,
-        pctMeta
-      };
-    }).sort((a, b) => b.receita - a.receita); // Sorted by ranking of absolute sales
+    return [];
   }, [dataOrigem, isRealSpreadsheet, peopleRequirements.rows, vendorColumn, revenueColumn, marginColumn]);
 
-  if (isRealSpreadsheet && (!vendorColumn || performanceVendedores.length === 0)) {
+  if (!isRealSpreadsheet) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans">
+        <Users className="text-slate-400 w-12 h-12" />
+        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Nenhuma fonte de dados ativa.</h3>
+        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">Adicione e ative uma planilha para listar vendedores.</p>
+      </div>
+    );
+  }
+
+  if (!vendorColumn || performanceVendedores.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans">
         <Users className="text-emerald-500 w-12 h-12" />
         <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Configuração Pendente</h3>
         <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
-          Coluna de vendedor, funcionário ou nome não detectada no dataset ativo.
+          Não identificamos uma coluna de vendedor, funcionário ou nome nos dados ativos.
         </p>
       </div>
     );
@@ -145,7 +113,7 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
   const lowPerformer = performanceVendedores[performanceVendedores.length - 1];
   const maxMargemPerformer = [...performanceVendedores].sort((a,b) => b.margem - a.margem)[0];
   const maxVolumePerformer = [...performanceVendedores].sort((a,b) => b.salesCount - a.salesCount)[0];
-  const belowMetaPerformers = performanceVendedores.filter((s) => s.pctMeta < 95);
+  const belowMetaPerformers = performanceVendedores.filter((s) => s.pctMeta !== null && s.pctMeta < 95);
   const sellerOptions = performanceVendedores.map(seller => seller.name);
 
   const leftData = useMemo(() => {
@@ -155,6 +123,7 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
   const rightData = useMemo(() => {
     return performanceVendedores.find((s) => s.name === selectedSellerRight) || performanceVendedores[1];
   }, [performanceVendedores, selectedSellerRight]);
+  const comparisonState = resolveComparison(leftData, rightData);
 
   return (
     <div className="space-y-4 font-sans text-slate-800 dark:text-slate-150 animate-fade-in" id="vendedores-tab-container">
@@ -197,7 +166,7 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
           <div>
             <span className="text-[10px] font-black uppercase text-slate-400 block pb-1 tracking-wider">Abaixo da Meta (&lt;95%)</span>
             <p className="text-xs font-extrabold text-slate-700 dark:text-white">Alerta de Ociosidade</p>
-            <p className="text-sm font-mono font-black text-red-650 dark:text-red-400 mt-1">{belowMetaPerformers.length} Vendedores</p>
+                <p className="text-sm font-mono font-black text-red-650 dark:text-red-400 mt-1">{belowMetaPerformers.length || "Não mapeado"}</p>
           </div>
           <div className="p-2 bg-red-50 dark:bg-red-955/40 text-red-600 dark:text-red-400 rounded-lg">
             <ShieldAlert size={20} />
@@ -255,16 +224,18 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
                       <td className="text-right font-mono font-bold text-slate-500">{item.salesCount}</td>
                       <td className="text-right font-mono text-slate-500">{formatCurrency(item.ticketMedio)}</td>
                       <td className="text-right font-mono text-blue-600 dark:text-blue-400 font-bold">{item.margem}%</td>
-                      <td className="text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(item.comissao)}</td>
-                      <td className="text-right font-mono font-medium">{item.conversao}%</td>
+                      <td className="text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">{item.comissao === null ? "Não configurado" : formatCurrency(item.comissao)}</td>
+                      <td className="text-right font-mono font-medium">{item.conversao === null ? "Não configurado" : `${item.conversao}%`}</td>
                       <td className="text-right">
-                        <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
-                          item.pctMeta >= 100 ? "bg-emerald-50 text-emerald-850 dark:bg-emerald-950/60 dark:text-emerald-300" :
-                          item.pctMeta >= 90 ? "bg-amber-50 text-amber-850 dark:bg-amber-955/65 dark:text-amber-300" :
-                          "bg-red-50 text-red-800 dark:bg-red-955/60 dark:text-red-300"
-                        }`}>
-                          {item.pctMeta}%
-                        </span>
+                        {item.pctMeta === null ? "Não configurado" : (
+                          <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
+                            item.pctMeta >= 100 ? "bg-emerald-50 text-emerald-850 dark:bg-emerald-950/60 dark:text-emerald-300" :
+                            item.pctMeta >= 90 ? "bg-amber-50 text-amber-850 dark:bg-amber-955/65 dark:text-amber-300" :
+                            "bg-red-50 text-red-800 dark:bg-red-955/60 dark:text-red-300"
+                          }`}>
+                            {item.pctMeta}%
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -285,17 +256,17 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
             
             <div className="space-y-3">
               <div className="p-2 rounded bg-emerald-500/5 border border-emerald-500/10 space-y-1">
-                <span className="text-[8px] font-extrabold uppercase text-emerald-600 tracking-wider block">Estrela de Varejo</span>
+                <span className="text-[8px] font-extrabold uppercase text-emerald-600 tracking-wider block">Maior resultado</span>
                 <p className="font-extrabold text-slate-700 dark:text-white text-[11px]">{topPerformer?.name}</p>
-                <p className="text-[10px] text-slate-505">Maximizou faturamento liderando vendas consultivas digitais com ticket médio elevado.</p>
+                <p className="text-[10px] text-slate-505">Maior valor agregado entre os registros reais disponíveis.</p>
               </div>
 
               <div className="p-2 rounded bg-red-500/5 border border-red-500/10 space-y-1">
                 <span className="text-[8px] font-extrabold uppercase text-red-650 tracking-wider block">Gargalo Crítico de Vendas</span>
                 <p className="font-extrabold text-slate-700 dark:text-white text-[11px]">{lowPerformer?.name}</p>
-                <p className="text-[10px] text-slate-550 leading-snug">Menor faturamento e conversão de propostas. Apresentou queda de performance recorrente vs o trimestre passado.</p>
+                <p className="text-[10px] text-slate-550 leading-snug">Menor valor total entre os registros reais disponíveis.</p>
                 <div className="pt-1.5 border-t border-red-500/10 text-[9px] text-red-650 font-bold">
-                  Sugestão: Realizar pareamento com {maxMargemPerformer?.name} para reaproveitar técnicas de pitch de margem elevada.
+                  Sugestão: revisar os registros e os campos configurados para este perfil.
                 </div>
               </div>
             </div>
@@ -341,21 +312,25 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
                 { title: "Aproveitamento Leads", metric: "conversao", type: "pct" },
                 { title: "Comissões Acumuladas", metric: "comissao", type: "currency" }
               ].map((comp, i) => {
-                const valA = (leftData as any)[comp.metric];
-                const valB = (rightData as any)[comp.metric];
-
-                const formattedA = comp.type === "currency" ? formatCurrency(valA) : `${valA}%`;
-                const formattedB = comp.type === "currency" ? formatCurrency(valB) : `${valB}%`;
+                const valA = leftData ? (leftData as any)[comp.metric] ?? null : null;
+                const valB = rightData ? (rightData as any)[comp.metric] ?? null : null;
+                const formatMetric = (value: number | null) => {
+                  if (value === null || value === undefined) return "Não configurado";
+                  return comp.type === "currency" ? formatCurrency(value) : `${value}%`;
+                };
+                const formattedA = formatMetric(valA);
+                const formattedB = formatMetric(valB);
+                const hasComparison = comparisonState.hasComparison && valA !== null && valB !== null;
 
                 return (
                   <div key={i} className="space-y-1">
                     <span className="text-[9px] font-bold text-slate-450 block text-center uppercase tracking-wider">{comp.title}</span>
                     <div className="flex items-center justify-between text-[11px] font-mono leading-none py-1">
-                      <span className={`font-black ${valA >= valB ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600"}`}>
+                      <span className={`font-black ${hasComparison && valA >= valB ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600"}`}>
                         {formattedA}
                       </span>
                       <ChevronRight size={10} className="text-slate-400" />
-                      <span className={`font-black ${valB >= valA ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600"}`}>
+                      <span className={`font-black ${hasComparison && valB >= valA ? "text-emerald-600 dark:text-emerald-400" : "text-slate-600"}`}>
                         {formattedB}
                       </span>
                     </div>

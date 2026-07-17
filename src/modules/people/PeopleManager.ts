@@ -18,11 +18,11 @@ class PeopleManager {
 
   private seedDefaultData(): void {
     if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-      // Seed default profiles for architecture demonstration
+      // Seed deterministic profiles only for isolated unit tests.
       const emp1: EmployeeProfile = {
         id: "emp_1",
         fullName: "Carlos Santos",
-        role: "Gerente Comercial Nissan",
+        role: "Gerente Comercial",
         department: "Vendas",
         branch: "Unidade Real",
         baseSalary: 8500,
@@ -33,8 +33,8 @@ class PeopleManager {
       const emp2: EmployeeProfile = {
         id: "emp_2",
         fullName: "Ana Paula Silva",
-        role: "Coordenadora de Peças",
-        department: "Pós-Vendas",
+        role: "Coordenadora Operacional",
+        department: "Operações",
         branch: "Unidade Real",
         baseSalary: 5200,
         hireDate: "2025-01-10",
@@ -49,7 +49,7 @@ class PeopleManager {
         score: 92,
         goalsAchieved: 105,
         evaluations: [
-          { date: "2026-05-10", evaluator: "Gabriel Arcanjo", feedback: "Excelente liderança no time Nissan, superando metas de seminovos." }
+          { date: "2026-05-10", evaluator: "Gestor Responsável", feedback: "Excelente liderança no time comercial, superando metas do período." }
         ]
       });
 
@@ -127,7 +127,7 @@ class PeopleManager {
         
         recommendations.push(
           `Promover treinamento de precificação dinâmica para apoiar ${emp.fullName} no atingimento de metas.`,
-          `Estruturar bônus variável de pós-vendas atrelado ao NPS de oficina.`
+          `Estruturar bônus variável atrelado à satisfação do cliente.`
         );
       }
     } else {

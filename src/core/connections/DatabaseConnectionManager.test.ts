@@ -1,6 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { databaseConnectionManager } from "./DatabaseConnectionManager";
 
+vi.mock("pg", () => ({
+  default: {
+    Client: class {
+      connect() {
+        const err = new Error("password authentication failed");
+        (err as any).code = "28P01";
+        return Promise.reject(err);
+      }
+      end() { return Promise.resolve(); }
+    }
+  }
+}));
+
 describe("DatabaseConnectionManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,21 +50,6 @@ describe("DatabaseConnectionManager", () => {
   });
 
   it("Erro de autenticação retorna stage auth", async () => {
-    vi.mock("pg", () => {
-      return {
-        default: {
-          Client: class {
-            connect() {
-              const err = new Error("password authentication failed");
-              (err as any).code = "28P01";
-              return Promise.reject(err);
-            }
-            end() { return Promise.resolve(); }
-          }
-        }
-      };
-    });
-
     // using 127.0.0.1 and valid port to pass host and port stages. Wait! The port stage uses actual `net.Socket`. If there's no port listening on 127.0.0.1:5432, it will fail at `port` stage!
     // To bypass the `net.Socket` test, we'd need to mock `net.Socket` as well.
     // Instead, I'll rely on the existing tests testing what we can without mocking Node's core network stack.

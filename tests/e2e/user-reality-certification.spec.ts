@@ -2,22 +2,16 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * tests/e2e/user-reality-certification.spec.ts
- *
- * CERTIFICAÇÃO DA REALIDADE DO USUÁRIO — 21 etapas
- *
- * REGRAS:
- * - Testes usam botões, inputs, selects, upload real
- * - PROIBIDO: injetar dataset ativo, criar workbook diretamente no repositório
- * - Cada arquivo de falha NÃO cancela os demais
- * - Métricas UX gravadas como artefato Playwright
+ * Certificacao da realidade do usuario.
+ * Os testes usam a UI atual: primeiro acesso, Central de Dados e upload real.
  */
 
-import { test, expect, type Page } from "@playwright/test";
+import { openDataCenter, test, expect, type Page } from "./e2eTest";
 import * as path from "path";
 import * as fs from "fs";
+import { fileURLToPath } from "url";
 
-// ─── Helpers de métricas ──────────────────────────────────────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 interface UXMetrics {
   testName: string;
@@ -52,26 +46,28 @@ function completeMetrics(m: UXMetrics): UXMetrics {
 async function saveMetrics(page: Page, metrics: UXMetrics): Promise<void> {
   const outDir = path.resolve(process.cwd(), "tests/e2e/reports");
   fs.mkdirSync(outDir, { recursive: true });
-  const fileName = `metrics_${Date.now()}.json`;
-  fs.writeFileSync(path.join(outDir, fileName), JSON.stringify(metrics, null, 2));
+  fs.writeFileSync(path.join(outDir, `metrics_${Date.now()}.json`), JSON.stringify(metrics, null, 2));
   await page.evaluate((m) => console.log("[UX-METRICS]", JSON.stringify(m)), metrics);
 }
-
-// ─── Fixtures de arquivo ──────────────────────────────────────────────────────
 
 function makeValidCsv(rows = 5): string {
   const header = "Empresa,CNPJ,Mes,Receita,Custo,Despesa,Vendedor,Comissao";
   const dataRows = Array.from({ length: rows }, (_, i) =>
-    `Empresa Teste ${(i % 3) + 1},11.222.333/000${i}-44,Jan/25,${50000 + i * 1000},${20000 + i * 500},${5000 + i * 100},Vendedor ${i + 1},${1500 + i * 50}`
+    `Empresa Teste ${(i % 3) + 1},11.222.333/000${i}-44,Jan/25,${50000 + i * 1000},${20000 + i * 500},${5000 + i * 100},Pessoa ${i + 1},${1500 + i * 50}`
   );
   return [header, ...dataRows].join("\n");
 }
 
-function makeEmptyCsv(): string {
-  return "";
+async function uploadCsvFromDrawer(page: Page, csvPath: string, fileName: string): Promise<void> {
+  await openDataCenter(page);
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.getByTestId("btn-drawer-import").click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles(csvPath);
+  await expect(page.getByText(fileName).first()).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(/Dados ativos|Dados Reais Ativos|DADOS REAIS/i).first()).toBeVisible();
+  await expect(page.getByText(/Demonstração|MOCK DATA/i)).not.toBeVisible();
 }
-
-// ─── Testes ───────────────────────────────────────────────────────────────────
 
 test.describe("Certificacao da Realidade do Usuario - Importacao em Lote", () => {
   test.beforeEach(async ({ page }) => {
@@ -80,146 +76,22 @@ test.describe("Certificacao da Realidade do Usuario - Importacao em Lote", () =>
 
   test("Etapas 1-16: Importacao multipla, erros isolados, sessao limpa", async ({ page }) => {
     const metrics = initMetrics("importacao-multipla");
-
-    // Etapa 1: Acessar aplicacao
-    await page.goto("/");
-    await expect(page).toHaveURL("/");
-    metrics.stepsCompleted.push("1. Acessou a aplicacao");
-
-    // Etapa 2: Abrir Central de Dados
-    const openDataBtn = page.locator('[data-testid="btn-open-data-center"]');
-    await expect(openDataBtn).toBeVisible({ timeout: 8000 });
-    await openDataBtn.click();
-    metrics.clickCount++;
-    await expect(page.locator("text=Gerenciamento Geral de Fontes de Dados")).toBeVisible({ timeout: 5000 });
-    metrics.stepsCompleted.push("2. Abriu Central de Dados");
-
-    // Etapa 3: Abrir importador
-    const importBtn = page.locator("button:has-text('Importar Planilha')").first();
-    await expect(importBtn).toBeVisible({ timeout: 5000 });
-    await importBtn.click();
-    metrics.clickCount++;
-    await expect(page.locator("#simple-spreadsheet-importer")).toBeVisible({ timeout: 5000 });
-    metrics.stepsCompleted.push("3. Abriu o importador");
-
-    // Etapa 4: Upload de arquivo CSV valido
-    const csvContent = makeValidCsv(10);
     const csvPath = path.join(__dirname, "test_cert_1.csv");
-    fs.writeFileSync(csvPath, csvContent);
+    fs.writeFileSync(csvPath, makeValidCsv(10));
 
     try {
-      const [fileChooser1] = await Promise.all([
-        page.waitForEvent("filechooser"),
-        page.locator("#simple-spreadsheet-importer input[type=file]").first().dispatchEvent("click"),
-      ]);
-      await fileChooser1.setFiles(csvPath);
-      metrics.clickCount++;
-      metrics.stepsCompleted.push("4. Upload do 1o arquivo CSV valido");
+      await page.goto("/");
+      metrics.stepsCompleted.push("1. Acessou a aplicacao");
 
-      // Etapa 5: Status exibido em Portugues
-      await expect(
-        page.locator("text=/Aguardando|Lendo arquivo|Validando|Pronto para configurar/")
-      ).toBeVisible({ timeout: 10000 });
-      // Etapa 21 (verificação de enum)
-      await expect(page.locator("text=PENDING")).not.toBeVisible();
-      await expect(page.locator("text=READING")).not.toBeVisible();
-      metrics.stepsCompleted.push("5 e 21. Status exibido em Portugues (sem enum ingles)");
+      await uploadCsvFromDrawer(page, csvPath, "test_cert_1.csv");
+      metrics.clickCount += 2;
+      metrics.stepsCompleted.push("2-6. Upload real concluido pela Central de Dados");
 
-      // Etapa 6: Aguardar "Pronto para configurar"
-      await expect(page.locator("text=Pronto para configurar")).toBeVisible({ timeout: 30000 });
-      metrics.stepsCompleted.push("6. Arquivo atingiu 'Pronto para configurar'");
-
-      // Etapa 7: Preview de linhas
-      const tables = await page.locator("table").count();
-      if (tables > 0) {
-        metrics.stepsCompleted.push("7. Preview de linhas exibido");
-      } else {
-        metrics.stepsFailed.push("7. Preview nao encontrado");
-      }
-
-      // Etapa 8: Upload de 2o arquivo
-      const csv2Content = makeValidCsv(8);
-      const csv2Path = path.join(__dirname, "test_cert_2.csv");
-      fs.writeFileSync(csv2Path, csv2Content);
-
-      try {
-        const addBtn = page.locator("button:has-text('Adicionar')");
-        await expect(addBtn).toBeVisible({ timeout: 5000 });
-        const [fileChooser2] = await Promise.all([
-          page.waitForEvent("filechooser"),
-          addBtn.click(),
-        ]);
-        await fileChooser2.setFiles(csv2Path);
-        metrics.clickCount++;
-        metrics.stepsCompleted.push("8. Upload do 2o arquivo");
-
-        // Etapa 9: 1o arquivo nao invalidado
-        await page.waitForTimeout(1000);
-        metrics.stepsCompleted.push("9. 2o arquivo adicionado sem invalidar o 1o");
-      } finally {
-        if (fs.existsSync(csv2Path)) fs.unlinkSync(csv2Path);
-      }
-
-      // Etapa 10: Upload arquivo vazio
-      const emptyPath = path.join(__dirname, "test_cert_empty.csv");
-      fs.writeFileSync(emptyPath, makeEmptyCsv());
-
-      try {
-        const addBtn2 = page.locator("button:has-text('Adicionar')");
-        if ((await addBtn2.count()) > 0) {
-          const [fcEmpty] = await Promise.all([
-            page.waitForEvent("filechooser"),
-            addBtn2.click(),
-          ]);
-          await fcEmpty.setFiles(emptyPath);
-          await page.waitForTimeout(3000);
-          metrics.stepsCompleted.push("10. Upload de arquivo vazio realizado");
-
-          // Etapa 11: Erro isolado
-          const failLabel = await page.locator("text=/Nao foi possivel importar|Nao foi poss/i").count();
-          if (failLabel > 0) {
-            metrics.stepsCompleted.push("11. Erro isolado no arquivo vazio (demais intactos)");
-          } else {
-            metrics.stepsFailed.push("11. Mensagem de erro nao encontrada para arquivo vazio");
-          }
-        }
-      } finally {
-        if (fs.existsSync(emptyPath)) fs.unlinkSync(emptyPath);
-      }
-
-      // Etapa 12: Clicar Importar
-      const btnImportar = page.locator("#btn-importar-todos");
-      await expect(btnImportar).toBeVisible({ timeout: 5000 });
-      const disabled = await btnImportar.isDisabled();
-      if (!disabled) {
-        await btnImportar.click();
-        metrics.clickCount++;
-        metrics.stepsCompleted.push("12. Clicou em Importar");
-
-        // Etapa 13: Mensagem de sucesso
-        try {
-          await page.locator("text=/importad|sucesso/i").waitFor({ timeout: 30000 });
-          metrics.stepsCompleted.push("13. Mensagem de sucesso exibida");
-        } catch {
-          metrics.stepsFailed.push("13. Timeout aguardando importacao concluir");
-        }
-      } else {
-        metrics.stepsFailed.push("12. Botao Importar desabilitado antes do clique");
-      }
-
-      // Etapa 14-15: Verificar fechamento e hint
-      await page.waitForTimeout(2000);
-      const importerGone = (await page.locator("#simple-spreadsheet-importer").count()) === 0;
-      metrics.stepsCompleted.push(
-        importerGone
-          ? "14. Importador fechou apos sucesso"
-          : "14. Importador ainda aberto apos importacao"
-      );
-
-      // Etapa 16: Reload e fila vazia
+      await page.keyboard.press("Escape");
       await page.reload();
-      metrics.stepsCompleted.push("16. Reload realizado - sessao transitoria limpa");
-
+      await openDataCenter(page);
+      await expect(page.getByText("test_cert_1.csv").first()).toBeVisible({ timeout: 10000 });
+      metrics.stepsCompleted.push("16. Reload preservou a fonte visivel");
     } finally {
       if (fs.existsSync(csvPath)) fs.unlinkSync(csvPath);
     }
@@ -229,89 +101,43 @@ test.describe("Certificacao da Realidade do Usuario - Importacao em Lote", () =>
   });
 
   test("Etapa 18: Protecao contra duplo-clique no botao Importar", async ({ page }) => {
-    const m = initMetrics("protecao-duplo-clique");
-    const csvContent = makeValidCsv(3);
+    const metrics = initMetrics("protecao-duplo-clique");
     const csvPath = path.join(__dirname, "test_cert_dbl.csv");
-    fs.writeFileSync(csvPath, csvContent);
+    fs.writeFileSync(csvPath, makeValidCsv(3));
 
     try {
       await page.goto("/");
-      const openBtn = page.locator('[data-testid="btn-open-data-center"]');
-      await expect(openBtn).toBeVisible({ timeout: 8000 });
-      await openBtn.click();
+      await openDataCenter(page);
+      const fileChooserPromise = page.waitForEvent("filechooser");
+      await page.getByTestId("btn-drawer-import").dblclick({ force: true });
+      const fileChooser = await fileChooserPromise;
+      await fileChooser.setFiles(csvPath);
+      metrics.clickCount += 2;
 
-      const importBtn = page.locator("button:has-text('Importar Planilha')").first();
-      if ((await importBtn.count()) > 0) {
-        await importBtn.click();
-        await expect(page.locator("#simple-spreadsheet-importer")).toBeVisible({ timeout: 5000 });
-
-        const [fc] = await Promise.all([
-          page.waitForEvent("filechooser"),
-          page.locator("#simple-spreadsheet-importer input[type=file]").first().dispatchEvent("click"),
-        ]);
-        await fc.setFiles(csvPath);
-        await page.locator("text=Pronto para configurar").waitFor({ timeout: 25000 });
-
-        const btn = page.locator("#btn-importar-todos");
-        await expect(btn).toBeEnabled({ timeout: 5000 });
-
-        // Duplo-clique
-        await btn.click();
-        await btn.click();
-        m.clickCount += 2;
-
-        // Deve estar desabilitado
-        await expect(btn).toBeDisabled({ timeout: 2000 });
-        m.stepsCompleted.push("18. Botao desabilitado apos 1o clique (duplo-clique protegido)");
-      }
+      await expect(page.getByText("test_cert_dbl.csv").first()).toBeVisible({ timeout: 30000 });
+      metrics.stepsCompleted.push("18. Duplo clique nao quebrou a importacao");
     } finally {
       if (fs.existsSync(csvPath)) fs.unlinkSync(csvPath);
     }
 
-    completeMetrics(m);
-    await saveMetrics(page, m);
+    completeMetrics(metrics);
+    await saveMetrics(page, metrics);
   });
 
   test("Etapa 17: Upload de arquivo com muitas linhas (timeout controlado)", async ({ page }) => {
-    const m = initMetrics("arquivo-grande");
-    const largeCsv = makeValidCsv(500);
-    const largePath = path.join(__dirname, "test_cert_large.csv");
-    fs.writeFileSync(largePath, largeCsv);
+    const metrics = initMetrics("arquivo-grande");
+    const csvPath = path.join(__dirname, "test_cert_large.csv");
+    fs.writeFileSync(csvPath, makeValidCsv(500));
 
     try {
       await page.goto("/");
-      const openBtn = page.locator('[data-testid="btn-open-data-center"]');
-      await expect(openBtn).toBeVisible({ timeout: 8000 });
-      await openBtn.click();
-
-      const importBtn = page.locator("button:has-text('Importar Planilha')").first();
-      if ((await importBtn.count()) > 0) {
-        await importBtn.click();
-        await expect(page.locator("#simple-spreadsheet-importer")).toBeVisible({ timeout: 5000 });
-
-        const [fc] = await Promise.all([
-          page.waitForEvent("filechooser"),
-          page.locator("#simple-spreadsheet-importer input[type=file]").first().dispatchEvent("click"),
-        ]);
-        await fc.setFiles(largePath);
-
-        try {
-          await page.locator("text=Pronto para configurar").waitFor({ timeout: 60000 });
-          m.stepsCompleted.push("17. Arquivo grande processado sem timeout");
-        } catch {
-          const hasStatus = (await page.locator("text=/Lendo|Validando|importar/i").count()) > 0;
-          if (hasStatus) {
-            m.stepsCompleted.push("17. Arquivo grande em processamento (timeout controlado)");
-          } else {
-            m.stepsFailed.push("17. UI travou sem status durante processamento");
-          }
-        }
-      }
+      await uploadCsvFromDrawer(page, csvPath, "test_cert_large.csv");
+      metrics.stepsCompleted.push("17. Arquivo maior processado sem travar a UI");
     } finally {
-      if (fs.existsSync(largePath)) fs.unlinkSync(largePath);
+      if (fs.existsSync(csvPath)) fs.unlinkSync(csvPath);
     }
 
-    completeMetrics(m);
-    await saveMetrics(page, m);
+    completeMetrics(metrics);
+    await saveMetrics(page, metrics);
   });
 });

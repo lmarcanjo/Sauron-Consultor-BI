@@ -4,6 +4,7 @@
  */
 
 import { IUnitOfWork } from "./UnitOfWork";
+import { platformLogger } from "../platform/PlatformLogger";
 
 /**
  * Standard transaction isolation rules supported by Sauron DB adapters.
@@ -68,7 +69,7 @@ export class TransactionManager implements ITransactionManager {
     const uow = this.defaultUow;
     const isAlreadyActive = uow.isTransactionActive();
 
-    console.log(
+    platformLogger.debug(
       `[TransactionManager] Initiating transaction boundary. Propagation: ${options.propagation}, Isolation: ${options.isolationLevel}`
     );
 

@@ -23,6 +23,8 @@ const METRIC_MODULES: Record<BusinessMetricName, ModuleName[]> = {
   margemCandidata: ["Financeiro", "DRE", "Comercial"],
   receitaCandidata: ["DRE", "Financeiro", "Comercial"],
   custoCandidato: ["DRE", "Financeiro", "Comercial"],
+  despesaCandidata: ["DRE", "Financeiro"],
+  resultadoLiquido: ["DRE", "Financeiro"],
 };
 
 const ROLE_PATTERNS: Record<string, RegExp[]> = {
@@ -545,6 +547,62 @@ async function calculateMargin(context: BusinessIntelligenceContext): Promise<Bu
   });
 }
 
+async function calculateNetResult(context: BusinessIntelligenceContext): Promise<BusinessMetric> {
+  const [revenue, cost, expense] = await Promise.all([
+    calculateMetric("receitaCandidata", context),
+    calculateMetric("custoCandidato", context),
+    calculateMetric("despesaCandidata", context),
+  ]);
+
+  const inputMetrics = [revenue, cost, expense];
+  if (inputMetrics.some(metric => metric.status !== "ready" || metric.value === null)) {
+    return pendingMetric({
+      metricName: "resultadoLiquido",
+      context,
+      moduleNames: ["DRE", "Financeiro"],
+      missingMappings: ["DRE", "Financeiro"].filter(moduleName => !context.moduleMappings.some(mapping => mapping.moduleName === moduleName)) as ModuleName[],
+      message: "Configuração pendente: receita, custo e despesa precisam estar mapeados para calcular o resultado líquido.",
+    });
+  }
+
+  const inputSheets = unique(inputMetrics.flatMap(metric => metric.lineage.inputSheets));
+  const inputColumns = unique(inputMetrics.flatMap(metric => metric.columnsUsed));
+  const rowsRead = Math.max(...inputMetrics.map(metric => metric.diagnostics.rowsRead));
+  const rowsSampled = Math.max(...inputMetrics.map(metric => metric.rowsSampled));
+
+  return buildBusinessMetric({
+    context,
+    metricName: "resultadoLiquido",
+    status: "ready",
+    value: (revenue.value as number) - (cost.value as number) - (expense.value as number),
+    moduleName: "DRE",
+    sheetName: revenue.sheetName,
+    columnsUsed: inputColumns,
+    rowsSampled,
+    lineage: {
+      datasetId: context.activeDataset?.datasetId || null,
+      inputSheets,
+      inputColumns,
+      moduleMappings: inputMetrics.flatMap(metric => metric.lineage.moduleMappings),
+      knowledgeGraphNodes: unique(inputMetrics.flatMap(metric => metric.lineage.knowledgeGraphNodes)),
+      businessRules: unique(inputMetrics.flatMap(metric => metric.lineage.businessRules)),
+      transformations: ["Receita candidata - custo candidato - despesa candidata."],
+      rowAccess: {
+        strategy: inputMetrics[0].lineage.rowAccess.strategy,
+        rowsRead,
+        rowsSampled,
+      },
+    },
+    diagnostics: buildDiagnostics({
+      confidence: Math.min(...inputMetrics.map(metric => metric.diagnostics.confidence)),
+      rowsRead,
+      calculation: "Composição de métricas canônicas de receita, custo e despesa.",
+    }),
+    mappingId: revenue.source.mappingId,
+    ruleIds: unique(inputMetrics.flatMap(metric => metric.source.ruleIds || [])),
+  });
+}
+
 export async function calculateMetric(metricName: BusinessMetricName, context: BusinessIntelligenceContext): Promise<BusinessMetric> {
   if (!context.activeDataset) {
     return pendingMetric({
@@ -579,6 +637,10 @@ export async function calculateMetric(metricName: BusinessMetricName, context: B
   if (metricName === "custoCandidato") {
     return calculateSumMetric({ metricName, context, moduleNames: ["DRE", "Financeiro", "Comercial"], roles: ["cost", "expense"], patterns: ROLE_PATTERNS.cost, ruleCategories: ["dre", "margin"] });
   }
+  if (metricName === "despesaCandidata") {
+    return calculateSumMetric({ metricName, context, moduleNames: ["DRE", "Financeiro"], roles: ["expense"], patterns: ROLE_PATTERNS.cost, ruleCategories: ["dre"] });
+  }
+  if (metricName === "resultadoLiquido") return calculateNetResult(context);
 
   return pendingMetric({
     metricName,
@@ -594,8 +656,8 @@ export async function calculateModuleMetrics(moduleName: ModuleName, context: Bu
     Comercial: ["totalVendido", "quantidadeClientes", "quantidadeProdutos", "ticketMedio", "receitaCandidata", "custoCandidato", "margemCandidata"],
     Pessoas: ["quantidadeVendedores"],
     Comissão: ["totalComissao", "quantidadeVendedores"],
-    Financeiro: ["receitaCandidata", "custoCandidato", "margemCandidata"],
-    DRE: ["receitaCandidata", "custoCandidato", "margemCandidata"],
+    Financeiro: ["receitaCandidata", "custoCandidato", "despesaCandidata", "resultadoLiquido", "margemCandidata"],
+    DRE: ["receitaCandidata", "custoCandidato", "despesaCandidata", "resultadoLiquido", "margemCandidata"],
   };
 
   return Promise.all((metricsByModule[moduleName] || []).map(metric => calculateMetric(metric, context)));

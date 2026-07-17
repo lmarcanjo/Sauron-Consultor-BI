@@ -121,13 +121,13 @@ export const ConsultorAreaTab: React.FC<ConsultorAreaTabProps> = ({ dataOrigem }
 
   return (
     <div className="space-y-4 font-sans text-slate-850 dark:text-slate-150 animate-fade-in" id="area-consultor-tab-view">
-      {/* Visual Indicator of isolation */}
+      {/* Notes are kept separate from the imported source. */}
       <div className="bg-amber-500/10 border border-amber-300 dark:border-amber-900 rounded-xl p-3 flex items-start gap-2.5 text-xs">
         <User className="text-amber-600 dark:text-amber-400 mt-0.5" size={16} />
         <div>
-          <p className="font-extrabold text-amber-800 dark:text-amber-300">Ambiente de Simulação do Consultor (Isolado)</p>
+          <p className="font-extrabold text-amber-800 dark:text-amber-300">Anotações do Consultor</p>
           <p className="text-[10px] text-slate-650 leading-relaxed mt-0.5">
-            Os dados alterados ou criados abaixo pertencem à camada estratégica do Consultor. Eles estão fisicamente isolados e salvos localmente na base do Sauron, garantindo que o banco original de vendas e contabilidade permaneça 100% inalterado (em conformidade com regras corporativas de compliance).
+            As anotações criadas abaixo ficam separadas da fonte importada e não alteram os dados originais.
           </p>
         </div>
       </div>
@@ -242,7 +242,7 @@ export const ConsultorAreaTab: React.FC<ConsultorAreaTabProps> = ({ dataOrigem }
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-3">
             <h3 className="text-xs font-black uppercase text-slate-700 dark:text-slate-350 flex items-center gap-1">
               <Target size={13} className="text-blue-500" />
-              <span>Definição de Cenários e Metas Virtuais</span>
+              <span>Definição de Cenários e Metas</span>
             </h3>
             <p className="text-[9px] text-slate-405">
               Estipule metas sobrepostas ou orçamentos personalizados para realizar cruzamento de performance.
@@ -265,7 +265,7 @@ export const ConsultorAreaTab: React.FC<ConsultorAreaTabProps> = ({ dataOrigem }
               </div>
 
               <div>
-                <label className="text-[8px] font-black uppercase text-slate-500 block mb-0.5">Valor da Meta Simulada</label>
+                <label className="text-[8px] font-black uppercase text-slate-500 block mb-0.5">Valor da Meta</label>
                 <input
                   type="number"
                   value={metaValue}
@@ -349,4 +349,3 @@ export const ConsultorAreaTab: React.FC<ConsultorAreaTabProps> = ({ dataOrigem }
 };
 
 // Memo helper
-

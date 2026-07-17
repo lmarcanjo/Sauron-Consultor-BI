@@ -115,6 +115,33 @@ var SecurityEngine = class _SecurityEngine {
 };
 var securityEngine = SecurityEngine.getInstance();
 
+// src/core/platform/PlatformLogger.ts
+function debugEnabled() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem("sauron_debug_logs") === "true";
+  } catch {
+    return false;
+  }
+}
+var platformLogger = {
+  error(message, ...args) {
+    console.error(message, ...args);
+  },
+  warn(message, ...args) {
+    console.warn(message, ...args);
+  },
+  info(message, ...args) {
+    if (debugEnabled()) console.info(message, ...args);
+  },
+  debug(message, ...args) {
+    if (debugEnabled()) console.debug(message, ...args);
+  },
+  trace(message, ...args) {
+    if (debugEnabled()) console.trace(message, ...args);
+  }
+};
+
 // src/core/connections/DatabaseConnectionManager.ts
 var DatabaseConnectionManager = class _DatabaseConnectionManager {
   constructor() {
@@ -166,9 +193,9 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
       };
       sysDb.auditLogs.unshift(logEntry);
       fs2.writeFileSync(SYSTEM_DB_FILE2, JSON.stringify(sysDb, null, 2), "utf-8");
-      console.log(`[AUDIT LOG] ${eventType} - ${status} - ${description}`);
+      platformLogger.info(`[AUDIT LOG] ${eventType} - ${status} - ${description}`);
     } catch (e) {
-      console.log("Erro ao salvar log de auditoria no ConnectionManager:", e.message);
+      platformLogger.warn("Erro ao salvar log de auditoria no ConnectionManager:", e.message);
     }
   }
   /**
@@ -188,7 +215,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
           Number(port || 5432),
           (err, stream) => {
             if (err) {
-              console.log("[SSH Tunnel Info] Encaminhamento de trafego finalizado:", String(err?.message || err));
+              platformLogger.warn("[SSH Tunnel Info] Encaminhamento de trafego finalizado:", String(err?.message || err));
               socket.destroy();
               return;
             }
@@ -804,7 +831,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
             estimatedRows[r.table_name] = Number(r.row_count) || 0;
           });
         } catch (err) {
-          console.log("Postgres Row Estimate count error:", err);
+          platformLogger.warn("Postgres Row Estimate count error:", err);
         }
         tables.forEach((t) => {
           if (estimatedRows[t] === void 0 || estimatedRows[t] === 0) {
@@ -830,7 +857,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
               type: c.Type
             }));
           } catch (e) {
-            console.log(`[Aviso Colunas] Selecao de colunas tabela ${table}:`, e.message);
+            platformLogger.warn(`[Aviso Colunas] Selecao de colunas tabela ${table}:`, e.message);
           }
         }
         try {
@@ -841,7 +868,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
             }
           });
         } catch (err) {
-          console.log("MySQL Row Estimate count error:", err);
+          platformLogger.warn("MySQL Row Estimate count error:", err);
         }
         tables.forEach((t) => {
           if (estimatedRows[t] === void 0 || estimatedRows[t] === 0) {
@@ -966,7 +993,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
     } finally {
       if (sshTunnel) {
         await sshTunnel.close().catch((err) => {
-          console.log(`[SSH Tunnel List Tables Close] Finalizacao:`, err.message);
+          platformLogger.warn(`[SSH Tunnel List Tables Close] Finalizacao:`, err.message);
         });
       }
     }
@@ -1084,7 +1111,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
               const rowsWithTable = res.rows.map((r) => ({ ...r, __sourceTable: t }));
               rawRows.push(...rowsWithTable);
             } catch (e) {
-              console.log(`Erro ao ler da tabela Postgres ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da tabela Postgres ${t}:`, e.message);
             }
           }
         } else {
@@ -1123,7 +1150,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
               const rowsWithTable = res.map((r) => ({ ...r, __sourceTable: t }));
               rawRows.push(...rowsWithTable);
             } catch (e) {
-              console.log(`Erro ao ler da tabela MySQL ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da tabela MySQL ${t}:`, e.message);
             }
           }
         } else {
@@ -1166,7 +1193,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
               const rowsWithTable = res.recordset.map((r) => ({ ...r, __sourceTable: t }));
               rawRows.push(...rowsWithTable);
             } catch (e) {
-              console.log(`Erro ao ler da tabela MSSQL ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da tabela MSSQL ${t}:`, e.message);
             }
           }
         } else if (tableName) {
@@ -1207,7 +1234,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
               const rowsWithTable = (res.rows || []).map((r) => ({ ...r, __sourceTable: t }));
               rawRows.push(...rowsWithTable);
             } catch (e) {
-              console.log(`Erro ao ler da tabela Oracle ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da tabela Oracle ${t}:`, e.message);
             }
           }
         } else if (tableName) {
@@ -1237,7 +1264,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
               const docsWithTable = docs.map((doc) => ({ ...doc, __sourceTable: t }));
               rawRows.push(...docsWithTable);
             } catch (e) {
-              console.log(`Erro ao ler da cole\xE7\xE3o MongoDB ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da cole\xE7\xE3o MongoDB ${t}:`, e.message);
             }
           }
         } else if (tableName) {
@@ -1267,7 +1294,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
     } finally {
       if (sshTunnel) {
         await sshTunnel.close().catch((err) => {
-          console.log(`[SSH Tunnel Fetch Close] Finalizacao:`, err.message);
+          platformLogger.warn(`[SSH Tunnel Fetch Close] Finalizacao:`, err.message);
         });
       }
     }

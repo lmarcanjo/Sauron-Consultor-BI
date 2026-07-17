@@ -14,7 +14,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ setActivePage, dataOri
     { id: 'vendedores', title: 'Ranking de Vendedores', category: 'Comercial', desc: 'Desempenho analítico por vendedor e ticket médio.' },
     { id: 'comissoes', title: 'Relatório de Comissões', category: 'Controladoria', desc: 'Cálculos de comissionamento da equipe e projeções.' },
     { id: 'posvendas', title: 'Análise de Pós-Vendas', category: 'Oficina / Serviços', desc: 'Performance de mecânica, passagens e lucratividade.' },
-    { id: 'pecas', title: 'Peças & Acessórios', category: 'Estoque / Vendas', desc: 'Margem e giro de inventário de peças Balcão e Oficina.' },
+    { id: 'itens', title: 'Itens & Categorias', category: 'Estoque / Vendas', desc: 'Margem e giro de inventário por item e canal.' },
   ];
 
   // 1. Detect all column categories & numbers from the uploaded dataset
@@ -153,7 +153,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ setActivePage, dataOri
               <Sparkles className="text-blue-500 animate-pulse shrink-0" size={16} />
               <div>
                 <h3 className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 tracking-wider">Gerador de Relatórios Dinâmicos Ad-Hoc</h3>
-                <p className="text-[10px] text-slate-450 font-semibold">Construa agregações instantâneas por qualquer dimensão identificada no dataset.</p>
+                <p className="text-[10px] text-slate-450 font-semibold">Construa agregações por qualquer dimensão identificada nos dados.</p>
               </div>
             </div>
 

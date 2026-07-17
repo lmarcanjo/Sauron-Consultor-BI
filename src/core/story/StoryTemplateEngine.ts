@@ -40,27 +40,17 @@ export class StoryTemplateEngine {
           title: "Resultados Macro & EBITDA",
           objective: "Avaliar a rentabilidade consolidada do grupo frente às diretrizes de capital social.",
           evidence: "Fechamento DRE consolidado auditado externamente.",
-          conclusion: "Superávit operacional mantido acima da meta histórica de 12.5%.",
-          defaultIndicators: [
-            { label: "Faturamento Bruto", value: "R$ 48.2M", trend: "+8.2%", isPositive: true },
-            { label: "Margem EBITDA", value: "14.2%", trend: "+1.5%", isPositive: true },
-          ],
-          defaultBlocks: [
-            { type: "kpi", title: "Metas Consolidadas", content: { value: "R$ 48.200.000" } },
-            { type: "narrative", title: "Visão do Presidente", content: { text: "Grupo mantém crescimento contínuo suportado pelo varejo premium." } },
-          ],
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
+          defaultBlocks: [],
         },
         {
           title: "Governança e ESG",
           objective: "Apresentar auditoria de integridade e indicadores socioambientais e de compliance.",
           evidence: "Laudos do comitê independente de ética e auditoria interna.",
           conclusion: "Zero desvios ou passivos regulatórios identificados no ciclo fiscal.",
-          defaultIndicators: [
-            { label: "Índice de Compliance", value: "99.8%", trend: "+0.2%", isPositive: true },
-          ],
-          defaultBlocks: [
-            { type: "insight", title: "Análise de Riscos", content: { text: "Mitigação tributária regional finalizada com sucesso." } },
-          ],
+          defaultIndicators: [],
+          defaultBlocks: [],
         },
       ],
     });
@@ -76,10 +66,8 @@ export class StoryTemplateEngine {
           title: "Acompanhamento Tático de Verticais",
           objective: "Garantir consistência na execução do plano anual entre os diretores de área.",
           evidence: "Relatórios de status consolidados semanalmente pelas gerências.",
-          conclusion: "Atrasos em projetos do pós-venda superados.",
-          defaultIndicators: [
-            { label: "Projetos no Prazo", value: "91%", trend: "+3%", isPositive: true },
-          ],
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
           defaultBlocks: [
             { type: "table", title: "Gargalos por Área", content: { headers: ["Área", "Status", "Severidade"], rows: [["Vendas", "No Prazo", "Baixa"], ["Pós-Venda", "Recuperando", "Média"]] } },
           ],
@@ -98,14 +86,9 @@ export class StoryTemplateEngine {
           title: "Funil e Taxas de Conversão",
           objective: "Otimizar o fluxo de leads do CRM digital até o fechamento de faturamento físico.",
           evidence: "Extração direta das tabelas do funil de marketing e propostas.",
-          conclusion: "Funil saudável, com melhora acentuada na prospecção via WhatsApp.",
-          defaultIndicators: [
-            { label: "Média CSAT", value: "4.7 / 5.0", trend: "+0.3", isPositive: true },
-            { label: "Conversão Leads", value: "8.4%", trend: "-0.5%", isPositive: false },
-          ],
-          defaultBlocks: [
-            { type: "chart", title: "Evolução do Funil", content: { data: [{ step: "Leads", count: 1200 }, { step: "Contatos", count: 600 }, { step: "Propostas", count: 150 }] } },
-          ],
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
+          defaultBlocks: [],
         },
       ],
     });
@@ -121,11 +104,8 @@ export class StoryTemplateEngine {
           title: "DRE Consolidado do Período",
           objective: "Auditar desvios de despesas fixas e variáveis contra o orçamento planejado.",
           evidence: "Sistemas contábeis integrados ao Sauron OS.",
-          conclusion: "Redução de 4.2% em despesas discricionárias administrativas.",
-          defaultIndicators: [
-            { label: "Receita Líquida", value: "R$ 15.4M", trend: "+12%", isPositive: true },
-            { label: "Despesas Operacionais", value: "R$ 2.1M", trend: "-4.2%", isPositive: true },
-          ],
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
           defaultBlocks: [
             { type: "divider", title: "", content: {} },
           ],
@@ -142,12 +122,10 @@ export class StoryTemplateEngine {
       chapters: [
         {
           title: "Giro de Estoque e Lead Time",
-          objective: "Reduzir o tempo médio de permanência de veículos no showroom.",
+          objective: "Reduzir o tempo médio de permanência de itens no estoque.",
           evidence: "Gargalos de pátio e tempos de transporte rodoviário.",
-          conclusion: "Modelos populares apresentam giro rápido; importados demandam atenção comercial.",
-          defaultIndicators: [
-            { label: "Lead Time Entrega", value: "12 Dias", trend: "-2 Dias", isPositive: true },
-          ],
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
           defaultBlocks: [],
         },
       ],
@@ -164,31 +142,26 @@ export class StoryTemplateEngine {
           title: "Conformidade e Selo de Dados",
           objective: "Auditar o fluxo de importação e rastreabilidade dos lançamentos fiscais.",
           evidence: "Traces de data lineage coletados pelo auditor de sistema.",
-          conclusion: "Todas as importações do período possuem link direto e correspondência celular válida.",
-          defaultIndicators: [
-            { label: "Documentos Auditados", value: "100%", trend: "Estável", isPositive: true },
-          ],
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
           defaultBlocks: [],
         },
       ],
     });
 
-    // 7. Automotivo (Automotive Showroom)
+    // 7. Operação especializada
     this.registerTemplate({
-      id: "automativo",
-      name: "Performance de Showroom Automotivo",
-      description: "Especializado para concessionárias: vendas de novos, seminovos, F&I e autopeças.",
+      id: "operacao_especializada",
+      name: "Performance de Operação Especializada",
+      description: "Especializado para vendas, giro, margem e categorias adicionais.",
       category: "Setorial",
       chapters: [
         {
-          title: "Venda de Veículos Novos & Seminovos",
-          objective: "Consolidar o market share de emplacamentos e giro de estoque de pátio.",
-          evidence: "Painel de emplacamentos regionais da associação comercial.",
-          conclusion: "Domínio regional mantido com 34% de market share.",
-          defaultIndicators: [
-            { label: "Unidades Novas", value: "142", trend: "+12", isPositive: true },
-            { label: "Margem Média Seminovos", value: "8.7%", trend: "-0.3%", isPositive: false },
-          ],
+          title: "Venda de Linhas Comerciais",
+          objective: "Consolidar market share e giro de estoque.",
+          evidence: "Painel regional da associação comercial.",
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
           defaultBlocks: [],
         },
       ],
@@ -205,10 +178,8 @@ export class StoryTemplateEngine {
           title: "Safra e Eficiência de Insumos",
           objective: "Acompanhar a produtividade por hectare e controle de despesas agrícolas.",
           evidence: "Laudos técnicos do agrônomo de campo.",
-          conclusion: "Condições climáticas favoráveis impulsionam projeção de sacas.",
-          defaultIndicators: [
-            { label: "Sacas/Hectare", value: "78", trend: "+4", isPositive: true },
-          ],
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
           defaultBlocks: [],
         },
       ],
@@ -223,12 +194,10 @@ export class StoryTemplateEngine {
       chapters: [
         {
           title: "Eficiência OEE e Paradas",
-          objective: "Maximizar a produtividade dos equipamentos na linha de montagem premium.",
+          objective: "Maximizar a produtividade dos equipamentos na linha operacional.",
           evidence: "Sensores IoT e diário de bordo dos operadores de turno.",
-          conclusion: "Paradas preventivas reduziram tempo de inatividade não planejado em 15%.",
-          defaultIndicators: [
-            { label: "OEE Consolidado", value: "84.5%", trend: "+2.1%", isPositive: true },
-          ],
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
           defaultBlocks: [],
         },
       ],
@@ -245,11 +214,8 @@ export class StoryTemplateEngine {
           title: "Entrega de Horas e Satisfação NPS",
           objective: "Garantir a retenção de contratos corporativos de longa duração.",
           evidence: "Pesquisas trimestrais de fidelidade e tempos de projeto.",
-          conclusion: "NPS de excelência mantido; foco em mitigar pequenos picos de churn tático.",
-          defaultIndicators: [
-            { label: "NPS do Grupo", value: "78", trend: "+2", isPositive: true },
-            { label: "Horas Faturadas", value: "1,240h", trend: "+140h", isPositive: true },
-          ],
+          conclusion: "Indicadores pendentes de fonte real e mapeamento do período.",
+          defaultIndicators: [],
           defaultBlocks: [],
         },
       ],

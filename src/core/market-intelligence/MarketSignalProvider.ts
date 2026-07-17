@@ -45,7 +45,7 @@ export class MarketSignalProvider {
           id: "sig_auto_1",
           type: "alert",
           title: "Juros de financiamento pressionados",
-          description: "Com a Selic mantida em 10.50%, as taxas médias de CDC para veículos novos continuam elevadas, restringindo o volume de parcelas longas.",
+          description: "Com a Selic mantida em 10.50%, as taxas médias de crédito continuam elevadas, restringindo o volume de parcelas longas.",
           strength: "medium",
           source: "Banco Central do Brasil"
         },
@@ -63,7 +63,7 @@ export class MarketSignalProvider {
           title: "Disrupção na entrega de semicondutores",
           description: "Conflitos de frete no Mar Vermelho continuam atrasando chips, com risco de paradas parciais de linhas no terceiro trimestre.",
           strength: "medium",
-          source: "Sindipeças"
+          source: "Indicador setorial"
         }
       ];
     } else if (domainId === "construction") {

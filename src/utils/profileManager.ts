@@ -35,7 +35,7 @@ export const DEFAULT_PRESETS: CorporateProfile[] = [
     email: "analista@sauron.com",
     password: "analista123",
     role: "analista",
-    description: "Modo leitura segura. Consulta dos demonstrativos contábeis de concessionárias com bloqueio absoluto de edições/gravações."
+    description: "Modo leitura segura. Consulta dos demonstrativos contábeis das empresas com bloqueio absoluto de edições/gravações."
   }
 ];
 

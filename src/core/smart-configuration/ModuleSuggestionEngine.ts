@@ -17,7 +17,7 @@ const SHEET_HINTS: Record<ModuleName, string[]> = {
   Comercial: ["imp vendas at", "imp vendas", "importacao detalhada", "vendas", "venda"],
   Pessoas: ["imp vendedores", "cadastros vendedores", "cadastros funcionarios", "funcionarios", "vendedores", "pessoas"],
   Comissão: ["comissao vendedores", "comissao", "comissão", "vendedores", "fechamento"],
-  Financeiro: ["imp vendas at", "imp vendas", "rvd pecas", "rvd ac", "financeiro", "vendas", "importacao detalhada"],
+  Financeiro: ["imp vendas at", "imp vendas", "rvd", "rvd ac", "financeiro", "vendas", "importacao detalhada"],
   DRE: ["dre", "resultado", "rvd", "financeiro", "demonstrativo"],
 };
 

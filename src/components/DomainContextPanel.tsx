@@ -14,19 +14,7 @@ import {
 } from "lucide-react";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/WorkspaceIntelligenceEngine";
 import { Workspace } from "../core/workspace-intelligence/WorkspaceIntelligenceTypes";
-import { businessDomainEngine } from "../core/business-domains";
-
-const DOMAIN_LABELS: Record<string, string> = {
-  shared: "Geral / Compartilhado",
-  automotive: "Automotivo",
-  agribusiness: "Agronegócio",
-  retail: "Varejo",
-  industry: "Indústria",
-  construction: "Construção Civil",
-  healthcare: "Saúde",
-  education: "Educação",
-  services: "Serviços"
-};
+import { businessDomainEngine, getDomainDisplayLabel, getDomainDisplayOptions } from "../core/business-domains";
 
 export const DomainContextPanel: React.FC = () => {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -79,7 +67,7 @@ export const DomainContextPanel: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">
-                Segmento de Atuação
+                Área de atuação
               </span>
               {manualDomain ? (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
@@ -96,7 +84,7 @@ export const DomainContextPanel: React.FC = () => {
               )}
             </div>
             <h2 className="text-xl font-black text-slate-900 dark:text-white mt-1">
-              {DOMAIN_LABELS[activeDomain] || DOMAIN_LABELS.shared}
+              {getDomainDisplayLabel(activeDomain)}
             </h2>
           </div>
         </div>
@@ -107,7 +95,7 @@ export const DomainContextPanel: React.FC = () => {
           className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-xs font-black uppercase tracking-wider self-start lg:self-center"
         >
           <Settings size={15} />
-          Revisar Domínio
+          Revisar área
         </button>
       </div>
 
@@ -116,15 +104,15 @@ export const DomainContextPanel: React.FC = () => {
         <div className="flex items-start gap-3 p-4 bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-800 dark:text-amber-300">
           <AlertTriangle className="shrink-0 text-amber-500 mt-0.5" size={18} />
           <div className="text-xs space-y-1">
-            <p className="font-extrabold">Domínio não confirmado</p>
+            <p className="font-extrabold">Área de atuação não confirmada</p>
             <p className="font-bold opacity-90">
-              A confiança na detecção automática é baixa. Selecione manualmente o domínio abaixo para obter as melhores sugestões e rotulagens.
+              A identificação automática ficou incerta. Escolha a área de atuação para receber sugestões mais adequadas.
             </p>
             <button
               onClick={() => setIsReviewing(true)}
               className="mt-2 text-xs font-black underline hover:no-underline"
             >
-              Escolher domínio agora
+              Escolher área agora
             </button>
           </div>
         </div>
@@ -134,10 +122,10 @@ export const DomainContextPanel: React.FC = () => {
       {isReviewing && (
         <div className="bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-4 animate-fade-in">
           <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-            Selecione o domínio do negócio
+            Selecione a área de atuação
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-            {Object.entries(DOMAIN_LABELS).map(([id, label]) => (
+            {getDomainDisplayOptions().map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
@@ -180,7 +168,7 @@ export const DomainContextPanel: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm space-y-4">
             <div className="flex items-center gap-2 text-slate-900 dark:text-white">
               <BookOpen className="text-blue-500" size={18} />
-              <h3 className="text-xs font-black uppercase tracking-wider">Vocabulário Técnico</h3>
+              <h3 className="text-xs font-black uppercase tracking-wider">Termos do negócio</h3>
             </div>
             <div className="grid grid-cols-1 gap-2">
               {vocabulary?.terms.slice(0, 5).map(term => (

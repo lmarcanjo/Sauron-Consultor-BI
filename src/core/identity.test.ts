@@ -422,12 +422,12 @@ describe("Sauron Release v0.6.5 — Identity & Collaboration Foundation Tests Su
     expect(twin.companies.length).toBeGreaterThan(0);
     
     const company = twin.companies[0];
-    expect(company.stores.some(s => s.id === "store_nissan_feira")).toBe(true);
+    expect(company.stores.some(s => s.id === "store_unidade_a")).toBe(true);
   });
 
   // 15. Usuário gerente vê apenas loja permitida
   it("restricts Client Manager to their specific allowed store", () => {
-    const manager = userManager.getUser("user_client_manager")!; // Carlos Loja Nissan
+    const manager = userManager.getUser("user_client_manager")!;
     const workspace = organizationManager.getWorkspace("ws_cliente_real")!;
     
     const visibleCompanies = accessControlEngine.getVisibleCompaniesForUser(manager, workspace);

@@ -98,7 +98,7 @@ export const MainContentErrorBoundary: React.FC<{ children: React.ReactNode }> =
 );
 
 export const EnterpriseCenterErrorBoundary: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <BaseErrorBoundary fallbackTitle="Não foi possível carregar o Enterprise Center.">
+  <BaseErrorBoundary fallbackTitle="Não foi possível carregar Empresas e Grupos.">
     {children}
   </BaseErrorBoundary>
 );

@@ -173,11 +173,11 @@ export const SpreadsheetExcelViewer: React.FC<SpreadsheetExcelViewerProps> = ({
           data-testid="spreadsheet-sheet-tabs"
           className="flex bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 overflow-x-auto gap-1"
         >
-          {sheets.map((s) => {
+          {sheets.map((s, sheetIndex) => {
             const isActive = s.sheetName === activeSheet;
             return (
               <button
-                key={s.sheetName}
+                key={`${s.sheetName}-${sheetIndex}`}
                 onClick={() => onSelectSheet && onSelectSheet(s.sheetName)}
                 className={`px-4 py-2 text-xs font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap ${
                   isActive

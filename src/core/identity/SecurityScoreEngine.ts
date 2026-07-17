@@ -32,8 +32,8 @@ export class SecurityScoreEngine {
     const totalUsersCount = orgUsers.length;
 
     // 1. MFA Adoption Rate (weight: 20%)
-    // Since our mock profiles don't have a strict MFA boolean yet, we simulate MFA adoption:
-    // Super Admins, Consultant Admins, and any users who have simulated MFA sessions have MFA enabled.
+    // Until the identity contract exposes a dedicated MFA flag, the current
+    // policy maps administrative roles and the managed consulting domain.
     const mfaUsers = orgUsers.filter(u => 
       u.role === "Super Admin" || 
       u.role === "Consultant Admin" || 
@@ -77,7 +77,7 @@ export class SecurityScoreEngine {
 
     // 7. SSO (Single Sign-On) (weight: 15%)
     // Standard Enterprise configuration
-    const ssoEnabled = organizationId === "org_arcanjo"; // enabled for the main consulting holding
+    const ssoEnabled = organizationId === "org_arcanjo"; // enabled for the main consulting organization
 
     // 8. Session Timeout Policy (weight: 10%)
     const sessionStrictTimeout = true;

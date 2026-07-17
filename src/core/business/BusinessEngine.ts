@@ -57,22 +57,22 @@ export class BusinessEngine {
   /**
    * Generates segment-specific cost centers.
    */
-  public getCostCenters(segment: "automotivo" | "agro" | "servicos" | "industria"): CostCenter[] {
+  public getCostCenters(segment: "especializado" | "agro" | "servicos" | "industria"): CostCenter[] {
     switch (segment) {
-      case "automotivo":
+      case "especializado":
         return [
-          { id: "cc_vn", code: "VN", name: "Veículos Novos", segment: "automotivo" },
-          { id: "cc_vs", code: "VS", name: "Seminovos", segment: "automotivo" },
-          { id: "cc_vf", code: "VF", name: "Venda Frotista", segment: "automotivo" },
-          { id: "cc_pe", code: "PE", name: "Peças", segment: "automotivo" },
-          { id: "cc_ac", code: "AC", name: "Acessórios", segment: "automotivo" },
-          { id: "cc_me", code: "ME", name: "Mecânica", segment: "automotivo" },
-          { id: "cc_fu", code: "FU", name: "Funilaria", segment: "automotivo" },
-          { id: "cc_co", code: "CO", name: "Consórcio", segment: "automotivo" },
-          { id: "cc_fi", code: "FI", name: "F&I/FNA", segment: "automotivo" },
-          { id: "cc_ad", code: "AD", name: "Administrativo", segment: "automotivo" },
-          { id: "cc_fn", code: "FN", name: "Financeiro", segment: "automotivo" },
-          { id: "cc_di", code: "DI", name: "Diretoria", segment: "automotivo" }
+          { id: "cc_vn", code: "LC", name: "Linha Comercial", segment: "especializado" },
+          { id: "cc_vs", code: "LR", name: "Linha Recorrente", segment: "especializado" },
+          { id: "cc_vf", code: "CV", name: "Canal Corporativo", segment: "especializado" },
+          { id: "cc_pe", code: "IT", name: "Itens", segment: "especializado" },
+          { id: "cc_ac", code: "CA", name: "Categorias Adicionais", segment: "especializado" },
+          { id: "cc_me", code: "OP", name: "Operações", segment: "especializado" },
+          { id: "cc_fu", code: "SV", name: "Serviços", segment: "especializado" },
+          { id: "cc_co", code: "CO", name: "Contratos", segment: "especializado" },
+          { id: "cc_fi", code: "FI", name: "Financeiro", segment: "especializado" },
+          { id: "cc_ad", code: "AD", name: "Administrativo", segment: "especializado" },
+          { id: "cc_fn", code: "FN", name: "Financeiro", segment: "especializado" },
+          { id: "cc_di", code: "DI", name: "Diretoria", segment: "especializado" }
         ];
       case "agro":
         return [

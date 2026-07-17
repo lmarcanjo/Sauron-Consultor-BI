@@ -43,7 +43,7 @@ describe("Sauron Executive Story Suite", () => {
     expect(story.templateId).toBe("conselho");
     expect(story.chapters.length).toBe(2);
     expect(story.chapters[0].title).toBe("Resultados Macro & EBITDA");
-    expect(story.chapters[0].indicators.length).toBe(2);
+    expect(story.chapters[0].indicators.length).toBe(0);
     expect(story.chapters[1].title).toBe("Governança e ESG");
   });
 

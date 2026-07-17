@@ -126,7 +126,7 @@ export const ColumnConfigDrawer: React.FC<ColumnConfigDrawerProps> = ({
           {/* Active / Inactive Status */}
           <div className="space-y-2">
             <label className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-              Status da Coluna no Workspace
+              Status da coluna no projeto
             </label>
             <button
               type="button"
@@ -241,7 +241,7 @@ export const ColumnConfigDrawer: React.FC<ColumnConfigDrawerProps> = ({
                   className="rounded text-blue-600 focus:ring-blue-500"
                 />
                 <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
-                  <FileText size={14} className="text-slate-400" /> Mapear para Demonstração de Resultado (DRE)
+                  <FileText size={14} className="text-slate-400" /> Mapear para Resultado Gerencial (DRE)
                 </span>
               </label>
 

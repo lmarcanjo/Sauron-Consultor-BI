@@ -1,5 +1,6 @@
 import { ActiveDataset } from "../../types/dataSource";
 import { activeDatasetStore } from "./ActiveDatasetStore";
+import { dispatchPlatformEvent, PLATFORM_EVENTS } from "../events/PlatformEvents";
 
 export type ModuleName = "Financeiro" | "Comercial" | "Pessoas" | "DRE" | "Comissão";
 
@@ -43,7 +44,7 @@ export const MODULE_ROLE_DEFINITIONS: Record<ModuleName, ModuleRoleDefinition[]>
     { role: "product", label: "Produto/Item", patterns: ["produto", "item", "peca", "peça", "codigo", "código", "descrição", "descricao"] },
     { role: "seller", label: "Vendedor/Consultor", patterns: ["vendedor", "consultor", "colaborador"] },
     { role: "client", label: "Cliente", patterns: ["cliente", "comprador", "contato", "empresa", "cpf", "cnpj"] },
-    { role: "value", label: "Valor de venda", patterns: ["valor", "venda", "total", "mercadoria", "fatur", "vlr", "liquido", "líquido", "bruto"] },
+    { role: "value", label: "Valor de venda", patterns: ["valor", "venda", "total", "receita", "faturamento", "mercadoria", "fatur", "vlr", "liquido", "líquido", "bruto"] },
     { role: "date", label: "Data", patterns: ["data", "emissao", "emissão", "dt", "mes", "mês"] },
     { role: "category", label: "Marca/Grupo", patterns: ["marca", "grupo", "familia", "família", "categoria", "departamento", "linha"] },
   ],
@@ -55,7 +56,7 @@ export const MODULE_ROLE_DEFINITIONS: Record<ModuleName, ModuleRoleDefinition[]>
     { role: "registration", label: "Matrícula", patterns: ["matricula", "matrícula", "mat", "registro"] },
     { role: "role", label: "Cargo/Função", patterns: ["cargo", "funcao", "função"] },
     { role: "department", label: "Setor", patterns: ["setor", "departamento", "equipe"] },
-    { role: "store", label: "Loja/Unidade", patterns: ["loja", "unidade", "concessionaria", "concessionária", "filial", "empresa"] },
+    { role: "store", label: "Loja/Unidade", patterns: ["loja", "unidade", "filial", "empresa"] },
     { role: "commission", label: "Comissão", patterns: ["comiss"] },
   ],
   DRE: [
@@ -127,7 +128,7 @@ function cleanSemanticRoles(roles: Record<string, string> | undefined, selectedC
 function emitMappingUpdated(mapping: ModuleFieldMapping): void {
   listeners.forEach(listener => listener(mapping));
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("SAURON_MODULE_MAPPING_UPDATED", { detail: mapping }));
+    dispatchPlatformEvent(PLATFORM_EVENTS.SOURCE_CONFIGURED, mapping);
   }
 }
 

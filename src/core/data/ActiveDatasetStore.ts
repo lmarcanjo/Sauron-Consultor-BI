@@ -1,6 +1,8 @@
 import { ActiveDataset } from "../../types/dataSource";
 import { DatasetEvent, DatasetEventType, DatasetEventPayload } from "./DatasetEvents";
 import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
+import { dispatchPlatformEvent, PLATFORM_EVENTS } from "../events/PlatformEvents";
+import { platformLogger } from "../platform/PlatformLogger";
 
 export class ActiveDatasetStore {
   private static instance: ActiveDatasetStore;
@@ -38,20 +40,12 @@ export class ActiveDatasetStore {
 
   public setActiveDataset(dataset: ActiveDataset | null, rawRows?: any[]) {
     this.activeDataset = dataset;
-    if (rawRows) {
-      this.activeRows = rawRows;
-      if (typeof window !== "undefined") {
-        IndexedSpreadsheetStorage.saveRows("__active_consolidated_rows__", rawRows).catch(err => {
-          console.error("Failed to save active rows to IndexedDB:", err);
-        });
-      }
-    } else if (dataset) {
-      this.activeRows = dataset.previewRows.map(r => r.raw);
-      if (typeof window !== "undefined") {
-        IndexedSpreadsheetStorage.saveRows("__active_consolidated_rows__", this.activeRows).catch(err => {
-          console.error("Failed to save active rows to IndexedDB:", err);
-        });
-      }
+    if (dataset) {
+      // The active store is a metadata/preview bus. Full rows stay in the
+      // dataset's source storage and are read by paginated consumers.
+      this.activeRows = rawRows
+        ? rawRows.slice(0, 100)
+        : (dataset.previewRows || []).slice(0, 100).map(r => r.raw);
     } else {
       this.activeRows = [];
       if (typeof window !== "undefined") {
@@ -61,7 +55,7 @@ export class ActiveDatasetStore {
       }
     }
 
-    console.log(`[Sauron Instrumentation] ACTIVE_DATASET_STORE_SET - datasetId: ${dataset ? dataset.datasetId : "null"}, sourceName: ${dataset ? dataset.sourceName : "null"}, rowCount: ${this.activeRows.length}, columnCount: ${dataset ? dataset.columnCount : 0}, sourceType: ${dataset ? dataset.sourceType : "null"}`);
+    platformLogger.info(`[Sauron Instrumentation] ACTIVE_DATASET_STORE_SET - datasetId: ${dataset ? dataset.datasetId : "null"}, sourceName: ${dataset ? dataset.sourceName : "null"}, rowCount: ${this.activeRows.length}, columnCount: ${dataset ? dataset.columnCount : 0}, sourceType: ${dataset ? dataset.sourceType : "null"}`);
 
     // Persist to localStorage (with truncated previewRows and safe try/catch)
     if (typeof localStorage !== "undefined") {
@@ -102,17 +96,12 @@ export class ActiveDatasetStore {
     try {
       const dataset: ActiveDataset = JSON.parse(savedDatasetStr);
       
-      // Load consolidated rows from IndexedDB
-      const dbRows = await IndexedSpreadsheetStorage.getRows("__active_consolidated_rows__");
-
       this.activeDataset = dataset;
-      if (dbRows && dbRows.length > 0) {
-        this.activeRows = dbRows;
-      } else {
-        this.activeRows = dataset.previewRows.map(r => r.raw);
-      }
+      // Rehydration must never materialize the complete workbook. Consumers
+      // use dataset.rawStorageRef and query IndexedDB pages when needed.
+      this.activeRows = (dataset.previewRows || []).slice(0, 100).map(r => r.raw);
       
-      console.log(`[ActiveDatasetStore] Rehydrated dataset metadata and ${this.activeRows.length} rows.`);
+      platformLogger.info(`[ActiveDatasetStore] Rehydrated dataset metadata and ${this.activeRows.length} rows.`);
 
       const event = this.createEvent("DATASET_REHYDRATED", dataset);
       this.notify(event);
@@ -131,10 +120,10 @@ export class ActiveDatasetStore {
   }
 
   public notify(event: DatasetEvent) {
-    console.log(`[ActiveDatasetStore] Dispatching event: ${event.type}`, event.payload);
+    platformLogger.info(`[ActiveDatasetStore] Dispatching event: ${event.type}`, event.payload);
     
     if (event.type === "DATASET_ACTIVATED" || event.type === "DATASET_REHYDRATED") {
-      console.log(`[Sauron Instrumentation] DATASET_ACTIVATED_EMITTED - datasetId: ${event.payload.datasetId || "null"}, sourceName: ${event.payload.sourceName || "null"}, rowCount: ${event.payload.rowCount || 0}, columnCount: ${event.payload.columnCount || 0}, sourceType: ${event.payload.sourceType || "null"}`);
+      platformLogger.info(`[Sauron Instrumentation] DATASET_ACTIVATED_EMITTED - datasetId: ${event.payload.datasetId || "null"}, sourceName: ${event.payload.sourceName || "null"}, rowCount: ${event.payload.rowCount || 0}, columnCount: ${event.payload.columnCount || 0}, sourceType: ${event.payload.sourceType || "null"}`);
     }
 
     // Save to diagnostic event history
@@ -154,13 +143,7 @@ export class ActiveDatasetStore {
 
     // Notify window system if in browser
     if (typeof window !== "undefined") {
-      const customEvent = new CustomEvent(event.type, { detail: event.payload });
-      window.dispatchEvent(customEvent);
-      
-      // Backward compatibility trigger
-      if (event.type === "DATASET_ACTIVATED" || event.type === "DATASET_REHYDRATED") {
-        window.dispatchEvent(new CustomEvent("DATASET_ACTIVATED_COMPAT", { detail: event.payload }));
-      }
+      dispatchPlatformEvent(PLATFORM_EVENTS.ACTIVE_DATASET_CHANGED, event.payload);
     }
   }
 
@@ -191,6 +174,8 @@ export class ActiveDatasetStore {
         timestamp: new Date().toISOString(),
         metadata: {
           sheets: dataset.sheets,
+          sourceDatasetIds: dataset.sourceDatasetIds,
+          sourceWorkbookIds: dataset.sourceWorkbookIds,
           activeSheet: dataset.activeSheet,
           previewRows: dataset.previewRows,
           columnProfiles: dataset.columnProfiles,

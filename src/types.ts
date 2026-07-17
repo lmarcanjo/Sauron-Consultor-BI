@@ -62,5 +62,4 @@ export interface FiltrosDashboard {
   [key: string]: string[] | undefined;
 }
 
-export type ActiveDataSourceType = "DEMO_DATA" | "SPREADSHEET_DATA" | "DATABASE_DATA" | "CONSULTANT_DATA" | "MIXED_APPROVED_DATA";
-
+export type ActiveDataSourceType = "SPREADSHEET_DATA" | "DATABASE_DATA" | "CONSULTANT_DATA" | "MIXED_APPROVED_DATA";

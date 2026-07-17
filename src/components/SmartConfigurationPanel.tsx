@@ -23,12 +23,14 @@ export const SmartConfigurationPanel: React.FC<SmartConfigurationPanelProps> = (
   const [expanded, setExpanded] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
+  const [completed, setCompleted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setPlan(null);
     setMessage(null);
     setHidden(false);
+    setCompleted(false);
 
     if (!activeDataset) return;
 
@@ -68,8 +70,8 @@ export const SmartConfigurationPanel: React.FC<SmartConfigurationPanelProps> = (
 
   const acceptAll = () => {
     const result = applySmartConfigurationPlan(plan);
-    setMessage(`${result.appliedMappings.length} mapeamento(s) salvo(s).`);
-    setHidden(true);
+    setMessage(`${result.appliedMappings.length} área(s) configurada(s) com os campos sugeridos. Sugestões salvas.`);
+    setCompleted(true);
     onApplied?.();
   };
 
@@ -86,9 +88,9 @@ export const SmartConfigurationPanel: React.FC<SmartConfigurationPanelProps> = (
             <Lightbulb className="text-emerald-600" size={18} />
           </div>
           <div>
-            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Configuração inteligente encontrada</h3>
+            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Encontramos estas informações</h3>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">
-              {plan.suggestions.length} módulo(s) com sugestão, domínio provável {plan.domain.domain}, confiança geral {formatConfidence(plan.overallConfidence)}.
+              Encontramos informações que podem ajudar em {plan.suggestions.length} áreas. Confiança geral {formatConfidence(plan.overallConfidence)}.
             </p>
           </div>
         </div>
@@ -97,11 +99,12 @@ export const SmartConfigurationPanel: React.FC<SmartConfigurationPanelProps> = (
           <button
             type="button"
             onClick={acceptAll}
-            disabled={applicableSuggestions.length === 0}
+            disabled={applicableSuggestions.length === 0 || completed}
+            aria-label="Aceitar sugestões"
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-black uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <CheckCircle2 size={15} />
-            Aceitar tudo
+            {completed ? "Informações salvas" : "Confirmar tudo"}
           </button>
           <button
             type="button"
@@ -109,7 +112,7 @@ export const SmartConfigurationPanel: React.FC<SmartConfigurationPanelProps> = (
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-black uppercase tracking-wider"
           >
             <SlidersHorizontal size={15} />
-            Revisar
+            Editar sugestões
           </button>
           <button
             type="button"
@@ -117,7 +120,7 @@ export const SmartConfigurationPanel: React.FC<SmartConfigurationPanelProps> = (
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 text-xs font-black uppercase tracking-wider"
           >
             <XCircle size={15} />
-            Ignorar por enquanto
+            Agora não
           </button>
         </div>
       </div>

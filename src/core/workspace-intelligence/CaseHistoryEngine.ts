@@ -39,7 +39,7 @@ export class CaseHistoryEngine {
           id: "h_1",
           caseId: "case_alpha",
           title: "Dados importados",
-          description: "Importação realizada com sucesso do fechamento comercial das concessionárias.",
+          description: "Importação realizada com sucesso do fechamento comercial do cliente.",
           category: "data_imported",
           timestamp: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
           formattedTime: "Há 2 dias"
@@ -48,7 +48,7 @@ export class CaseHistoryEngine {
           id: "h_2",
           caseId: "case_alpha",
           title: "Primeiro diagnóstico gerado",
-          description: "Mapeamento inicial do DRE identificou anomalias críticas no CMV de autopeças.",
+          description: "Mapeamento inicial do DRE identificou anomalias críticas no CMV.",
           category: "diagnostic_generated",
           timestamp: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
           formattedTime: "Há 1 dia"
@@ -57,7 +57,7 @@ export class CaseHistoryEngine {
           id: "h_3",
           caseId: "case_alpha",
           title: "Margem caiu",
-          description: "Identificada redução na margem de F&I em seminovos da Nissan Feira.",
+          description: "Identificada redução na margem de uma linha comercial relevante.",
           category: "anomaly_detected",
           timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
           formattedTime: "Há 24 horas"
@@ -66,7 +66,7 @@ export class CaseHistoryEngine {
           id: "h_4",
           caseId: "case_alpha",
           title: "Plano executivo criado",
-          description: "Criadas 5 ações prioritárias voltadas à retenção de clientes pós-garantia.",
+          description: "Criadas 5 ações prioritárias voltadas à retenção de clientes.",
           category: "plan_created",
           timestamp: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
           formattedTime: "Há 12 horas"
@@ -75,7 +75,7 @@ export class CaseHistoryEngine {
           id: "h_5",
           caseId: "case_alpha",
           title: "Reunião realizada",
-          description: "Apresentação executiva conduzida para aprovação dos planos táticos da oficina.",
+          description: "Apresentação executiva conduzida para aprovação dos planos táticos da operação.",
           category: "session_realized",
           timestamp: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
           formattedTime: "Há 6 horas"

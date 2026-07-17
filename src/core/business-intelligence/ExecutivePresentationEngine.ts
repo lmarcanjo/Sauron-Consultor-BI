@@ -13,6 +13,11 @@ import { businessDomainEngine } from "../business-domains/BusinessDomainEngine";
 import { LancamentoFinanceiro } from "../../types";
 import { adaptivePresentationEngine } from "../adaptive-ui";
 import { getEnterpriseContext, enterpriseConsolidationService } from "../enterprise-consolidation";
+import { BusinessIntelligenceEngine } from "./BusinessIntelligenceEngine";
+import { BusinessMetricName } from "./BusinessMetricTypes";
+import { buildPresentationMetricValues, inferPresentationMappings } from "./PresentationMetricContext";
+import { ModuleFieldMapping } from "../data/moduleMapping";
+import { CertifiedMetricSnapshot, ConsistencyReadinessReport, buildCertifiedMetricSnapshot, buildConsistencyMetricFromBusinessMetric, certifiedMetricSnapshotStore, financialConsistencyOrchestrator } from "../financial-consistency";
 
 export interface PresentationSlide {
   id: string;
@@ -36,6 +41,8 @@ export interface ExecutivePresentation {
   targetType: string;
   slides: PresentationSlide[];
   status: "ready" | "insufficient_data";
+  consistency?: ConsistencyReadinessReport;
+  certifiedSnapshot?: CertifiedMetricSnapshot;
 }
 
 export class ExecutivePresentationEngine {
@@ -44,6 +51,7 @@ export class ExecutivePresentationEngine {
     workspace?: Workspace | null;
     activeDataset?: ActiveDataset | null;
     allRows?: LancamentoFinanceiro[];
+    moduleMappings?: ModuleFieldMapping[];
   }): Promise<ExecutivePresentation> {
     const { activeDataset, allRows = [] } = input;
 
@@ -104,57 +112,116 @@ export class ExecutivePresentationEngine {
       }
     }
 
-    let finalRows = scopedRows;
-    if (finalRows.length === 0) {
-      finalRows = allRows;
+    // A scoped query returning no rows is a valid empty state. Falling back to
+    // the caller's previous rows here would make a company show another
+    // company's presentation while the new context is still empty.
+    const hasExplicitContext = Boolean(
+      context.groupId || context.companyId || context.unitId || context.scope === "WORKBOOK"
+    );
+    const finalRows = hasExplicitContext
+      ? scopedRows
+      : (scopedRows.length > 0 ? scopedRows : allRows);
+
+    // Business values come from the canonical BI engine. The derived mapping
+    // is transient when older callers have not persisted module mappings.
+    const mappings = input.moduleMappings?.length
+      ? input.moduleMappings
+      : inferPresentationMappings(activeDataset, finalRows);
+    const metricNames: BusinessMetricName[] = [
+      "receitaCandidata",
+      "custoCandidato",
+      "despesaCandidata",
+      "resultadoLiquido",
+      "totalComissao",
+      "quantidadeVendedores",
+      "ticketMedio",
+    ];
+    const metricEngine = new BusinessIntelligenceEngine({
+      activeDataset,
+      moduleMappings: mappings,
+      rowProvider: async (_sheetName, limit) => finalRows.slice(0, limit),
+    });
+    const metrics = await Promise.all(metricNames.map(metricName => metricEngine.calculateMetric(metricName)));
+    const presentationValues = buildPresentationMetricValues(metrics, finalRows, mappings);
+    if (presentationValues.status !== "ready") {
+      return {
+        id: "pres_insufficient",
+        title: adaptivePresentationEngine.adaptText("Apresentação Executiva"),
+        targetName: activeDataset.sourceName,
+        targetType: "Fonte",
+        status: "insufficient_data",
+        slides: adaptivePresentationEngine.adaptSlides([{
+          id: "slide_pending_metrics",
+          title: "Configuração pendente",
+          subtitle: "Campos necessários para a apresentação",
+          type: "insufficient_data",
+          content: {
+            summary: `Configure as métricas: ${presentationValues.missingMetrics.join(", ")}.`,
+          },
+        }]),
+      };
     }
 
-    // 2. Perform real metric calculations!
-    const totalReceita = finalRows.reduce((acc, row) => acc + (row.Receita || 0), 0);
-    const totalCusto = finalRows.reduce((acc, row) => acc + (row.Custo || 0), 0);
-    const totalDespesa = finalRows.reduce((acc, row) => acc + (row.Despesa || 0), 0);
-    const totalComissao = finalRows.reduce((acc, row) => acc + (row.Comissão || row.comissão || row.Comissao || 0), 0);
-    const totalLucro = totalReceita - totalCusto - totalDespesa;
-    const margemLucro = totalReceita > 0 ? (totalLucro / totalReceita) * 100 : 0;
-
-    const uniqueSellers = new Set(finalRows.map(row => row.Vendedor || row.Consultor || row.VendedorName).filter(Boolean));
-    const countSellers = uniqueSellers.size || 1;
-    const ticketMedio = uniqueSellers.size > 0 ? totalReceita / uniqueSellers.size : 0;
+    const totalReceita = presentationValues.totalRevenue as number;
+    const totalCusto = presentationValues.totalCost as number;
+    const totalDespesa = presentationValues.totalExpense as number;
+    const totalComissao = presentationValues.totalCommission as number;
+    const totalLucro = presentationValues.netResult as number;
+    const margemLucro = totalReceita !== 0 ? (totalLucro / totalReceita) * 100 : 0;
+    const countSellers = presentationValues.sellerCount as number;
+    const ticketMedio = presentationValues.averageTicket as number;
 
     // Apply domain translations using F11.0 / F11.1 businessDomainEngine
     const t = (label: string) => businessDomainEngine.translateToDomain(label);
     const formatBrl = (v: number) => "R$ " + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    // Resolve period range
-    const periods = Array.from(new Set(finalRows.map(r => r.Mês || r["mês"] || r["Mes"] || "").filter(Boolean)));
-    const periodStr = periods.length > 0 ? periods.sort().join(" a ") : "Período não identificado";
+    // Resolve period range from the same mapped source used by BI.
+    const periodStr = presentationValues.period;
 
     // Resolve segment label
     const activeEnt = allEnterprises.find(e => e.id === (context.companyId || context.groupId));
     const segmentLabel = activeEnt?.segment === "agribusiness" ? "Agronegócio" :
-                          activeEnt?.segment === "automotive" ? "Automotivo" : "Geral";
+                          activeEnt?.segment === "automotive" ? "Operação Especializada" : "Geral";
 
-    // Find highest revenue company
-    const companyTotals: Record<string, number> = {};
-    finalRows.forEach(r => {
-      const name = r.Empresa || r.Filial;
-      if (name) {
-        companyTotals[name] = (companyTotals[name] || 0) + Number(r.Receita || 0);
-      }
+    const topCompany = presentationValues.topCompany;
+    const topSeller = presentationValues.topSeller;
+    const companyCount = presentationValues.companyCount;
+    const consistencyMetrics = metrics.map(metric => buildConsistencyMetricFromBusinessMetric({
+      metricKey: metric.metricKey,
+      displayLabel: metric.label,
+      value: metric.value,
+      sourceValue: metric.status === "ready" ? metric.value : null,
+      lineage: {
+        sourceId: metric.source.datasetId,
+        workbookId: metric.source.workbookId,
+        sheetName: metric.sheetName,
+        physicalColumnName: metric.columnsUsed[0] || null,
+        mappingId: metric.source.mappingId,
+        producer: "BusinessIntelligenceEngine",
+        calculatedAt: new Date().toISOString(),
+      },
+    }));
+    const consistency = financialConsistencyOrchestrator.reconcile({
+      contextId: activeDataset.datasetId,
+      requiredStages: ["source", "dataset", "kpis", "dashboard", "presentation"],
+      metrics: consistencyMetrics,
     });
-    const sortedCompanies = Object.entries(companyTotals).sort((a, b) => b[1] - a[1]);
-    const topCompany = sortedCompanies[0];
-    
-    // Find the top seller
-    const sellerTotals: Record<string, number> = {};
-    finalRows.forEach(r => {
-      const name = r.Vendedor || r.Consultor || r.VendedorName;
-      if (name) {
-        sellerTotals[name] = (sellerTotals[name] || 0) + Number(r.Receita || 0);
-      }
-    });
-    const sortedSellers = Object.entries(sellerTotals).sort((a, b) => b[1] - a[1]);
-    const topSeller = sortedSellers[0];
+    const enterpriseContextId = context.scope === "GROUP"
+      ? context.groupId
+      : context.scope === "COMPANY"
+        ? context.companyId
+        : context.scope === "UNIT"
+          ? context.unitId
+          : activeDataset.datasetId;
+    const certifiedSnapshot = certifiedMetricSnapshotStore.save(buildCertifiedMetricSnapshot({
+      contextType: context.scope,
+      contextId: enterpriseContextId || activeDataset.datasetId,
+      tenantId: activeDataset.sourceIdentity?.tenantId,
+      workspaceId: context.workspaceId || activeDataset.sourceIdentity?.workspaceId,
+      datasetVersion: `${activeDataset.datasetId}:${activeDataset.importedAt}`,
+      metrics: consistencyMetrics,
+      consistency: consistency.report,
+    }));
 
     const slides: PresentationSlide[] = [
       {
@@ -238,9 +305,9 @@ export class ExecutivePresentationEngine {
             totalCusto > totalReceita * 0.6
               ? `Elevada taxa de custos operacionais (representa ${((totalCusto / totalReceita) * 100).toFixed(0)}% da receita), pressionando margens brutas. [Linha de Dados: Coluna Custo]`
               : `Margem bruta preservada (custos em ${((totalCusto / totalReceita) * 100).toFixed(0)}% do faturamento). [Linha de Dados: Coluna Custo]`,
-            sortedCompanies.length === 1
-              ? `Alta concentração de faturamento in uma única unidade (${sortedCompanies[0][0]}). [Linha de Dados: Coluna Empresa]`
-              : `Concentração diluída entre as ${sortedCompanies.length} unidades identificadas. [Linha de Dados: Colunas Empresa e Filial]`
+            companyCount === 1 && topCompany
+              ? `Alta concentração de faturamento em uma única unidade (${topCompany[0]}). [Linha de Dados: Coluna Empresa]`
+              : `Concentração diluída entre as ${companyCount} unidades identificadas. [Linha de Dados: Colunas Empresa e Filial]`
           ]
         }
       },
@@ -316,7 +383,9 @@ export class ExecutivePresentationEngine {
       targetName,
       targetType,
       slides: adaptivePresentationEngine.adaptSlides(slides),
-      status: "ready"
+      status: "ready",
+      consistency,
+      certifiedSnapshot,
     };
   }
 }

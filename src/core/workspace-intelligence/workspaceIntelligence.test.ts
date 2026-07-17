@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 
 // Polyfill localStorage in test environment
 beforeAll(() => {
@@ -23,8 +23,71 @@ beforeAll(() => {
 import { workspaceIntelligenceEngine } from "./WorkspaceIntelligenceEngine";
 import { userManager } from "../identity/UserManager";
 import { organizationManager } from "../identity/OrganizationManager";
+import { PlatformUser, Organization, Workspace } from "../identity/types";
 
 describe("Sauron Sprint ΩΩΩ — Workspace Intelligence Engine Tests Suite", () => {
+  const now = "2026-07-14T00:00:00.000Z";
+  const testUser: PlatformUser = {
+    id: "user_super_admin",
+    profile: {
+      id: "user_super_admin",
+      fullName: "Usuário Teste",
+      email: "usuario.teste@sauron.local",
+      avatarUrl: "",
+    },
+    role: "Super Admin",
+    organizationId: "org_arcanjo",
+    createdAt: now,
+    updatedAt: now,
+  };
+  const testOrganization: Organization = {
+    id: "org_arcanjo",
+    name: "Organização Teste",
+    type: "consulting_firm",
+    ownerUserId: testUser.id,
+    members: [testUser.id],
+    teams: [],
+    workspaces: ["workspace_certification"],
+    createdAt: now,
+    updatedAt: now,
+  };
+  const testWorkspace: Workspace = {
+    id: "workspace_certification",
+    name: "Workspace Teste",
+    organizationId: testOrganization.id,
+    clientId: "client_test",
+    companies: [],
+    brands: [],
+    stores: [],
+    costCenters: [],
+    allowedUsers: [testUser.id],
+    allowedTeams: [],
+    accessPolicies: [],
+    dataSources: [],
+    presentations: [],
+    meetings: [],
+    actionPlans: [],
+    auditTrail: [],
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    userManager.injectTestUsers([testUser]);
+    organizationManager.injectTestStructure([testOrganization], [testWorkspace], []);
+    localStorage.setItem("sauron_identity_current_user_id", testUser.id);
+    localStorage.setItem("sauron_identity_current_org_id", testOrganization.id);
+    localStorage.setItem("sauron_identity_current_ws_id", testWorkspace.id);
+    localStorage.setItem("sauron_auth_session", JSON.stringify({
+      userId: testUser.id,
+      role: testUser.role,
+      organizationId: testOrganization.id,
+      workspaceIds: [testWorkspace.id],
+      companyIds: [],
+      authenticatedAt: now,
+    }));
+  });
   
   it("creates and initializes a valid WorkspaceContext", async () => {
     // Bootstrap defaults
@@ -34,7 +97,7 @@ describe("Sauron Sprint ΩΩΩ — Workspace Intelligence Engine Tests Suite", (
     expect(context).toBeDefined();
     expect(context.currentUser).toBeDefined();
     expect(context.currentUser.id).toBe("user_super_admin");
-    expect(context.modoDemoReal).toBe("real");
+    expect(context.dataMode).toBe("real");
     expect(context.filtrosAtivos.marcas).toContain("Nissan");
   });
 

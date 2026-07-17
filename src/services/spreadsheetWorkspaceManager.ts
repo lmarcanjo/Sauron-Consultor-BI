@@ -1,3 +1,7 @@
+/**
+ * @deprecated Compatibility wrapper. The canonical flow is ImportService ->
+ * WorkbookRepository -> DataActivation -> ActiveDatasetStore.
+ */
 import { dataSourceManager } from "./dataSourceManager";
 import { SpreadsheetFile, SpreadsheetColumn } from "../types/dataSource";
 

@@ -24,6 +24,9 @@ export default defineConfig(() => {
       outDir: 'dist',
     },
     test: {
+      pool: 'forks',
+      minWorkers: 1,
+      maxWorkers: 1,
       exclude: [
         'node_modules',
         'dist',
@@ -37,7 +40,11 @@ export default defineConfig(() => {
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      watch: process.env.DISABLE_HMR === 'true' ? null : {
+        // Runtime persistence is not source code. Watching it causes Vite to
+        // reload modules while a Playwright journey is using the application.
+        ignored: ['**/system_db.json', '**/test-results/**', '**/docs/audits/evidence/**'],
+      },
     },
   };
 });

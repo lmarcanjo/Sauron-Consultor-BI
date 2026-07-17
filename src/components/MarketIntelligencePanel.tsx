@@ -47,7 +47,9 @@ export const MarketIntelligencePanel: React.FC<MarketIntelligencePanelProps> = (
   }, [domainId, configured]);
 
   const handleConfigure = (key: string) => {
-    marketIntelligenceEngine.setApiKey(key);
+    const normalizedKey = key.trim();
+    if (!normalizedKey) return;
+    marketIntelligenceEngine.setApiKey(normalizedKey);
     setConfigured(true);
   };
 
@@ -79,7 +81,7 @@ export const MarketIntelligencePanel: React.FC<MarketIntelligencePanelProps> = (
             className="w-full text-xs p-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold"
           />
           <button
-            onClick={() => handleConfigure(apiKeyInput || "SIMULATOR_DEMO_KEY")}
+            onClick={() => handleConfigure(apiKeyInput)}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] uppercase rounded-lg cursor-pointer shrink-0"
           >
             Ativar Hub

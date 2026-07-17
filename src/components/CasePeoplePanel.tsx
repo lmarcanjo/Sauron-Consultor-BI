@@ -9,33 +9,33 @@ import { PeopleIntelligenceTab } from "./PeopleIntelligenceTab";
 interface CasePeoplePanelProps {
   filteredData: any[];
   formatCurrency: (value: number) => string;
-  dummyMetrics: any;
+  metrics: any;
 }
 
 export const CasePeoplePanel: React.FC<CasePeoplePanelProps> = ({
   filteredData,
   formatCurrency,
-  dummyMetrics,
+  metrics,
 }) => {
   // States for PeopleIntelligenceTab moved from CaseHub to keep it slim & modular
-  const [clientSegment, setClientSegment] = useState<string>("Automotivo");
+  const [clientSegment, setClientSegment] = useState<string>("Geral");
   const [managerNotes, setManagerNotes] = useState<string>("");
   const [faturamentoOffset, setFaturamentoOffset] = useState<number>(0);
   const [despesaOffset, setDespesaOffset] = useState<number>(0);
   const [narrarFeedback, setNarrarFeedback] = useState<boolean>(true);
-  const [comissaoFormula, setComissaoFormula] = useState<string>("Fórmula Padrão");
-  const [comissaoGeral, setComissaoGeral] = useState<number>(1.5);
-  const [comissaoAcessorios, setComissaoAcessorios] = useState<number>(2.0);
-  const [comissaoVeiculos, setComissaoVeiculos] = useState<number>(1.0);
+  const [comissaoFormula, setComissaoFormula] = useState<string>("Configuração pendente");
+  const [comissaoGeral, setComissaoGeral] = useState<number>(0);
+  const [comissaoAcessorios, setComissaoAcessorios] = useState<number>(0);
+  const [comissaoItens, setComissaoItens] = useState<number>(0);
 
   return (
     <PeopleIntelligenceTab 
       dataOrigem={filteredData} 
       formatCurrency={formatCurrency} 
-      metrics={dummyMetrics as any}
+      metrics={metrics}
       calculatedCommissions={{
         regraAtiva: comissaoFormula,
-        totalGeralComissao: 35000,
+        totalGeralComissao: 0,
         detailsByCnpj: [],
         detalhePorConta: []
       }}
@@ -55,8 +55,8 @@ export const CasePeoplePanel: React.FC<CasePeoplePanelProps> = ({
       setPercentualComissaoBase={setComissaoGeral}
       taxaComissaoAcessorios={comissaoAcessorios}
       setTaxaComissaoAcessorios={setComissaoAcessorios}
-      taxaComissaoPecas={comissaoVeiculos}
-      setTaxaComissaoPecas={setComissaoVeiculos}
+      taxaComissaoItens={comissaoItens}
+      setTaxaComissaoItens={setComissaoItens}
       triggerSystemBackup={() => {}}
     />
   );

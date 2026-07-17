@@ -7,6 +7,7 @@ import { buildMetricCardBlock, buildPendingConfigBlock, buildRankingBlock, build
 import { buildDashboardDiagnostics } from "./DashboardDiagnostics";
 import { buildBlockLineageFromMapping, emptyDashboardLineage, explainDashboardBlock as explainBlock, getDashboardLineage as getBlockLineage } from "./DashboardLineage";
 import { DashboardBlock, DashboardBlockExplanation, DashboardEngineContext, DashboardLineage, ExecutiveDashboard } from "./DashboardTypes";
+import { buildCertifiedMetricSnapshot, buildConsistencyMetricFromBusinessMetric, certifiedMetricSnapshotStore, financialConsistencyOrchestrator } from "../financial-consistency";
 
 const EXECUTIVE_METRICS: BusinessMetricName[] = [
   "totalVendido",
@@ -243,7 +244,7 @@ async function buildModuleRankingBlocks(context: DashboardEngineContext, moduleN
   }
   if (moduleName === "Pessoas") {
     specs.push(
-      { id: "people", title: "Pessoas reais", labelRoles: ["name", "seller"], valueRoles: ["commission"] },
+      { id: "people", title: "Pessoas", labelRoles: ["name", "seller"], valueRoles: ["commission"] },
       { id: "departments", title: "Pessoas por setor", labelRoles: ["department", "store"], valueRoles: [] },
     );
   }
@@ -308,6 +309,60 @@ function buildDashboard(params: {
     }
     : emptyDashboardLineage(params.context, params.context.moduleMappings);
 
+  const sourceMetrics = Array.from(new Map(params.blocks.flatMap(block => block.sourceMetrics).map(metric => [metric.metricKey, metric])).values());
+  const consistency = sourceMetrics.length > 0
+    ? financialConsistencyOrchestrator.reconcile({
+      contextId: params.context.activeDataset?.datasetId || "no-dataset",
+      requiredStages: ["source", "dataset", "kpis", "dashboard"],
+      metrics: sourceMetrics.map(metric => buildConsistencyMetricFromBusinessMetric({
+        metricKey: metric.metricKey,
+        displayLabel: metric.label,
+        value: metric.value,
+        sourceValue: metric.status === "ready" ? metric.value : null,
+        lineage: {
+          sourceId: metric.source.datasetId,
+          workbookId: metric.source.workbookId,
+          sheetName: metric.sheetName,
+          physicalColumnName: metric.columnsUsed[0] || null,
+          mappingId: metric.source.mappingId,
+          producer: "BusinessMetricCalculator",
+          calculatedAt: new Date().toISOString(),
+        },
+      })),
+    })
+    : undefined;
+
+  const snapshot = sourceMetrics.length > 0
+    ? buildCertifiedMetricSnapshot({
+        contextType: params.context.contextType || (params.context.activeDataset?.sourceDatasetIds && params.context.activeDataset.sourceDatasetIds.length > 1
+          ? "GROUP"
+          : "WORKBOOK"),
+        contextId: params.context.contextId || params.context.activeDataset?.datasetId || "no-dataset",
+        tenantId: params.context.tenantId,
+        workspaceId: params.context.workspaceId || params.context.activeDataset?.sourceIdentity?.workspaceId || undefined,
+        datasetVersion: `${params.context.activeDataset?.datasetId || "no-dataset"}:${params.context.activeDataset?.importedAt || "unknown"}`,
+        period: params.context.period,
+        metrics: sourceMetrics.map(metric => buildConsistencyMetricFromBusinessMetric({
+          metricKey: metric.metricKey,
+          displayLabel: metric.label,
+          value: metric.value,
+          lineage: {
+            sourceId: metric.source.datasetId,
+            workbookId: metric.source.workbookId,
+            sheetName: metric.sheetName,
+            physicalColumnName: metric.columnsUsed[0] || null,
+            mappingId: metric.source.mappingId,
+            producer: "BusinessIntelligenceEngine",
+            calculatedAt: new Date().toISOString(),
+          },
+          sourceValue: metric.status === "ready" ? metric.value : null,
+        })),
+        consistency: consistency?.report,
+      })
+    : undefined;
+
+  if (snapshot) certifiedMetricSnapshotStore.save(snapshot);
+
   return registerDashboard({
     dashboardId: `executive-dashboard:${params.context.activeDataset?.datasetId || "no-dataset"}:${params.moduleName}`,
     moduleName: params.moduleName,
@@ -317,6 +372,8 @@ function buildDashboard(params: {
     diagnostics,
     lineage,
     createdAt: new Date().toISOString(),
+    certifiedSnapshot: snapshot,
+    consistency,
   });
 }
 

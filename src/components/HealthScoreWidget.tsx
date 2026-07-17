@@ -85,7 +85,7 @@ function computeHealthDimensions(
 
   return [
     { id: "data", label: "Dados do Cliente", score: dataScore, detail: dataDetail, color: "blue" },
-    { id: "mapping", label: "Configuração Financeira", score: mappingScore, detail: mappingDetail, color: "emerald" },
+    { id: "mapping", label: "Informações financeiras", score: mappingScore, detail: mappingDetail, color: "emerald" },
     { id: "richness", label: "Profundidade da Análise", score: richScore, detail: richDetail, color: "blue" },
     { id: "config", label: "Ambiente Configurado", score: configScore, detail: configDetail, color: "amber" }
   ];
@@ -124,7 +124,7 @@ function HealthRing({ score }: { score: number }) {
     "#ef4444";
 
   const label =
-    score >= 85 ? "Pronto para Demo" :
+    score >= 85 ? "Pronto para apresentação" :
     score >= 65 ? "Quase Pronto" :
     score >= 40 ? "Em Configuração" :
     "Setup Inicial";

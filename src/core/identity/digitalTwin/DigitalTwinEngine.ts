@@ -55,77 +55,77 @@ export class DigitalTwinEngine {
 
       const stores: StoreTwin[] = [
         {
-          id: "store_nissan_feira",
-          name: "Loja Nissan Feira",
+          id: "store_unidade_a",
+          name: "Unidade A",
           cnpj: "12.345.678/0001-99",
-          brand: "Nissan",
+          brand: "Marca A",
           city: "Feira de Santana",
           state: "BA",
           managerUserId: "user_client_manager",
           activeHeadcount: 42,
           departments: [
             {
-              id: "dept_nissan_sales",
-              name: "Vendas Novos",
-              costCenters: ["Veículos Novos", "Administração"]
+              id: "dept_a_sales",
+              name: "Vendas",
+              costCenters: ["Linha Comercial", "Administração"]
             },
             {
-              id: "dept_nissan_workshop",
-              name: "Oficina e Peças",
-              costCenters: ["Oficina", "Peças", "Acessórios"]
+              id: "dept_a_operations",
+              name: "Operações e Itens",
+              costCenters: ["Operações", "Itens", "Categorias"]
             },
             {
-              id: "dept_nissan_fi",
-              name: "F&I / Financiamentos",
-              costCenters: ["F&I/FNA"]
+              id: "dept_a_finance",
+              name: "Financiamentos",
+              costCenters: ["Financeiro"]
             }
           ]
         },
         {
-          id: "store_fiat_centro",
-          name: "Loja Fiat Centro",
+          id: "store_unidade_b",
+          name: "Unidade B",
           cnpj: "12.345.678/0002-88",
-          brand: "Fiat",
+          brand: "Marca B",
           city: "Salvador",
           state: "BA",
           managerUserId: "user_client_director",
           activeHeadcount: 55,
           departments: [
             {
-              id: "dept_fiat_sales",
-              name: "Showroom Novos e Seminovos",
-              costCenters: ["Veículos Novos", "Administração"]
+              id: "dept_b_sales",
+              name: "Comercial",
+              costCenters: ["Linha Comercial", "Administração"]
             },
             {
-              id: "dept_fiat_parts",
-              name: "Peças e Serviços",
-              costCenters: ["Oficina", "Peças"]
+              id: "dept_b_services",
+              name: "Itens e Serviços",
+              costCenters: ["Operações", "Itens"]
             }
           ]
         }
       ];
 
       const company: CompanyTwin = {
-        id: "comp_cliente_real_autos",
-        name: "Empresa Real Veículos Ltda",
-        legalName: "Empresa Real Distribuidora de Veículos e Motores Ltda",
+        id: "comp_cliente_real",
+        name: "Empresa Real Ltda",
+        legalName: "Empresa Real Operações Ltda",
         taxId: "12.345.678/0001-99",
         brands: [
           {
-            id: "brand_nissan",
-            name: "Nissan",
-            segment: "automotivo",
-            stores: ["store_nissan_feira"]
+            id: "brand_a",
+            name: "Marca A",
+            segment: "geral",
+            stores: ["store_unidade_a"]
           },
           {
-            id: "brand_fiat",
-            name: "Fiat",
-            segment: "automotivo",
-            stores: ["store_fiat_centro"]
+            id: "brand_b",
+            name: "Marca B",
+            segment: "geral",
+            stores: ["store_unidade_b"]
           }
         ],
         stores: stores,
-        costCenters: ["Veículos Novos", "Peças", "Oficina", "F&I/FNA", "Acessórios", "Administração"]
+        costCenters: ["Linha Comercial", "Itens", "Operações", "Financeiro", "Categorias", "Administração"]
       };
 
       this.activeGroupTwin = {

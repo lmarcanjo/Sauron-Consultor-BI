@@ -5,6 +5,7 @@
 
 import { IRepository } from "./IRepository";
 import { auditEngine } from "../audit/AuditEngine";
+import { platformLogger } from "../platform/PlatformLogger";
 
 /**
  * Tracks a pending change on an entity.
@@ -105,7 +106,7 @@ export class UnitOfWork implements IUnitOfWork {
         }
       );
 
-      // 3. Emit Domain Events (Mock simulation/contract dispatcher)
+      // 3. Emit domain events through the contract dispatcher.
       this.dispatchEvents();
 
     } catch (commitError: any) {
@@ -169,6 +170,6 @@ export class UnitOfWork implements IUnitOfWork {
 
   private dispatchEvents(): void {
     // Standard event loop notification. Emulating EventBus pattern
-    console.log(`[UnitOfWork] Dispatched ${this.pendingOps.length} persistence events to EventBus.`);
+    platformLogger.debug(`[UnitOfWork] Dispatched ${this.pendingOps.length} persistence events to EventBus.`);
   }
 }

@@ -25,7 +25,7 @@ export interface StoreTwin {
 export interface BrandTwin {
   id: string;
   name: string;
-  segment: string; // e.g. "automotivo", "servicos", etc.
+  segment: string; // e.g. "geral", "servicos", etc.
   stores: string[]; // StoreTwin IDs
 }
 

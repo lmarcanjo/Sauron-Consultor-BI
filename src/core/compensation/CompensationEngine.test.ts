@@ -16,7 +16,7 @@ describe("Sauron Compensation Engine Unit Tests", () => {
       partsSales: 45000,
       csat: 4.8,
       cancellationRate: 0.02,
-      campaignParticipated: ["feirao_junho", "f_i_acessorio"],
+      campaignParticipated: ["campanha_periodo", "linha_alta_margem"],
       lineage: {
         totalSalesCell: "B10",
         accessoriesSalesCell: "C10",
@@ -26,7 +26,7 @@ describe("Sauron Compensation Engine Unit Tests", () => {
       },
     };
 
-    const result = compensationEngine.calculate(performance, "automotive_premium", 3200);
+    const result = compensationEngine.calculate(performance, "standard_performance", 3200);
 
     // Assertions
     expect(result.baseSalary).toBe(3200);
@@ -35,7 +35,7 @@ describe("Sauron Compensation Engine Unit Tests", () => {
     expect(result.partsCommission).toBe(45000 * 0.01); // 450
     expect(result.thresholdBonus).toBe(3000); // threshold is 600k -> 3000
     expect(result.multiplierBonus).toBe(Math.round(10200 * 0.2)); // 2040 (20% extra since sales > 500k)
-    expect(result.campaignBonus).toBe(1200 + 800); // feirao_junho (1200) + f_i_acessorio (800) = 2000
+    expect(result.campaignBonus).toBe(1200 + 800); // campanha_periodo (1200) + linha_alta_margem (800) = 2000
     expect(result.penaltyDeductions).toBe(0); // high csat, low cancellation
 
     const expectedTotalEarnings = 3200 + (10200 + 2400 + 450 + 3000 + 2040 + 2000 - 0);
@@ -67,7 +67,7 @@ describe("Sauron Compensation Engine Unit Tests", () => {
       },
     };
 
-    const result = compensationEngine.calculate(poorPerformance, "automotive_premium", 3200);
+    const result = compensationEngine.calculate(poorPerformance, "standard_performance", 3200);
 
     // Under premium policy:
     // CSAT limit < 4.2 -> -500
@@ -86,7 +86,7 @@ describe("Sauron Compensation Engine Unit Tests", () => {
     expect(joaoDossier).toBeDefined();
     expect(joaoDossier?.name).toBe("João Silva");
 
-    const calculation = executivePeopleService.calculateCompensation("colab_joao_silva", "automotive_premium");
+    const calculation = executivePeopleService.calculateCompensation("colab_joao_silva", "standard_performance");
     expect(calculation).toBeDefined();
     expect(calculation?.totalEarnings).toBeGreaterThan(15000); // João is highly profitable!
   });

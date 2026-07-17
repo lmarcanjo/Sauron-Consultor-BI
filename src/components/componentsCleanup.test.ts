@@ -70,7 +70,7 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
     expect(agroMappings?.Grupo).toBe("Fazenda");
     expect(agroMappings?.Razão).toBe("Safra");
 
-    const autoPlugin = pluginEngine.getPlugin("automotivo");
+    const autoPlugin = pluginEngine.getPlugin("especializado");
     expect(autoPlugin).not.toBeNull();
     const autoMappings = autoPlugin?.getSuggestedMappings?.();
     expect(autoMappings?.Empresa).toBe("Loja");

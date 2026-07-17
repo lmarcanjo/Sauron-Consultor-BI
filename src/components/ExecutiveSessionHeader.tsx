@@ -37,7 +37,7 @@ export const ExecutiveSessionHeader: React.FC<ExecutiveSessionHeaderProps> = ({
         <div className="flex flex-col">
           <span className="text-xs font-bold text-slate-300 leading-tight">{project.client}</span>
           <span className="text-[10px] text-slate-500 font-mono uppercase tracking-wide">
-            {project.group || "Comitê Geral"} • Junho/2026
+            {project.group || "Comitê Geral"} • {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
           </span>
         </div>
       </div>

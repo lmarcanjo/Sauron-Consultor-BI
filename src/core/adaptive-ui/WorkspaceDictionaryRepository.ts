@@ -91,7 +91,7 @@ export class WorkspaceDictionaryRepository {
       terms.seller = buildLabel("seller", "Vendedor", "Vendedores", "Briefcase", "#f59e0b", "VEND");
       terms.department = buildLabel("department", "Oficina", "Oficinas", "Settings", "#8b5cf6", "OFIC");
       terms.branch = buildLabel("branch", "Loja", "Lojas", "Building", "#ec4899", "LOJ");
-      terms.company = buildLabel("company", "Concessionária", "Concessionárias", "Building", "#f43f5e", "CONC");
+      terms.company = buildLabel("company", "Empresa", "Empresas", "Building", "#f43f5e", "EMP");
       terms.group = buildLabel("group", "Grupo", "Grupos", "Layers", "#06b6d4", "GRUP");
       terms.commission = buildLabel("commission", "Comissão", "Comissões", "Award", "#10b981", "COM");
       terms.dashboard = buildLabel("dashboard", "Painel de Bordo", "Painéis de Bordo", "BarChart3", "#3b82f6", "PAIN");

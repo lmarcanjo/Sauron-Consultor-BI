@@ -1,7 +1,9 @@
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
- */
+*/
+
+import { platformLogger } from "../platform/PlatformLogger";
 
 /**
  * Structural item wrapping cached objects with validation timestamps.
@@ -112,7 +114,7 @@ export class DomainCache<T> {
     if (oldestKey) {
       this.store.delete(oldestKey);
       this.evictions++;
-      console.log(`[Cache:${this.name}] Evicted oldest entry key [${oldestKey}] to enforce memory limits.`);
+      platformLogger.debug(`[Cache:${this.name}] Evicted oldest entry key [${oldestKey}] to enforce memory limits.`);
     }
   }
 }

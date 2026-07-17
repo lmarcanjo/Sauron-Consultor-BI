@@ -8,6 +8,7 @@ import { WorkbookCatalog } from "../workbook/WorkbookTypes";
 export interface BusinessDomainManifest {
   id: string;
   name: string;
+  displayName?: string;
   description: string;
   subdomains: string[];
 }
@@ -78,4 +79,5 @@ export interface BusinessDomainPack {
   presentation: BusinessPresentationTemplate;
   rules: BusinessDomainRule[];
   mapping: BusinessDomainMapping;
+  terminology?: Record<string, string>;
 }

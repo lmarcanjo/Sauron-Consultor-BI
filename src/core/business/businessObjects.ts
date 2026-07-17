@@ -19,7 +19,7 @@ export interface Client {
   name: string;
   corporateName: string;
   cnpj: string;
-  segment: "automotivo" | "agro" | "servicos" | "industria";
+  segment: "especializado" | "agro" | "servicos" | "industria";
   status: "ACTIVE" | "INACTIVE";
   createdAt: string;
 }
@@ -34,7 +34,7 @@ export interface Group {
 export interface Company {
   id: string;
   groupId: string;
-  name: string; // Concessionária / Unidade
+  name: string; // Empresa / Unidade
   cnpj: string;
   brand: string; // Bandeira / Marca
   segment: string;
@@ -48,7 +48,7 @@ export interface CNPJ {
 
 export interface Brand {
   id: string;
-  name: string; // e.g. Fiat, Jeep, Soja, Milho
+  name: string; // e.g. Marca A, Marca B, Soja, Milho
   segment: string;
 }
 
@@ -61,14 +61,14 @@ export interface Store {
 
 export interface Department {
   id: string;
-  name: string; // e.g. Pós-Vendas, Vendas, Mecânica
+  name: string; // e.g. Operações, Vendas, Serviços
   costCenterId?: string;
 }
 
 export interface CostCenter {
   id: string;
   code: string;
-  name: string; // e.g. "Veículos Novos", "Consórcio", "Mecânica"
+  name: string; // e.g. "Linha Comercial", "Contratos", "Operações"
   parentCode?: string;
   segment: string;
 }
@@ -197,7 +197,7 @@ export interface ImportProfile {
   id: string;
   name: string;
   clientName: string;
-  segment: "automotivo" | "agro" | "servicos" | "industria";
+  segment: "especializado" | "agro" | "servicos" | "industria";
   mappings: Record<string, string>;
   filters: any[];
   calculatedFields: any[];
@@ -205,7 +205,7 @@ export interface ImportProfile {
 
 export interface DataSource {
   id: string;
-  type: "DEMO" | "SPREADSHEET" | "DATABASE" | "CONSULTANT";
+  type: "UNMAPPED" | "SPREADSHEET" | "DATABASE" | "CONSULTANT";
   status: "CONNECTED" | "DISCONNECTED" | "ERROR";
   lastSyncedAt?: string;
 }
@@ -214,7 +214,7 @@ export interface DataLineageRecord {
   id: string;
   targetKpi: string;
   value: number;
-  sourceType: "SPREADSHEET" | "DATABASE" | "DEMO";
+  sourceType: "SPREADSHEET" | "DATABASE" | "UNMAPPED";
   fileId?: string;
   sheetName?: string;
   rowIndices?: number[];

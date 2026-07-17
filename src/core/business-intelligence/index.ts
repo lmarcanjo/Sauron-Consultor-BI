@@ -4,5 +4,5 @@ export * from "./BusinessLineage";
 export * from "./BusinessMetricBuilder";
 export * from "./BusinessMetricCalculator";
 export * from "./BusinessMetricTypes";
+export * from "./MetricRegistry";
 export * from "./ExecutivePresentationEngine";
-

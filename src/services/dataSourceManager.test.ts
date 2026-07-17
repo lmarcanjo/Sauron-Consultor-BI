@@ -25,7 +25,6 @@ describe("Sauron Data Source Manager Suite", () => {
 
   it("checks activeDataSource switches to SPREADSHEET_DATA on import and locks out mock data", () => {
     expect(dataSourceManager.getActiveSource()).toBe("SPREADSHEET_DATA");
-    expect(dataSourceManager.isDemoMode()).toBe(false);
 
     // Mock importing a real spreadsheet file
     const sampleFile = {
@@ -132,7 +131,6 @@ describe("Sauron Data Source Manager Suite", () => {
     const manager = dataSourceManager;
     manager.setActiveSource("DEMO_DATA");
     expect(manager.getActiveSource()).toBe("SPREADSHEET_DATA");
-    expect(manager.isDemoMode()).toBe(false);
   });
 
   it("verifies switching active source to SPREADSHEET_DATA", () => {

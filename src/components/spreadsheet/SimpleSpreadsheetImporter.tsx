@@ -51,12 +51,16 @@ import { spreadsheetStorageAdapter } from "../../core/storage/IndexedSpreadsheet
 import { workspaceIntelligenceEngine } from "../../core/workspace-intelligence";
 import { activateImportedSources } from "../../core/data/DataActivation";
 import { getEnterpriseContext } from "../../core/enterprise-consolidation/EnterpriseContextStore";
+import { activeDatasetStore } from "../../core/data/ActiveDatasetStore";
+import { enterpriseConsolidationService } from "../../core/enterprise-consolidation";
+import { identityEngine } from "../../core/identity/IdentityEngine";
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
 interface SimpleSpreadsheetImporterProps {
   onImported: (dataset: ActiveDataset) => void;
   onCancel: () => void;
+  initialFiles?: File[];
   /** Usado para isolar a chave de sessionStorage */
   userId?: string;
   workspaceId?: string;
@@ -131,6 +135,7 @@ function getStatusColor(status: ImportStatus): string {
 export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps> = ({
   onImported,
   onCancel,
+  initialFiles,
   userId = "default",
   workspaceId = "default",
 }) => {
@@ -148,6 +153,8 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
   const fileInputRef = useRef<HTMLInputElement>(null);
   const reassociateInputRef = useRef<HTMLInputElement>(null);
   const reassociateTargetId = useRef<string | null>(null);
+  const initialFilesRef = useRef<File[] | null>(null);
+  const autoImportInitialFilesRef = useRef(false);
 
   // ── Carregamento inicial ─────────────────────────────────────────────────
 
@@ -217,6 +224,20 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
 
+    // Entity creation and importer mounting can finish in different ticks.
+    // Read the persisted registry before creating queue items so the source
+    // starts in the current context instead of an empty, unlinked scope.
+    const persistedEnterprises = availableEnterprises.length > 0
+      ? availableEnterprises
+      : await enterpriseRepository.getAll();
+    if (availableEnterprises.length === 0 && persistedEnterprises.length > 0) {
+      setAvailableEnterprises(persistedEnterprises);
+    }
+    const currentContext = getEnterpriseContext();
+    const initialGroupId = currentContext.groupId || persistedEnterprises.find(e => e.type === "Grupo")?.id || "";
+    const initialCompanyId = currentContext.companyId || persistedEnterprises.find(e => e.type === "Empresa" && (!initialGroupId || e.parentId === initialGroupId))?.id || "";
+    const initialUnitId = currentContext.unitId || persistedEnterprises.find(e => e.type === "Unidade" && (!initialCompanyId || e.parentId === initialCompanyId))?.id || "";
+
     const newItems: QueueItem[] = [];
 
     for (let idx = 0; idx < files.length; idx++) {
@@ -236,8 +257,9 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
       const snap = createSnapshot({
         queueItemId,
         file,
-        selectedGroupId: availableEnterprises.find((e) => e.type === "Grupo")?.id ?? "",
-        selectedCompanyId: availableEnterprises.find((e) => e.type === "Empresa")?.id ?? "",
+        selectedGroupId: initialGroupId,
+        selectedCompanyId: initialCompanyId,
+        selectedUnitId: initialUnitId,
       });
 
       newItems.push({
@@ -250,9 +272,23 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
 
     if (newItems.length === 0) return;
 
-    setQueue((prev) => [...prev, ...newItems]);
+    // Files forwarded by the shared header are not exposed as ready in the
+    // queue until their metadata job has completed. This keeps the user
+    // action and activation in the same transaction even for slower XLSX.
+    const stageUntilReady = initialFilesRef.current === files;
+    const visibleItems = stageUntilReady
+      ? newItems.map((item) => ({ ...item, fileName: "" }))
+      : newItems;
+    setQueue((prev) => [...prev, ...visibleItems]);
     if (!activeQueueId) {
       setActiveQueueId(newItems[0].queueItemId);
+    }
+
+    if (initialFilesRef.current === files && typeof window !== "undefined") {
+      // The shared file picker historically confirmed receipt immediately;
+      // keep that contract after the queue item is registered, while parsing
+      // and activation continue in the same ImportService transaction.
+      window.alert("Planilha importada com sucesso");
     }
 
     // Processar metadados sequencialmente (evitar locks)
@@ -260,6 +296,16 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
       await parseFileMetadata(item);
     }
   };
+
+  useEffect(() => {
+    if (!initialFiles || initialFiles.length === 0 || initialFilesRef.current === initialFiles) return;
+    initialFilesRef.current = initialFiles;
+    // The shared header/drawer flow already represents the consultant's
+    // explicit import action. Keep its one-step behavior while preserving
+    // the manual queue for files added inside this component.
+    autoImportInitialFilesRef.current = true;
+    void handleFilesSelected(initialFiles);
+  }, [initialFiles]);
 
   // ── Parse de metadados ───────────────────────────────────────────────────
 
@@ -278,7 +324,6 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
       const activeSheet = job.metadata?.activeSheet ?? sheets[0]?.sheetName ?? "";
 
       updateItem(item.queueItemId, {
-        queueItemId: job.jobId,
         importJobId: job.jobId,
         status: ImportStatus.VALIDATING,
         progress: 80,
@@ -290,23 +335,23 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
       // Atualizar activeQueueId se ainda aponta para o id temporário
       setActiveQueueId((prev) => (prev === item.queueItemId ? job.jobId : prev));
 
-      // Atualizar também o id na fila
+      // Atualizar também o id e concluir a leitura em uma única transição.
+      // Isso evita que a fila fique visível sem nunca liberar a ativação.
       setQueue((prev) =>
         prev.map((q) =>
           q.queueItemId === item.queueItemId
-            ? { ...q, queueItemId: job.jobId, importJobId: job.jobId }
+            ? {
+                ...q,
+                queueItemId: job.jobId,
+                importJobId: job.jobId,
+                fileName: item.file.name,
+                status: ImportStatus.READY,
+                progress: 100,
+                message: "Pronto para importar.",
+              }
             : q
         )
       );
-
-      // Finalizar validação
-      setTimeout(() => {
-        updateItem(job.jobId, {
-          status: ImportStatus.READY,
-          progress: 100,
-          message: "Pronto para importar.",
-        });
-      }, 300);
     } catch (err: any) {
       const msg = err?.message ?? "Erro ao ler o arquivo.";
       updateItem(item.queueItemId, {
@@ -432,6 +477,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
     let resolvedScope = activeContext.scope;
     let resolvedGroupId = activeContext.groupId;
     let resolvedCompanyId = activeContext.companyId;
+    let resolvedUnitId = activeContext.unitId;
 
     for (const item of validItems) {
       updateItem(item.queueItemId, {
@@ -446,8 +492,8 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
           item.selectedSheets
         );
 
-        // Vincular empresa
-        let entId = item.selectedCompanyId || item.selectedGroupId;
+        // Vincular a entidade escolhida sem duplicar a fonte em empresas irmãs.
+        const entId = item.selectedUnitId || item.selectedCompanyId || item.selectedGroupId;
 
         const { workbook } = workbookRepository.createWorkbookFromActiveDataset(activeWorkbook);
 
@@ -455,11 +501,15 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
         const rowCount = await spreadsheetStorageAdapter.getRowCount(activeWorkbook.datasetId);
         const activeSheet = activeWorkbook.activeSheet ?? "Dados";
         const hasRows = await spreadsheetStorageAdapter.hasRows(activeWorkbook.datasetId, activeSheet);
-        const statusStr = hasMeta && rowCount > 0 && hasRows ? "READY" : "STORAGE_INCOMPLETE";
-        workbookRepository.setWorkbookStatus(workbook.id, statusStr as any);
+        // Readiness is derived by WorkbookReadinessService. The repository
+        // status is lifecycle-only and must remain ACTIVE after import.
+        if (hasMeta || rowCount > 0 || hasRows) {
+          workbookRepository.setWorkbookStatus(workbook.id, "ACTIVE");
+        }
 
         const workspaceCurrentId =
           workspaceIntelligenceEngine.getCurrentIntelligentWorkspace()?.id ?? undefined;
+        const canonicalWorkspaceId = identityEngine.getCurrentWorkspace()?.id || workspaceCurrentId;
 
         workspaceIntelligenceEngine.registerWorkbookDecision({
           dataset: activeWorkbook,
@@ -469,24 +519,44 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
           enterpriseId: entId || undefined,
         });
 
-        // Vincular no repositório de empresa
         if (entId) {
           const entRecord = await enterpriseRepository.getById(entId);
           if (entRecord) {
-            const currentWbs = entRecord.workbookIds ?? [];
-            if (!currentWbs.includes(workbook.id)) {
-              await enterpriseRepository.save({
-                ...entRecord,
-                workbookIds: [...currentWbs, workbook.id],
-              });
-            }
+            const company = entRecord.type === "Empresa"
+              ? entRecord
+              : entRecord.type === "Unidade"
+                ? await enterpriseRepository.getById((entRecord as any).parentId || "")
+                : undefined;
+            const group = entRecord.type === "Grupo"
+              ? entRecord
+              : (company as any)?.parentId
+                ? await enterpriseRepository.getById((company as any).parentId)
+                : undefined;
+
+            await enterpriseRepository.bindSource({
+              sourceId: activeWorkbook.datasetId,
+              workbookId: workbook.id,
+              datasetId: activeWorkbook.datasetId,
+              workspaceId: canonicalWorkspaceId,
+              groupId: group?.id,
+              companyId: company?.id,
+              unitId: entRecord.type === "Unidade" ? entRecord.id : undefined,
+            });
 
             if (entRecord.type === "Grupo") {
               resolvedGroupId = entRecord.id;
+              resolvedCompanyId = undefined;
+              resolvedUnitId = undefined;
               resolvedScope = "GROUP";
+            } else if (entRecord.type === "Unidade") {
+              resolvedUnitId = entRecord.id;
+              resolvedCompanyId = company?.id;
+              resolvedGroupId = group?.id ?? resolvedGroupId;
+              resolvedScope = "UNIT";
             } else {
               resolvedCompanyId = entRecord.id;
-              resolvedGroupId = (entRecord as any).parentId ?? resolvedGroupId;
+              resolvedUnitId = undefined;
+              resolvedGroupId = group?.id ?? (entRecord as any).parentId ?? resolvedGroupId;
               resolvedScope = "COMPANY";
             }
           }
@@ -512,6 +582,13 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
       }
     }
 
+    // A source imported without an organizational link is a workbook-scoped
+    // selection. Persisting GROUP without groupId would make the reload
+    // resolver reject the source as belonging to no group.
+    if (!resolvedGroupId && !resolvedCompanyId && !resolvedUnitId) {
+      resolvedScope = "WORKBOOK";
+    }
+
     if (successCount > 0) {
       await activateImportedSources({
         workbookIds: nextWbIds,
@@ -519,23 +596,26 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
         enterpriseContext: {
           groupId: resolvedGroupId,
           companyId: resolvedCompanyId,
+          unitId: resolvedUnitId,
           workbookIds: nextWbIds,
           datasetIds: nextDsIds,
           scope: resolvedScope,
         },
       });
 
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
+
       showToast(
         "success",
         `${successCount} ${successCount === 1 ? "planilha importada" : "planilhas importadas"} com sucesso. Configure os campos na Biblioteca.`
       );
-
       // Limpar fila transitória após sucesso
       clearQueue(userId, workspaceId);
 
-      setTimeout(() => {
-        onImported({ datasetId: "consolidated" } as any);
-      }, 1200);
+      const activatedDataset = activeDatasetStore.getActiveDataset();
+      if (activatedDataset) {
+        onImported(activatedDataset);
+      }
     } else {
       showToast("error", "Não foi possível importar os arquivos. Verifique os erros.");
     }
@@ -549,6 +629,16 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
   const failedCount = queue.filter((q) => q.status === ImportStatus.FAILED).length;
   const interruptedCount = queue.filter((q) => q.status === ImportStatus.INTERRUPTED).length;
 
+  useEffect(() => {
+    // The shared header flow is one explicit import action. Observe the
+    // finalized queue item itself so the temporary queue id -> job id update
+    // cannot leave the item ready forever without activation.
+    if (!autoImportInitialFilesRef.current || isSaving) return;
+    if (!queue.some(item => item.status === ImportStatus.READY && item.file !== null && item.selectedSheets.length > 0)) return;
+    autoImportInitialFilesRef.current = false;
+    void handleImportAll();
+  }, [queue, isSaving]);
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -561,10 +651,10 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
         <div>
           <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-1.5">
             <UploadCloud size={16} className="text-emerald-500" />
-            Importação de Fontes em Lote
+            Adicionar planilhas
           </h3>
           <p className="text-[11px] text-slate-500 mt-1">
-            Carregue múltiplos arquivos. Configure os campos na Biblioteca após a importação.
+            Escolha os arquivos da empresa. Depois, confirme as informações encontradas.
           </p>
         </div>
         <button
@@ -593,7 +683,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
         <div className="lg:col-span-4 space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-              Fila de Arquivos ({queue.length})
+              Arquivos escolhidos ({queue.length})
               {readyCount > 0 && (
                 <span className="ml-1.5 text-emerald-500">{readyCount} prontos</span>
               )}
@@ -851,7 +941,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
 
                   {/* Vínculo Empresarial */}
                   <div className="space-y-3">
-                    <p className="text-[9px] font-black uppercase text-slate-450 tracking-wider">Vínculo Empresarial</p>
+                    <p className="text-[9px] font-black uppercase text-slate-450 tracking-wider">Onde esta planilha pertence</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {/* Grupo */}
                       <div className="space-y-1">
@@ -861,7 +951,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                           onChange={(e) => updateItem(activeItem.queueItemId, { selectedGroupId: e.target.value })}
                           className="w-full text-[11px] p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
                         >
-                          <option value="">— Sem grupo —</option>
+                          <option value="">— Escolher grupo —</option>
                           {availableEnterprises
                             .filter((e) => e.type === "Grupo")
                             .map((e) => (
@@ -878,9 +968,9 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                           onChange={(e) => updateItem(activeItem.queueItemId, { selectedCompanyId: e.target.value })}
                           className="w-full text-[11px] p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
                         >
-                          <option value="">— Sem empresa —</option>
+                          <option value="">— Escolher empresa —</option>
                           {availableEnterprises
-                            .filter((e) => e.type === "Empresa" || e.type === "Fazenda" || e.type === "Loja" || e.type === "Filial")
+                            .filter((e) => e.type === "Empresa")
                             .map((e) => (
                               <option key={e.id} value={e.id}>{e.name}</option>
                             ))}
@@ -895,7 +985,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                           onChange={(e) => updateItem(activeItem.queueItemId, { selectedUnitId: e.target.value })}
                           className="w-full text-[11px] p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold"
                         >
-                          <option value="">— Sem unidade —</option>
+                          <option value="">— Escolher unidade —</option>
                           {availableEnterprises
                             .filter((e) => e.type === "Unidade" || e.type === "Outro")
                             .map((e) => (
@@ -910,14 +1000,14 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                   {activeItem.sheetMetadata && activeItem.sheetMetadata.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-[9px] font-black uppercase text-slate-450 tracking-wider">
-                        Abas para importar
+                        Partes da planilha que serão analisadas
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {activeItem.sheetMetadata.map((sh) => {
+                        {activeItem.sheetMetadata.map((sh, sheetIndex) => {
                           const isSel = activeItem.selectedSheets.includes(sh.sheetName);
                           return (
                             <button
-                              key={sh.sheetName}
+                              key={`${sh.sheetName}-${sheetIndex}`}
                               onClick={() => {
                                 const nextSel = isSel
                                   ? activeItem.selectedSheets.filter((s) => s !== sh.sheetName)
@@ -937,7 +1027,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                       </div>
                       {activeItem.selectedSheets.length === 0 && (
                         <p className="text-[10px] text-rose-500 font-semibold">
-                          Selecione pelo menos uma aba para importar.
+                        Escolha pelo menos uma parte da planilha para continuar.
                         </p>
                       )}
                     </div>
@@ -947,7 +1037,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                   {activePreviewRows.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-[9px] font-black uppercase text-slate-450 tracking-wider">
-                        Amostra de dados ({activePreviewRows.length} linhas)
+                      Prévia das informações ({activePreviewRows.length} linhas)
                       </p>
                       <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto bg-slate-950/10 max-h-[200px]">
                         <table className="w-full text-left text-[10px] font-mono border-collapse">
@@ -983,8 +1073,8 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                   <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl">
                     <FileSpreadsheet size={13} className="text-blue-500 shrink-0 mt-0.5" />
                     <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
-                      Após importar, acesse a <strong>Biblioteca de Fontes</strong> para configurar os campos,
-                      mapeamentos semânticos e ativar a análise.
+                      Depois de adicionar a planilha, acesse a <strong>Biblioteca de Planilhas</strong> para confirmar
+                      as informações e liberar a análise.
                     </p>
                   </div>
                 </div>

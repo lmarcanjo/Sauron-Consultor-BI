@@ -1,54 +1,40 @@
-import { test, expect } from '@playwright/test';
+import { ensureConsultantSession, navigateSidebar, test, expect } from './e2eTest';
 
 test('App should load', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('text=Sauron OS')).toBeVisible();
 });
 
-test('Mock Data status check works', async ({ page }) => {
+test('Estado sem fonte ativa é claro e não exibe demo', async ({ page }) => {
   await page.goto('/');
-  // Deve exibir o estado vazio real na tela ou o switch para mock
-  await expect(page.locator('text=Dados')).toBeVisible();
+  await ensureConsultantSession(page);
+  await expect(page.getByText(/SEM FONTE ATIVA|Nenhuma fonte de dados ativa/i).first()).toBeVisible();
+  await expect(page.getByText(/MOCK DATA|Demonstração/i)).not.toBeVisible();
 });
 
-test('Meeting mode toggle works', async ({ page }) => {
+test('Sessão Executiva abre sem tela quebrada', async ({ page }) => {
   await page.goto('/');
-  // Using explicit buttons from sidebar
-  await page.click('button:has-text("Modo Reunião")');
-  await expect(page.locator('text=Assistente e Notas da Reunião')).toBeVisible();
+  await navigateSidebar(page, /Conduzir Sessão/i, /Sessão Executiva/i);
+  await expect(page.getByText(/Sessão Executiva|Modo Reunião|Assistente/i).first()).toBeVisible();
 });
 
-test('DRE screen contains data table and charts', async ({ page }) => {
+test('KPIs e DRE abre com estado real ou configuração pendente', async ({ page }) => {
   await page.goto('/');
-  await page.click('button:has-text("DRE Inteligente Gerencial")');
-  await expect(page.locator('text=Demonstrativo de Resultados')).toBeVisible();
-  // Validando a presenca da nova tabela pedida (DRE Completo)
-  await expect(page.locator('text=Tabela Analítica Documental (DRE Completo)')).toBeVisible();
-  await expect(page.locator('text=Evolução de Resultado')).toBeVisible();
+  await navigateSidebar(page, /Diagnosticar Negócio/i, /KPIs & DRE/i);
+  await expect(page.getByText(/Configuração pendente|Nenhuma fonte de dados ativa|Fonte real ativa|KPIs/i).first()).toBeVisible();
+  await expect(page.getByText(/Grupo Alpha|Topázio|MOCK DATA/i)).not.toBeVisible();
 });
 
-test('Apresentacoes: construtor e minispoiler', async ({ page }) => {
+test('Decks abre sem depender de dados fictícios', async ({ page }) => {
   await page.goto('/');
-  await page.click('button:has-text("Apresentações")');
-  await expect(page.locator('text=Construtor de Apresentações')).toBeVisible();
-  await expect(page.locator('text=ADICIONAR SLIDE DA BIBLIOTECA')).toBeVisible();
-
-  // Check the minispolier/deck container
-  await expect(page.locator('text=Slides (3)')).toBeVisible();
-
-  // Create new slide
-  await page.click('button:has-text("DRE Gráfico")');
-  await expect(page.locator('text=Slides (4)')).toBeVisible();
-
-  // Test clone slide
-  await page.click('button:has-text("DUPLICAR SLIDE (CLONE)")');
-  await expect(page.locator('text=Slides (5)')).toBeVisible();
+  await navigateSidebar(page, /Preparar Decisão/i, /Decks|Apresentações/i);
+  await expect(page.getByText(/Apresenta|Deck|Construtor/i).first()).toBeVisible();
+  await expect(page.getByText(/Grupo Alpha|Topázio|MOCK DATA/i)).not.toBeVisible();
 });
 
-test('Relatorios biblioteca test', async ({ page }) => {
+test('Dossiês abre com linguagem de consultoria', async ({ page }) => {
   await page.goto('/');
-  await page.click('button:has-text("Relatórios Corporativos")');
-  await expect(page.locator('text=Biblioteca de Relatórios')).toBeVisible();
-  await expect(page.locator('text=Resultado Comercial')).toBeVisible();
+  await navigateSidebar(page, /Diagnosticar Negócio/i, /Dossiês|Relatórios/i);
+  await expect(page.getByText(/Dossi|Relatório|Nenhuma fonte/i).first()).toBeVisible();
+  await expect(page.getByText(/Grupo Alpha|Topázio|MOCK DATA/i)).not.toBeVisible();
 });
-

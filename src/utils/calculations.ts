@@ -41,10 +41,6 @@ export function isQueryReadOnly(query: string): boolean {
   return true;
 }
 
-export function isMockAllowed(source: string): boolean {
-  return false;
-}
-
 export function validateFormula(expression: string): boolean {
   if (!expression) return false;
   return expression.includes("[") && expression.includes("]");

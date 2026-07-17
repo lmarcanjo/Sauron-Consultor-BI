@@ -4,6 +4,7 @@ export const vocabulary: BusinessVocabulary = {
   terms: [
     { term: "Concessionária", synonyms: ["Loja", "Showroom", "Revenda", "Agência"] },
     { term: "Consultor de vendas", synonyms: ["Consultor", "Vendedor", "Executivo de vendas", "Assessor de Vendas"] },
+    { term: "Comissão", synonyms: ["Comissao", "Remuneração Variável"] },
     { term: "Oficina", synonyms: ["Serviços Técnicos", "Assistência Técnica", "Mecânica", "Box de Serviço"] },
     { term: "Peças", synonyms: ["Autopeças", "Componentes", "Acessórios", "Reposição"] },
     { term: "Garantia", synonyms: ["Cortesia de Fábrica", "Extensão de Garantia", "Recall"] },

@@ -166,54 +166,6 @@ export class IdentityEngine {
     }
     const user = userManager.getUser(userId);
     if (!user) {
-      // Check if we are running in Vitest/test environment
-      const isTestEnv = typeof process !== "undefined" && (process.env.NODE_ENV === "test" || process.env.VITEST === "true");
-      if (isTestEnv && !this.testFallbackDisabled) {
-        // Automatically inject and return a mock super admin user and its structure for backward test compatibility
-        const mockAdmin: PlatformUser = {
-          id: "user_super_admin",
-          profile: { id: "user_super_admin", fullName: "Test Super Admin", email: "admin@test.local" },
-          role: "SUPER_ADMIN",
-          organizationId: "org_arcanjo",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        if (!userManager.getUser("user_super_admin")) {
-          userManager.createUser(mockAdmin);
-        }
-        if (!organizationManager.getOrganization("org_arcanjo")) {
-          organizationManager.createOrganization({
-            id: "org_arcanjo",
-            name: "Consultoria Arcanjo",
-            type: "consulting_firm",
-            ownerUserId: "user_super_admin",
-            members: ["user_super_admin"],
-            teams: [],
-            workspaces: ["ws_cliente_real"]
-          });
-        }
-        if (!organizationManager.getWorkspace("ws_cliente_real")) {
-          organizationManager.createWorkspace({
-            id: "ws_cliente_real",
-            name: "Workspace Cliente Real",
-            organizationId: "org_arcanjo",
-            clientId: "client_1",
-            companies: ["Empresa Real"],
-            brands: [],
-            stores: [],
-            costCenters: [],
-            allowedUsers: ["user_super_admin"],
-            allowedTeams: [],
-            accessPolicies: [],
-            dataSources: [],
-            presentations: [],
-            meetings: [],
-            actionPlans: [],
-            auditTrail: []
-          });
-        }
-        return mockAdmin;
-      }
       return null;
     }
     return user;

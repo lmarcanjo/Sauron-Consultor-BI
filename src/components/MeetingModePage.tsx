@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { WorkspaceProject } from "../modules/consultant-workspace/types";
 import { useExecutiveSessionState } from "./useExecutiveSessionState";
@@ -13,6 +13,13 @@ import { ExecutiveSessionAgenda } from "./ExecutiveSessionAgenda";
 import { ExecutiveSessionStage } from "./ExecutiveSessionStage";
 import { ExecutiveSessionRightPanel } from "./ExecutiveSessionRightPanel";
 import { ExecutiveSessionSummary } from "./ExecutiveSessionSummary";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
+import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
+import { calculatePresentationMetricValues } from "../core/business-intelligence/BusinessIntelligenceEngine";
+import { buildMeetingChartData, inferPresentationMappings, PresentationMetricValues } from "../core/business-intelligence/PresentationMetricContext";
+import { getEnterpriseContext } from "../core/enterprise-consolidation";
+import { certifiedMetricSnapshotStore } from "../core/financial-consistency";
+import type { CertifiedMetricSnapshot } from "../core/financial-consistency";
 
 interface MeetingModePageProps {
   onExit: () => void;
@@ -31,6 +38,28 @@ export const MeetingModePage: React.FC<MeetingModePageProps> = ({
   formatCurrency = (v: number) => `R$ ${v.toLocaleString("pt-BR")}`,
   widgetContext,
 }) => {
+  const activeDataset = activeDatasetStore.getActiveDataset();
+  const [certifiedSnapshot, setCertifiedSnapshot] = useState<CertifiedMetricSnapshot | null>(null);
+
+  useEffect(() => {
+    const context = getEnterpriseContext();
+    if (!activeDataset) {
+      setCertifiedSnapshot(null);
+      return;
+    }
+    const contextId = context.scope === "GROUP"
+      ? context.groupId
+      : context.scope === "COMPANY"
+        ? context.companyId
+        : context.scope === "UNIT"
+          ? context.unitId
+          : activeDataset.datasetId;
+    const datasetVersion = `${activeDataset.datasetId}:${activeDataset.importedAt}`;
+    setCertifiedSnapshot(
+      certifiedMetricSnapshotStore.get(`snapshot:${contextId || activeDataset.datasetId}:${datasetVersion}`)
+    );
+  }, [activeDataset?.datasetId, activeDataset?.importedAt]);
+
   const {
     timerSeconds,
     formatTime,
@@ -91,25 +120,55 @@ export const MeetingModePage: React.FC<MeetingModePageProps> = ({
     activeProject,
     onUpdateProject,
     onExit,
+    certifiedSnapshot,
   });
 
-  // --- Dynamic Mock Chart Data for Presentation ---
-  const chartDataRevenue = useMemo(() => [
-    { name: "Jan", Receita: 420000, Meta: 450000 },
-    { name: "Fev", Receita: 490000, Meta: 460000 },
-    { name: "Mar", Receita: 580000, Meta: 500000 },
-    { name: "Abr", Receita: 510000, Meta: 520000 },
-    { name: "Mai", Receita: 640000, Meta: 550000 },
-    { name: "Jun", Receita: 780000, Meta: 600000 },
-  ], []);
+  const meetingMappings = useMemo(() => {
+    if (!activeDataset) return [];
+    const saved = listModuleMappings(activeDataset.datasetId, getDefaultProjectId(activeDataset));
+    return saved.length > 0 ? saved : inferPresentationMappings(activeDataset, filteredData);
+  }, [activeDataset?.datasetId, activeDataset?.importedAt, filteredData]);
+  const chartData = useMemo(() => buildMeetingChartData(filteredData, meetingMappings), [filteredData, meetingMappings]);
+  const chartDataRevenue = chartData.revenue;
+  const chartDataCosts = chartData.costs;
+  const [metricValues, setMetricValues] = useState<PresentationMetricValues | null>(null);
 
-  const chartDataCosts = useMemo(() => [
-    { name: "CMV Autopeças", valor: 1200000, fill: "#3b82f6" },
-    { name: "Despesas com Pessoal", valor: 850000, fill: "#10b981" },
-    { name: "Custos Operacionais", valor: 450000, fill: "#f59e0b" },
-    { name: "Marketing & Comercial", valor: 300000, fill: "#ef4444" },
-    { name: "Despesas Tributárias", valor: 250000, fill: "#8b5cf6" },
-  ], []);
+  // The data manager can return equivalent arrays with different references while
+  // IndexedDB metadata is synchronizing. Keep the metric effect tied to content,
+  // otherwise each reconciliation can schedule another calculation/render cycle.
+  const datasetKey = activeDataset ? `${activeDataset.datasetId}:${activeDataset.importedAt}` : "none";
+  const rowsSignature = useMemo(() => {
+    const sampleIndexes = [0, Math.floor(filteredData.length / 2), Math.max(0, filteredData.length - 1)];
+    const sample = sampleIndexes
+      .filter((index, position, indexes) => indexes.indexOf(index) === position && filteredData[index])
+      .map(index => {
+        const row = filteredData[index] as Record<string, unknown>;
+        return Object.keys(row).slice(0, 8).map(key => `${key}:${String(row[key])}`).join("|");
+      })
+      .join(";");
+    return `${filteredData.length}:${sample}`;
+  }, [filteredData]);
+  const mappingSignature = useMemo(
+    () => meetingMappings.map(mapping => `${mapping.moduleName}:${mapping.sheetName}:${mapping.selectedColumns.join(",")}`).join(";"),
+    [meetingMappings]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+    if (!activeDataset) {
+      setMetricValues(null);
+      return () => { mounted = false; };
+    }
+    const timer = setTimeout(() => {
+      calculatePresentationMetricValues({ activeDataset, rows: filteredData, moduleMappings: meetingMappings }).then(result => {
+        if (mounted) setMetricValues(result.values);
+      });
+    }, 0);
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [datasetKey, rowsSignature, mappingSignature]);
 
   // --- Fullscreen Toggle ---
   const toggleFullScreen = () => {
@@ -170,6 +229,7 @@ export const MeetingModePage: React.FC<MeetingModePageProps> = ({
           formatCurrency={formatCurrency}
           chartDataRevenue={chartDataRevenue}
           chartDataCosts={chartDataCosts}
+          metricValues={metricValues}
           setActiveChapterIndex={setActiveChapterIndex}
           setAgenda={setAgenda}
           setIsCreatingAction={setIsCreatingAction}

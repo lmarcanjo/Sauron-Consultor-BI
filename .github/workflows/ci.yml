@@ -16,7 +16,13 @@ jobs:
         with:
           node-version: 18
       - run: npm ci
-      - run: npm run typecheck || npm run lint
+      - run: npm run typecheck
+      - name: Vitest and architecture gates
+        run: npm run test
+      - name: Domain, compatibility, and production sanity scanners
+        run: npx vitest run src/core/quality src/core/compatibility
       - run: npm run build
       - run: npx playwright install --with-deps
       - run: npm run test:e2e
+      - name: Diff check
+        run: git diff --check

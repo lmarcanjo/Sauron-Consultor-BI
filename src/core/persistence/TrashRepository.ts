@@ -91,6 +91,13 @@ export class TrashRepository {
     await persistenceManager.set(TrashRepository.AUDIT_KEY, log);
   }
 
+  private generateId(prefix: string): string {
+    const suffix = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID().slice(0, 8)
+      : Date.now().toString(36);
+    return `${prefix}_${Date.now()}_${suffix}`;
+  }
+
   private makeAuditEvent(
     action: TrashAuditEvent["action"],
     item: Pick<TrashItem, "entityType" | "entityId" | "entityName">,
@@ -98,7 +105,7 @@ export class TrashRepository {
     details?: string
   ): TrashAuditEvent {
     return {
-      id: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: this.generateId("audit"),
       action,
       entityType: item.entityType,
       entityId: item.entityId,
@@ -131,7 +138,7 @@ export class TrashRepository {
     }
 
     const item: TrashItem = {
-      id: `trash_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      id: this.generateId("trash"),
       entityType,
       entityId,
       entityName,

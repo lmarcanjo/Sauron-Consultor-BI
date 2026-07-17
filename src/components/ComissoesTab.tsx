@@ -29,8 +29,8 @@ interface ComissoesTabProps {
   setPercentualComissaoBase: (v: number) => void;
   taxaComissaoAcessorios: number;
   setTaxaComissaoAcessorios: (v: number) => void;
-  taxaComissaoPecas: number;
-  setTaxaComissaoPecas: (v: number) => void;
+  taxaComissaoItens: number;
+  setTaxaComissaoItens: (v: number) => void;
   triggerSystemBackup: () => void;
   userRole?: "consultor" | "diretor" | "gerente" | "analista" | string;
 }
@@ -55,8 +55,8 @@ export const ComissoesTab: React.FC<ComissoesTabProps> = ({
   setPercentualComissaoBase,
   taxaComissaoAcessorios,
   setTaxaComissaoAcessorios,
-  taxaComissaoPecas,
-  setTaxaComissaoPecas,
+  taxaComissaoItens,
+  setTaxaComissaoItens,
   triggerSystemBackup,
   userRole = "consultor"
 }) => {
@@ -69,6 +69,18 @@ export const ComissoesTab: React.FC<ComissoesTabProps> = ({
   
   // Only consultor, diretor or gerente may edit tactical offsets
   const canEditOffsets = userRole === "consultor" || userRole === "diretor" || userRole === "gerente";
+
+  if (!hasRealDataset) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans">
+        <Sparkles className="text-slate-400 w-12 h-12" />
+        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Nenhuma fonte de dados ativa.</h3>
+        <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
+          Importe uma planilha real para configurar e calcular comissões.
+        </p>
+      </div>
+    );
+  }
 
   if (hasRealDataset) {
     return (
@@ -125,11 +137,11 @@ export const ComissoesTab: React.FC<ComissoesTabProps> = ({
               disabled={!canEditOffsets}
               className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-white px-3 py-1.5 rounded focus:outline-none focus:border-blue-500 font-sans cursor-pointer disabled:opacity-60"
             >
-              <option value="Concessionária Popular">Concessionária de Automóveis Popular</option>
-              <option value="Concessionária Premium Elite">Concessionária Premium e Blindados</option>
-              <option value="Distribuidora de Máquinas Agrícolas">Distribuição de Maquinário Agrícola (Tratores/Peças)</option>
-              <option value="Grupo Multimarcas Automotivas">Holding Multimarcas de Varejo de Veículos</option>
-              <option value="Revenda Geral de Acessórios">Revenda e Auto-Center Especializado</option>
+              <option value="Operação Padrão">Operação Padrão</option>
+              <option value="Operação Premium">Operação Premium</option>
+              <option value="Distribuição de Produtos">Distribuição de Produtos</option>
+              <option value="Grupo Multunidade">Grupo Multiunidade</option>
+              <option value="Serviços Especializados">Serviços Especializados</option>
             </select>
           </div>
 
@@ -220,8 +232,8 @@ export const ComissoesTab: React.FC<ComissoesTabProps> = ({
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-white px-2 py-1.5 rounded focus:outline-none focus:border-blue-500 font-sans cursor-pointer disabled:opacity-60"
               >
                 <option value="simplificado">Geral Simplificado (Rate Único das Vendas)</option>
-                <option value="acessorios_vendas">Concessionária Custom (Diferenciação Veículos 3.0.0.1 vs Acessórios 3.0.1.1)</option>
-                <option value="maquinas_agricolas">Maquinário Agrícola (Diferenciação Veículos 3.0.0.1 vs Autopeças 3.0.1.1 vs Oficina 3.0.3.1)</option>
+                <option value="acessorios_vendas">Regra por Categoria Comercial</option>
+                <option value="maquinas_agricolas">Regra por Linhas de Produto e Serviço</option>
               </select>
             </div>
 
@@ -238,7 +250,7 @@ export const ComissoesTab: React.FC<ComissoesTabProps> = ({
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-[9px] font-bold text-slate-500 block">Acessórios Rate:</span>
+                <span className="text-[9px] font-bold text-slate-500 block">Categoria Rate:</span>
                 <input
                   type="number"
                   step="0.5"
@@ -249,12 +261,12 @@ export const ComissoesTab: React.FC<ComissoesTabProps> = ({
                 />
               </div>
               <div className="space-y-1">
-                <span className="text-[9px] font-bold text-slate-500 block">Autopeças Rate:</span>
+                <span className="text-[9px] font-bold text-slate-500 block">Itens Rate:</span>
                 <input
                   type="number"
                   step="0.5"
-                  value={taxaComissaoPecas}
-                  onChange={(e) => setTaxaComissaoPecas(Number(e.target.value))}
+                  value={taxaComissaoItens}
+                  onChange={(e) => setTaxaComissaoItens(Number(e.target.value))}
                   disabled={!canEditComissionsFormula}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-white px-2 py-1 rounded disabled:opacity-60"
                 />

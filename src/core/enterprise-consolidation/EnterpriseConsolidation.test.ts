@@ -182,8 +182,11 @@ describe("Enterprise Consolidation & Context Navigation", () => {
     expect(getEnterpriseContext().scope).toBe("COMPANY");
     expect(getEnterpriseContext().companyId).toBe("comp_farmers_a");
     
-    // Verificar retrocompatibilidade legada do localstorage
-    expect(localStorage.getItem("sauron_active_company_id")).toBe("comp_farmers_a");
+    // O contexto atual é a única fonte persistida; chaves antigas são migradas
+    // apenas durante a inicialização e não voltam a ser gravadas.
+    const persistedContext = JSON.parse(localStorage.getItem("sauron_active_enterprise_context") || "{}");
+    expect(persistedContext.companyId).toBe("comp_farmers_a");
+    expect(localStorage.getItem("sauron_active_company_id")).toBeNull();
   });
 
   it("grupo consolidado não perde workbooks", async () => {

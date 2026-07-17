@@ -5,6 +5,7 @@
 
 import { Story } from "./types";
 import { storyVersionEngine } from "./StoryVersionEngine";
+import { platformLogger } from "../platform/PlatformLogger";
 
 export class StoryApprovalEngine {
   /**
@@ -53,7 +54,7 @@ export class StoryApprovalEngine {
     const snapshot = storyVersionEngine.createSnapshot(story, approvedBy, hash);
     story.history.push(snapshot);
 
-    console.log(`[Sauron Audit] STORY_APPROVED - Narrative '${story.title}' (ID: ${story.id}) approved by ${approvedBy}. Hash: ${hash}`);
+    platformLogger.info(`[Sauron Audit] STORY_APPROVED - Narrative '${story.title}' (ID: ${story.id}) approved by ${approvedBy}. Hash: ${hash}`);
 
     return story;
   }

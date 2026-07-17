@@ -7,6 +7,7 @@ import { meeting } from "./meeting";
 import { presentation } from "./presentation";
 import { rules } from "./rules";
 import { mapping } from "./mapping";
+import { terminology } from "./terminology";
 
 export const servicesPack: BusinessDomainPack = {
   manifest,
@@ -16,7 +17,8 @@ export const servicesPack: BusinessDomainPack = {
   meeting,
   presentation,
   rules,
-  mapping
+  mapping,
+  terminology
 };
 
 export default servicesPack;

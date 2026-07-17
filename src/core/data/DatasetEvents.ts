@@ -1,7 +1,6 @@
 export type DatasetEventType =
   | "DATASET_IMPORTED"
   | "DATASET_ACTIVATED"
-  | "DATASET_UPDATED"
   | "DATASET_REMOVED"
   | "DATASET_REHYDRATED";
 

@@ -96,7 +96,7 @@ export class StoryExportEngine {
   }
 
   /**
-   * Mock-export binary representations of XML schemas for PowerPoint files.
+   * Returns the structured slide payload consumed by the PowerPoint adapter.
    */
   public exportToPptxStructure(story: Story): any {
     return {

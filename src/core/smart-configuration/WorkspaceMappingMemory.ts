@@ -9,6 +9,7 @@ import {
   ModuleMappingSuggestion,
   WorkspaceModuleMappingMemory,
 } from "./SmartConfigurationTypes";
+import { dispatchPlatformEvent, PLATFORM_EVENTS } from "../events/PlatformEvents";
 
 function canUseLocalStorage(): boolean {
   try {
@@ -38,9 +39,7 @@ function writeRegistry(registry: WorkspaceRegistryState): void {
   if (canUseLocalStorage()) {
     localStorage.setItem(WORKSPACE_REGISTRY_STORAGE_KEY, JSON.stringify(next));
   }
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("SAURON_WORKSPACE_REGISTRY_UPDATED", { detail: next }));
-  }
+  dispatchPlatformEvent(PLATFORM_EVENTS.WORKSPACE_REGISTRY_CHANGED, next);
 }
 
 function getWorkspace(workspaceId?: string): Workspace | null {

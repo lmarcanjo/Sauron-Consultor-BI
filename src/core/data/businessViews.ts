@@ -148,11 +148,9 @@ const PENDING_SHEET_PATTERNS: SheetPattern[] = [
 ];
 
 const REPORT_SHEET_PATTERNS: SheetPattern[] = [
-  "RVD_Pecas",
-  "RVD_Peças",
+  /^RVD_/i,
   "RVD_AC",
-  "AN_Pecas",
-  "AN_Peças",
+  /^AN_/i,
   "AN_Acessórios",
   "AN_Acessorios",
 ];
@@ -160,8 +158,7 @@ const REPORT_SHEET_PATTERNS: SheetPattern[] = [
 const FINANCIAL_SHEET_PATTERNS: SheetPattern[] = [
   "IMP_VENDAS_AT",
   "IMP_VENDAS",
-  "RVD_Pecas",
-  "RVD_Peças",
+  /^RVD_/i,
   "RVD_AC",
   "Importacao_Detalhada",
   "Importação_Detalhada",
@@ -439,9 +436,18 @@ export async function getSheetRows(sheetName: string, limit = VIEW_ROW_LIMIT): P
     if (rows.length > 0) return rows;
   }
 
-  if (dataset.rawStorageRef && typeof indexedDB !== "undefined") {
-    const rows = await IndexedSpreadsheetStorage.getRowsPaged(dataset.rawStorageRef, sheetName, 0, limit);
-    if (rows.length > 0) return rows;
+  if (typeof indexedDB !== "undefined") {
+    const sourceIds = dataset.sourceDatasetIds?.length
+      ? dataset.sourceDatasetIds
+      : [dataset.rawStorageRef];
+    const rows: RawRow[] = [];
+    for (const sourceId of sourceIds) {
+      if (!sourceId || sourceId.startsWith("api:")) continue;
+      const remaining = Math.max(limit - rows.length, 0);
+      if (remaining === 0) break;
+      rows.push(...await IndexedSpreadsheetStorage.getRowsPaged(sourceId, sheetName, 0, remaining));
+    }
+    if (rows.length > 0) return rows.slice(0, limit);
   }
 
   return getFirstRowsForSheetFallback(dataset, sheetName, limit);

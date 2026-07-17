@@ -38,7 +38,7 @@ export class DataEngine {
   }
 
   /**
-   * Retrieves active financial records with safety filters applied to prevent mock data leaking into real sources.
+   * Retrieves active financial records with safety filters applied to prevent synthetic records leaking into real sources.
    */
   public getApprovedRecords(): LancamentoFinanceiro[] {
     return dataSourceManager.getActiveRecords();

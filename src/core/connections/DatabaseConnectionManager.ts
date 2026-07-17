@@ -5,6 +5,7 @@
 
 import { LancamentoFinanceiro } from "../../types";
 import { securityEngine } from "../security/SecurityEngine";
+import { platformLogger } from "../platform/PlatformLogger";
 
 export type DatabaseType =
   | "postgres"
@@ -99,9 +100,9 @@ export class DatabaseConnectionManager {
 
       sysDb.auditLogs.unshift(logEntry);
       fs.writeFileSync(SYSTEM_DB_FILE, JSON.stringify(sysDb, null, 2), "utf-8");
-      console.log(`[AUDIT LOG] ${eventType} - ${status} - ${description}`);
+      platformLogger.info(`[AUDIT LOG] ${eventType} - ${status} - ${description}`);
     } catch (e: any) {
-      console.log("Erro ao salvar log de auditoria no ConnectionManager:", e.message);
+      platformLogger.warn("Erro ao salvar log de auditoria no ConnectionManager:", e.message);
     }
   }
 
@@ -124,7 +125,7 @@ export class DatabaseConnectionManager {
           Number(port || 5432), 
           (err, stream) => {
             if (err) {
-              console.log("[SSH Tunnel Info] Encaminhamento de trafego finalizado:", String(err?.message || err));
+              platformLogger.warn("[SSH Tunnel Info] Encaminhamento de trafego finalizado:", String(err?.message || err));
               socket.destroy();
               return;
             }
@@ -809,7 +810,7 @@ export class DatabaseConnectionManager {
             estimatedRows[r.table_name] = Number(r.row_count) || 0;
           });
         } catch (err) {
-          console.log("Postgres Row Estimate count error:", err);
+          platformLogger.warn("Postgres Row Estimate count error:", err);
         }
 
         tables.forEach(t => {
@@ -843,7 +844,7 @@ export class DatabaseConnectionManager {
               type: c.Type
             }));
           } catch (e: any) {
-            console.log(`[Aviso Colunas] Selecao de colunas tabela ${table}:`, e.message);
+            platformLogger.warn(`[Aviso Colunas] Selecao de colunas tabela ${table}:`, e.message);
           }
         }
 
@@ -855,7 +856,7 @@ export class DatabaseConnectionManager {
             }
           });
         } catch (err) {
-          console.log("MySQL Row Estimate count error:", err);
+          platformLogger.warn("MySQL Row Estimate count error:", err);
         }
 
         tables.forEach(t => {
@@ -1002,7 +1003,7 @@ export class DatabaseConnectionManager {
     } finally {
       if (sshTunnel) {
         await sshTunnel.close().catch((err: any) => {
-          console.log(`[SSH Tunnel List Tables Close] Finalizacao:`, err.message);
+          platformLogger.warn(`[SSH Tunnel List Tables Close] Finalizacao:`, err.message);
         });
       }
     }
@@ -1124,7 +1125,7 @@ export class DatabaseConnectionManager {
               const rowsWithTable = res.rows.map(r => ({ ...r, __sourceTable: t }));
               rawRows.push(...rowsWithTable);
             } catch (e: any) {
-              console.log(`Erro ao ler da tabela Postgres ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da tabela Postgres ${t}:`, e.message);
             }
           }
         } else {
@@ -1169,7 +1170,7 @@ export class DatabaseConnectionManager {
               const rowsWithTable = res.map((r: any) => ({ ...r, __sourceTable: t }));
               rawRows.push(...rowsWithTable);
             } catch (e: any) {
-              console.log(`Erro ao ler da tabela MySQL ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da tabela MySQL ${t}:`, e.message);
             }
           }
         } else {
@@ -1216,7 +1217,7 @@ export class DatabaseConnectionManager {
               const rowsWithTable = res.recordset.map((r: any) => ({ ...r, __sourceTable: t }));
               rawRows.push(...rowsWithTable);
             } catch (e: any) {
-              console.log(`Erro ao ler da tabela MSSQL ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da tabela MSSQL ${t}:`, e.message);
             }
           }
         } else if (tableName) {
@@ -1259,7 +1260,7 @@ export class DatabaseConnectionManager {
               const rowsWithTable = (res.rows || []).map((r: any) => ({ ...r, __sourceTable: t }));
               rawRows.push(...rowsWithTable);
             } catch (e: any) {
-              console.log(`Erro ao ler da tabela Oracle ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da tabela Oracle ${t}:`, e.message);
             }
           }
         } else if (tableName) {
@@ -1290,7 +1291,7 @@ export class DatabaseConnectionManager {
               const docsWithTable = docs.map((doc: any) => ({ ...doc, __sourceTable: t }));
               rawRows.push(...docsWithTable);
             } catch (e: any) {
-              console.log(`Erro ao ler da coleção MongoDB ${t}:`, e.message);
+              platformLogger.warn(`Erro ao ler da coleção MongoDB ${t}:`, e.message);
             }
           }
         } else if (tableName) {
@@ -1319,7 +1320,7 @@ export class DatabaseConnectionManager {
     } finally {
       if (sshTunnel) {
         await sshTunnel.close().catch((err: any) => {
-          console.log(`[SSH Tunnel Fetch Close] Finalizacao:`, err.message);
+              platformLogger.warn(`[SSH Tunnel Fetch Close] Finalizacao:`, err.message);
         });
       }
     }

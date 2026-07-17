@@ -95,7 +95,7 @@ describe("F10.1 Intelligent Workspace", () => {
 
     expect(classification.domain).toBe("automotive");
     expect(classification.confidence).toBeGreaterThan(0.5);
-    expect(classification.matchedTerms).toContain("pecas");
+    expect(classification.matchedTerms).toContain("comissao");
   });
 
   it("classifies an agribusiness workbook as agribusiness", () => {

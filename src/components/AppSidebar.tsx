@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { adaptiveNavigationEngine } from "../core/adaptive-ui";
 import { getConsultingFlowStructure } from '../core/navigation/consultingFlowStructure';
+import { getModuleCapabilityState, shouldExposeModule } from '../core/navigation/moduleCapabilities';
 
 interface SidebarProps {
   activePage: string;
@@ -19,6 +20,7 @@ interface SidebarProps {
   isDesktopCollapsed: boolean;
   setIsDesktopCollapsed: (v: boolean) => void;
   userRole?: string;
+  hasActiveDataset?: boolean;
 }
 
 const AppSidebarContent: React.FC<SidebarProps> = ({ 
@@ -29,7 +31,8 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
   setIsMobileOpen,
   isDesktopCollapsed,
   setIsDesktopCollapsed,
-  userRole = "SUPER_ADMIN"
+  userRole = "SUPER_ADMIN",
+  hasActiveDataset = false,
 }) => {
   const [dictionaryTick, setDictionaryTick] = useState(0);
 
@@ -41,15 +44,21 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
     return () => window.removeEventListener("sauron:dictionary-updated", handleUpdate);
   }, []);
 
-  const menuOptions = { domainId: activeIndustryTemplateId };
+  const menuOptions = {
+    domainId: activeIndustryTemplateId,
+    capabilities: Object.fromEntries(
+      getConsultingFlowStructure({ domainId: activeIndustryTemplateId })
+        .flatMap(group => group.subItems)
+        .map(item => [item.id, getModuleCapabilityState(item.id, { hasActiveDataset, permissionGranted: true })])
+    ),
+  };
 
   // Accordion states — auto-expand the group that contains the active page
   const getInitialExpanded = () => {
     const structure = getConsultingFlowStructure(menuOptions);
     const expanded: Record<string, boolean> = {};
     for (const group of structure) {
-      const hasActive = group.subItems.some(s => s.id === activePage);
-      expanded[group.groupKey] = hasActive;
+      expanded[group.groupKey] = true;
     }
     return expanded;
   };
@@ -140,7 +149,7 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
               const GroupIcon = group.icon;
               const isGroupExpanded = expandedGroups[group.groupKey] ?? false;
               const accessibleSubItems = group.subItems.filter(sub =>
-                hasSubItemAccess(group.groupKey, sub.id)
+                hasSubItemAccess(group.groupKey, sub.id) && shouldExposeModule(sub.availability || "AVAILABLE")
               );
               const isGroupActive = accessibleSubItems.some(s => s.id === activePage);
 
@@ -178,6 +187,7 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
                   {/* Group Header */}
                   <button
                     onClick={() => toggleGroup(group.groupKey)}
+                    aria-expanded={isGroupExpanded}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
                       isGroupActive
                         ? "text-blue-400 bg-blue-600/10"
@@ -205,7 +215,7 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
                               setActivePage(sub.id);
                               if (window.innerWidth < 1024) setIsMobileOpen(false);
                             }}
-                            data-testid={sub.title === "Central de Dados" ? "btn-open-data-center" : undefined}
+                            data-testid={sub.id === "importacao" ? "btn-open-data-center" : undefined}
                             className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
                               isActive
                                 ? "bg-blue-600/15 text-blue-400 font-extrabold border-l-2 border-blue-500 -ml-px pl-[9px] rounded-l-none"
@@ -239,17 +249,19 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
                   <span>Product QA Console</span>
                 </button>
               )}
-              <button
-                onClick={() => setActivePage("sdl_studio")}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
-                  activePage === "sdl_studio"
-                    ? "bg-blue-600/15 text-blue-400 font-extrabold"
-                    : "hover:bg-slate-800/60 text-slate-500 hover:text-slate-300"
-                }`}
-              >
-                <Layers size={13} />
-                <span>SDL Studio</span>
-              </button>
+              {typeof window !== "undefined" && window.location.search.includes("lab=true") && (
+                <button
+                  onClick={() => setActivePage("sdl_studio")}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                    activePage === "sdl_studio"
+                      ? "bg-blue-600/15 text-blue-400 font-extrabold"
+                      : "hover:bg-slate-800/60 text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  <Layers size={13} />
+                  <span>SDL Studio</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -299,7 +311,7 @@ class SidebarErrorBoundary extends React.Component<
               onClick={() => this.props.setActivePage("enterprise_center")}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-slate-800 text-slate-300 cursor-pointer"
             >
-              <Building size={14} className="mr-2" /> Enterprise Center
+              <Building size={14} className="mr-2" /> Empresas e Grupos
             </button>
             <button
               onClick={() => this.props.setActivePage("perfis")}

@@ -6,7 +6,7 @@
  * MeetingPrepTab.tsx — Tela de Preparação de Reunião com inteligência consolidada de contexto.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ClipboardCheck, Sparkles, AlertTriangle, Play, CheckCircle2,
   ListTodo, Plus, Trash2, Calendar, FileText, BadgeCheck, ShieldAlert,
@@ -19,6 +19,11 @@ import { showToast } from "./Toast";
 import { enterpriseRepository, Enterprise, Company, BusinessGroup } from "../core/persistence/EnterpriseRepository";
 import { ExecutivePresentationEngine } from "../core/business-intelligence/ExecutivePresentationEngine";
 import { getEnterpriseContext, setEnterpriseContext } from "../core/enterprise-consolidation";
+import { PLATFORM_EVENTS, subscribePlatformEvent } from "../core/events/PlatformEvents";
+import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
+import { FinancialConsistencyStatus } from "./FinancialConsistencyStatus";
+import { platformLogger } from "../core/platform/PlatformLogger";
+import { certifiedMetricSnapshotStore } from "../core/financial-consistency";
 
 interface MeetingPrepTabProps {
   onSelectTab: (tab: string) => void;
@@ -32,6 +37,8 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
   const [isLoading, setIsLoading] = useState(false);
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [presentation, setPresentation] = useState<any>(null);
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presentationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Agenda State
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
@@ -47,21 +54,32 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
       const rep = await meetingPrepService.generateReport({
         activeDataset,
         activeRecords,
-        workspace
+        workspace,
+        // Structural workbook analysis is intentionally deferred from the
+        // navigation path; BI values remain real and the UI stays responsive.
+        skipStructuralAnalysis: true,
       });
       setReport(rep);
 
       const ents = await enterpriseRepository.getAll();
       setEnterprises(ents);
 
+      if (presentationTimerRef.current) clearTimeout(presentationTimerRef.current);
+      setPresentation(null);
       if (activeDataset && activeRecords.length > 0) {
-        const presEngine = new ExecutivePresentationEngine();
-        const pres = await presEngine.generatePresentation({
-          activeDataset,
-          allRows: activeRecords,
-          workspace: workspace as any
-        });
-        setPresentation(pres);
+        const datasetForPresentation = activeDataset;
+        const recordsForPresentation = activeRecords;
+        const workspaceForPresentation = workspace;
+        presentationTimerRef.current = setTimeout(async () => {
+          const presEngine = new ExecutivePresentationEngine();
+          const pres = await presEngine.generatePresentation({
+            activeDataset: datasetForPresentation,
+            allRows: recordsForPresentation,
+            workspace: workspaceForPresentation as any,
+            moduleMappings: listModuleMappings(datasetForPresentation.datasetId, getDefaultProjectId(datasetForPresentation)),
+          });
+          setPresentation(pres);
+        }, 750);
       }
     } catch (e) {
       showToast("error", "Erro ao processar dados de preparação.");
@@ -71,11 +89,22 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
   };
 
   useEffect(() => {
-    loadData();
+    const scheduleLoad = () => {
+      if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
+      loadTimerRef.current = setTimeout(() => {
+        void loadData();
+      }, 750);
+    };
 
-    const handleContextEvent = () => loadData();
-    window.addEventListener("sauron:context-updated", handleContextEvent);
-    return () => window.removeEventListener("sauron:context-updated", handleContextEvent);
+    scheduleLoad();
+
+    const handleContextEvent = scheduleLoad;
+    const unsubscribe = subscribePlatformEvent(PLATFORM_EVENTS.ENTERPRISE_CONTEXT_CHANGED, handleContextEvent);
+    return () => {
+      unsubscribe();
+      if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
+      if (presentationTimerRef.current) clearTimeout(presentationTimerRef.current);
+    };
   }, [activeDataset, activeRecords]);
 
   // Load / Sync Agenda
@@ -100,7 +129,7 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
         localStorage.setItem(`sauron_agenda_${workspace?.id || "default"}`, JSON.stringify(initialAgenda));
       }
     } catch (e) {
-      console.error(e);
+      platformLogger.warn("Não foi possível carregar a agenda salva.", e);
     }
   }, [report, workspace?.id]);
 
@@ -146,6 +175,13 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
     if (!report || report.status === "no_data") return;
 
     try {
+      if (report.certifiedSnapshot) {
+        const snapshot = certifiedMetricSnapshotStore.save(report.certifiedSnapshot);
+        localStorage.setItem("sauron_last_meeting_snapshot", snapshot.snapshotId);
+        showToast("success", `Snapshot do período ${report.context.period} salvo com os dados conferidos.`);
+        return;
+      }
+
       const snapshot = {
         savedAt: new Date().toISOString(),
         dataSource: report.context.dataSource,
@@ -284,6 +320,8 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
         </div>
       </div>
 
+      {presentation?.consistency && <FinancialConsistencyStatus consistency={presentation.consistency} />}
+
       {report.status === "no_data" ? (
         <div className="bg-amber-50/10 border border-amber-200/50 p-8 rounded-2xl text-center space-y-3">
           <AlertTriangle className="text-amber-500 w-10 h-10 mx-auto" />
@@ -396,7 +434,7 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
 
                       <div className="text-[8px] font-bold text-slate-450 dark:text-slate-550 border-t border-slate-100 dark:border-slate-850/60 pt-1.5 flex flex-col gap-0.5">
                         <div className="truncate font-mono">
-                          <span className="uppercase text-[7px] text-slate-500 mr-1 font-sans">Lineage:</span>
+                          <span className="uppercase text-[7px] text-slate-500 mr-1 font-sans">Origem:</span>
                           <span className="text-blue-500">{d.lineage}</span>
                         </div>
                         {d.warnings.length > 0 && (

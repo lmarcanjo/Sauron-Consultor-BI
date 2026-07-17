@@ -143,7 +143,7 @@ export const ModoReuniaoTab: React.FC<ModoReuniaoTabProps> = ({ onExit }) => {
               <textarea 
                 value={questions}
                 onChange={e => setQuestions(e.target.value)}
-                placeholder="Ex: Por que a margem caiu em veículos novos?"
+                placeholder="Ex: Por que a margem caiu na linha comercial?"
                 className="w-full h-20 bg-white/5 border border-white/10 text-xs px-2.5 py-2 rounded text-slate-300 focus:outline-none focus:border-emerald-500 font-serif resize-none"
               />
             </div>

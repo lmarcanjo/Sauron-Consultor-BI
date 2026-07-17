@@ -26,6 +26,7 @@ import {
   WorkspaceRegistryState,
 } from "./WorkspaceIntelligenceTypes";
 import { businessDomainEngine } from "../business-domains";
+import { dispatchPlatformEvent, PLATFORM_EVENTS } from "../events/PlatformEvents";
 
 export const WORKSPACE_REGISTRY_STORAGE_KEY = "sauron_workspace_registry";
 
@@ -79,9 +80,7 @@ function writeWorkspaceRegistry(state: WorkspaceRegistryState): void {
   if (canUseLocalStorage()) {
     localStorage.setItem(WORKSPACE_REGISTRY_STORAGE_KEY, JSON.stringify(next));
   }
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("SAURON_WORKSPACE_REGISTRY_UPDATED", { detail: next }));
-  }
+  dispatchPlatformEvent(PLATFORM_EVENTS.WORKSPACE_REGISTRY_CHANGED, next);
 }
 
 function mutateWorkspaceRegistry<T>(mutate: (state: WorkspaceRegistryState) => T): T {

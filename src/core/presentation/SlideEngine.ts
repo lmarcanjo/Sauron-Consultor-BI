@@ -32,7 +32,7 @@ export class SlideEngine {
         type: "cover",
         order: 1,
         visible: true,
-        notes: "Iniciar apresentação dando boas vindas aos investidores e diretores da holding. Destacar que todas as fontes foram mapeadas via VPN.",
+        notes: "Iniciar apresentação dando boas vindas aos investidores e diretores do grupo. Destacar que todas as fontes foram mapeadas.",
         content: {}
       },
       {

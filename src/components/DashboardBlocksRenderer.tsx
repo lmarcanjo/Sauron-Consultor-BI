@@ -61,7 +61,7 @@ export const DashboardBlocksRenderer: React.FC<DashboardBlocksRendererProps> = (
                 <span className={block.status === "ready" ? "text-emerald-600" : "text-amber-600"}>{statusLabel(block.status)}</span>
               </div>
               {block.data.columnsUsed.length > 0 && (
-                <p className="text-[10px] text-slate-400 mt-1 truncate">Colunas: {block.data.columnsUsed.join(", ")}</p>
+                <p className="text-[10px] text-slate-400 mt-1 truncate">Campos usados: {block.data.columnsUsed.join(", ")}</p>
               )}
             </div>
           ))}
@@ -141,7 +141,7 @@ export const DashboardBlocksRenderer: React.FC<DashboardBlocksRendererProps> = (
               </table>
             </div>
           ) : (
-            <p className="p-4 text-xs font-semibold text-slate-500">Fonte real ativa. Configure os campos deste módulo para gerar análises.</p>
+            <p className="p-4 text-xs font-semibold text-slate-500">Há uma fonte de dados ativa. Confirme os campos deste módulo para gerar análises.</p>
           )}
         </div>
       ))}

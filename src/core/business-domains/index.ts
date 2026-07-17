@@ -34,3 +34,4 @@ export * from "./BusinessKpiEngine";
 export * from "./BusinessMeetingEngine";
 export * from "./BusinessPresentationEngine";
 export * from "./BusinessDomainDiagnostics";
+export * from "./DomainDisplay";

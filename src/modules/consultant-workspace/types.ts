@@ -1,4 +1,5 @@
 import { ExecutiveSummary, Recommendation, Anomaly, Trend, BenchmarkResult } from '../../core/analytics/types';
+import type { CertifiedMetricSnapshot } from '../../core/financial-consistency';
 
 export interface ActionPlan {
   id: string;
@@ -8,6 +9,7 @@ export interface ActionPlan {
   deadline: string;
   status: 'pending' | 'in-progress' | 'completed';
   origin: string; // KPI, relatório ou observação
+  certifiedSnapshotId?: string;
 }
 
 export interface Meeting {
@@ -19,6 +21,8 @@ export interface Meeting {
   actionPlans: ActionPlan[];
   responsible: string;
   pendingItems: string[];
+  certifiedSnapshotId?: string;
+  certifiedSnapshot?: CertifiedMetricSnapshot;
 }
 
 export interface WorkspaceDataSource { id: string; name: string; type: string; }

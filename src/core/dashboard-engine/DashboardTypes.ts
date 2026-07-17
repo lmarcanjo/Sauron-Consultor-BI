@@ -1,6 +1,7 @@
 import { ActiveDataset } from "../../types/dataSource";
 import { BusinessIntelligenceContext, BusinessMetric } from "../business-intelligence";
 import { ModuleFieldMapping, ModuleName } from "../data/moduleMapping";
+import { CertifiedMetricSnapshot, ConsistencyReadinessReport } from "../financial-consistency";
 
 export type DashboardBlockType =
   | "MetricCard"
@@ -102,11 +103,19 @@ export interface ExecutiveDashboard {
   diagnostics: DashboardDiagnostics;
   lineage: DashboardLineage;
   createdAt: string;
+  consistency?: ConsistencyReadinessReport;
+  certifiedSnapshot?: CertifiedMetricSnapshot;
 }
 
 export interface DashboardEngineContext extends BusinessIntelligenceContext {
   activeDataset: ActiveDataset | null;
   moduleMappings: ModuleFieldMapping[];
+  /** Canonical enterprise context used to label certified outputs. */
+  contextType?: "GROUP" | "COMPANY" | "UNIT" | "WORKBOOK";
+  contextId?: string;
+  tenantId?: string;
+  workspaceId?: string;
+  period?: { start?: string; end?: string };
 }
 
 export interface DashboardBlockExplanation {

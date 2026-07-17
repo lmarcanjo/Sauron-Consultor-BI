@@ -72,7 +72,7 @@ function computePipelineSteps(
     {
       id: "cliente",
       label: "Cliente",
-      sublabel: hasEnterprise ? (hasSegment ? "Identificado" : "Pendente Segmento") : "Aguardando cadastro",
+      sublabel: hasEnterprise ? (hasSegment ? "Confirmado" : "Aguardando confirmação") : "Aguardando cadastro",
       icon: Building,
       status: hasEnterprise && hasSegment ? "done" : hasEnterprise ? "partial" : "pending",
       actionLabel: hasEnterprise ? undefined : "Cadastrar",
@@ -92,7 +92,7 @@ function computePipelineSteps(
     {
       id: "validacao",
       label: "Validação",
-      sublabel: hasMapping ? "Mapeamento ok" : "Requer configuração",
+      sublabel: hasMapping ? "Campos confirmados" : "Aguardando confirmação",
       icon: CheckSquare,
       status: hasMapping ? "done" : !hasData ? "locked" : "pending",
       actionLabel: hasMapping ? undefined : "Configurar",
@@ -209,10 +209,10 @@ export const ConsultingPipelineWidget: React.FC<ConsultingPipelineWidgetProps> =
   const score = computeReadinessScore(steps);
 
   const readinessLabel =
-    score >= 90 ? "Pronto para Reunião" :
+    score >= 90 ? "Pronto para reunião" :
     score >= 70 ? "Quase Pronto" :
     score >= 40 ? "Em Configuração" :
-    "Setup Inicial";
+    "Primeiros passos";
 
   const readinessColor =
     score >= 90 ? "text-emerald-400" :
@@ -249,7 +249,7 @@ export const ConsultingPipelineWidget: React.FC<ConsultingPipelineWidgetProps> =
               Jornada do Consultor
             </h3>
             <p className="text-[10px] text-slate-500 font-semibold">
-              Progresso estruturado do projeto consultivo
+              Próximos passos do projeto consultivo
             </p>
           </div>
         </div>
@@ -275,7 +275,7 @@ export const ConsultingPipelineWidget: React.FC<ConsultingPipelineWidgetProps> =
 
           <div className="text-right">
             <p className={`text-xs font-black uppercase ${readinessColor}`}>{readinessLabel}</p>
-            <p className="text-[10px] text-slate-500 font-semibold">Readiness Score</p>
+            <p className="text-[10px] text-slate-500 font-semibold">Progresso da jornada</p>
           </div>
           <ReadinessRing score={score} />
         </div>

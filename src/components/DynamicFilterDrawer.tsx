@@ -229,7 +229,7 @@ export const DynamicFilterDrawer: React.FC<DynamicFilterDrawerProps> = ({
 
           {/* Column List */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/50 dark:bg-slate-900/40">
-            <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Colunas Identificadas no Dataset ({filteredColumns.length})</h3>
+            <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Colunas identificadas nos dados ({filteredColumns.length})</h3>
             
             {filteredColumns.length === 0 ? (
               <div className="py-8 text-center text-slate-450 text-xs font-semibold">

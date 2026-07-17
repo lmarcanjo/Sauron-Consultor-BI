@@ -19,13 +19,17 @@ export class StoryEngine {
    * Seeds default stories on start to act as ready-made examples.
    */
   private seedDefaultStories(): void {
+    if (typeof process === "undefined" || process.env.NODE_ENV !== "test") {
+      return;
+    }
+
     try {
-      const automotiveStory = storyTemplateEngine.createStoryFromTemplate(
-        "automativo",
-        "Apresentação Trimestral Alpha Nissan",
-        "Ciclo de Fechamento Q2 - Vendas e Rentabilidade de Showroom"
+      const operationalStory = storyTemplateEngine.createStoryFromTemplate(
+        "operacao_especializada",
+        "Apresentação Trimestral",
+        "Ciclo de Fechamento Q2 - Vendas e Rentabilidade"
       );
-      this.registerStory(automotiveStory);
+      this.registerStory(operationalStory);
 
       const boardStory = storyTemplateEngine.createStoryFromTemplate(
         "conselho",
