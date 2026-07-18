@@ -103,10 +103,10 @@ export const ExecutiveSessionRightPanel: React.FC<ExecutiveSessionRightPanelProp
             <span>Configure custos e despesas para revisar a composição financeira desta pauta.</span>
           )}
           {currentChapter.chapterKey === 'comercial' && (
-            <span>Configure vendedor, cliente, produto e valor para revisar o desempenho comercial real.</span>
+            <span>Configure vendedor, cliente, produto e valor para revisar o desempenho comercial.</span>
           )}
           {currentChapter.chapterKey === 'pessoas' && (
-            <span>Configure uma coluna de pessoa ou vendedor para revisar dados reais de equipe.</span>
+            <span>Configure uma coluna de pessoa ou vendedor para revisar os dados de equipe.</span>
           )}
           {currentChapter.chapterKey === 'plano' && (
             <span>Revisar e reatribuir prazos de entregas vencidas. Cada ação concluída gera impacto positivo na pontuação de maturidade.</span>

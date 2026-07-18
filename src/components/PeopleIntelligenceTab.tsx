@@ -159,7 +159,7 @@ const SellerStatementPreview: React.FC<{
             {statement.observations.map(item => <li key={item}>{item}</li>)}
           </ul>
         ) : (
-          <p className="text-slate-700">Resumo gerado somente com dados reais mapeados.</p>
+          <p className="text-slate-700">Resumo gerado somente com dados conectados mapeados.</p>
         )}
       </div>
 
@@ -771,7 +771,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
                 </div>
               </SauronCard>
 
-              <SauronCard title="Resumo do Vendedor" subtitle="Preview imprimível com dados reais mapeados">
+              <SauronCard title="Resumo do Vendedor" subtitle="Preview imprimível com dados conectados mapeados">
                 <div className="space-y-3">
                   <SauronInput
                     label="Nome do gestor"

@@ -496,7 +496,7 @@ async function calculateMargin(context: BusinessIntelligenceContext): Promise<Bu
         rows,
         strategy,
         columnsUsed: [marginColumn],
-        transformations: [`Soma de ${summary.count} valor(es) da coluna candidata de margem ${marginColumn}.`],
+        transformations: [`Soma de ${summary.count} valor(es) da coluna de margem ${marginColumn}.`],
         ruleCategories: ["margin"],
       });
     }
@@ -514,7 +514,7 @@ async function calculateMargin(context: BusinessIntelligenceContext): Promise<Bu
       strategy,
       columnsUsed: unique([revenueColumn, costColumn].filter((item): item is string => Boolean(item))),
       missingColumns: ["revenue", "cost"].filter((role, index) => ![revenueColumn, costColumn][index]),
-      message: "Margem candidata exige coluna de margem ou receita e custo mapeados.",
+      message: "Margem exige coluna de margem ou receita e custo mapeados.",
     });
   }
 
@@ -542,7 +542,7 @@ async function calculateMargin(context: BusinessIntelligenceContext): Promise<Bu
     rows,
     strategy,
     columnsUsed: [revenueColumn, costColumn],
-    transformations: [`Receita candidata (${revenueColumn}) menos custo candidato (${costColumn}).`],
+    transformations: [`Receita (${revenueColumn}) menos custo (${costColumn}).`],
     ruleCategories: ["margin"],
   });
 }
@@ -586,7 +586,7 @@ async function calculateNetResult(context: BusinessIntelligenceContext): Promise
       moduleMappings: inputMetrics.flatMap(metric => metric.lineage.moduleMappings),
       knowledgeGraphNodes: unique(inputMetrics.flatMap(metric => metric.lineage.knowledgeGraphNodes)),
       businessRules: unique(inputMetrics.flatMap(metric => metric.lineage.businessRules)),
-      transformations: ["Receita candidata - custo candidato - despesa candidata."],
+      transformations: ["Receita - custo - despesa."],
       rowAccess: {
         strategy: inputMetrics[0].lineage.rowAccess.strategy,
         rowsRead,

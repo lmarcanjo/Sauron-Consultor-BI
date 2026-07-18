@@ -90,10 +90,28 @@ export class EnterpriseConsolidationService {
 
     const selectedBindings = bindings.filter(binding => {
       if (context.scope === "WORKBOOK") return context.workbookIds.includes(binding.workbookId);
-      if (context.scope === "UNIT") return Boolean(unitId && binding.unitId === unitId);
-      if (context.scope === "COMPANY") {
-        return Boolean(companyId && (binding.companyId === companyId || (binding.unitId && childUnitIds.has(binding.unitId))));
+      
+      if (context.scope === "UNIT") {
+        const u = allEnterprises.find(e => e.id === unitId) as Unit;
+        const cId = u?.parentId;
+        const gId = cId ? (allEnterprises.find(e => e.id === cId) as Company)?.parentId : undefined;
+        return Boolean(unitId && (
+          binding.unitId === unitId ||
+          (cId && binding.companyId === cId) ||
+          (gId && binding.groupId === gId)
+        ));
       }
+      
+      if (context.scope === "COMPANY") {
+        const c = allEnterprises.find(e => e.id === companyId) as Company;
+        const gId = c?.parentId;
+        return Boolean(companyId && (
+          binding.companyId === companyId ||
+          (binding.unitId && childUnitIds.has(binding.unitId)) ||
+          (gId && binding.groupId === gId)
+        ));
+      }
+      
       if (context.scope === "GROUP") {
         return Boolean(groupId && (
           binding.groupId === groupId ||
@@ -156,7 +174,7 @@ export class EnterpriseConsolidationService {
     // for old catalogs/tests that have no paginated dataset metadata.
     let filtered = [...allRecords];
 
-    if (!hasContextSources && context.scope === "GROUP" && context.groupId) {
+    if (context.scope === "GROUP" && context.groupId) {
       const group = allEnterprises.find(e => e.id === context.groupId) as BusinessGroup;
       if (group) {
         const childCompanies = allEnterprises.filter(e => e.type === "Empresa" && e.parentId === group.id) as Company[];
@@ -170,7 +188,7 @@ export class EnterpriseConsolidationService {
           return rGroup.includes(groupName) || companyNames.some(name => rCompany.includes(name));
         });
       }
-    } else if (!hasContextSources && context.scope === "COMPANY" && context.companyId) {
+    } else if (context.scope === "COMPANY" && context.companyId) {
       const company = allEnterprises.find(e => e.id === context.companyId) as Company;
       if (company) {
         const companyName = company.name.toLowerCase();
@@ -179,7 +197,7 @@ export class EnterpriseConsolidationService {
           return rCompany.includes(companyName);
         });
       }
-    } else if (!hasContextSources && context.scope === "UNIT" && context.unitId) {
+    } else if (context.scope === "UNIT" && context.unitId) {
       const unit = allEnterprises.find(e => e.id === context.unitId) as Unit;
       if (unit) {
         const unitName = unit.name.toLowerCase();

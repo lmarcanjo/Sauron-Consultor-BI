@@ -11,7 +11,7 @@ import {
   Building, Network, Calendar, Sliders, Database, ChevronDown, CheckCircle2, Layers 
 } from "lucide-react";
 import { enterpriseRepository, Enterprise, BusinessGroup, Company, Unit } from "../core/persistence/EnterpriseRepository";
-import { getEnterpriseContext, setEnterpriseContext, subscribeEnterpriseContext } from "../core/enterprise-consolidation";
+import { getEnterpriseContext, setEnterpriseContext, subscribeEnterpriseContext, enterpriseConsolidationService } from "../core/enterprise-consolidation";
 import { identityEngine } from "../core/identity/IdentityEngine";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/WorkspaceIntelligenceEngine";
 import { Workspace } from "../core/workspace-intelligence/WorkspaceIntelligenceTypes";
@@ -20,6 +20,7 @@ import { timelineRepository } from "../core/persistence/TimelineRepository";
 import { showToast } from "./Toast";
 import { PLATFORM_EVENTS, subscribePlatformEvent } from "../core/events/PlatformEvents";
 import { getDomainDisplayOptions, getDomainDisplayLabel } from "../core/business-domains";
+import { consultingModelRepository, setActiveConsultingModelConfigSync } from "../core/business-intelligence/ConsultingModelRepository";
 
 export const GlobalContextBar: React.FC = () => {
   const { activeRecords, activeDataset } = useDataSourceManager();
@@ -114,21 +115,30 @@ export const GlobalContextBar: React.FC = () => {
   };
 
   const handleCompanyChange = async (companyId: string) => {
+    const workspaceId = context.workspaceId || "workspace_default";
+    const groupId = context.groupId || "group_default";
+
     if (companyId === "all") {
-      // Switch back to Group Scope without retaining the previous company
-      // or unit source selection.
       if (context.groupId) {
+        let config = await consultingModelRepository.getConfiguration(workspaceId);
+        if (!config) {
+          config = consultingModelRepository.createDefaultConfiguration(workspaceId, groupId);
+          await consultingModelRepository.saveConfiguration(config);
+        }
+        setActiveConsultingModelConfigSync(config);
+
         const nextContext = {
           ...context,
           scope: "GROUP" as const,
           companyId: undefined,
           unitId: undefined,
-          workbookIds: [],
-          datasetIds: []
+          workbookIds: context.workbookIds || [],
+          datasetIds: context.datasetIds || []
         };
         setIsUpdatingContext(true);
         try {
           setEnterpriseContext(nextContext);
+          await enterpriseConsolidationService.refreshActiveDatasetForContext(nextContext);
           await timelineRepository.log("LINK", "Foco do Grupo alterado", "Visão consolidada do grupo");
           showToast("success", "Visão consolidada do grupo ativada.");
         } finally {
@@ -139,18 +149,27 @@ export const GlobalContextBar: React.FC = () => {
     }
     const target = companies.find(c => c.id === companyId);
     if (!target) return;
+
+    let config = await consultingModelRepository.getConfiguration(workspaceId, companyId);
+    if (!config) {
+      config = consultingModelRepository.createDefaultConfiguration(workspaceId, groupId, companyId);
+      await consultingModelRepository.saveConfiguration(config);
+    }
+    setActiveConsultingModelConfigSync(config);
+
     const nextContext = {
       ...context,
       scope: "COMPANY" as const,
       companyId,
       groupId: target.parentId,
       unitId: undefined,
-      workbookIds: [],
-      datasetIds: []
+      workbookIds: context.workbookIds || [],
+      datasetIds: context.datasetIds || []
     };
     setIsUpdatingContext(true);
     try {
       setEnterpriseContext(nextContext);
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(nextContext);
       await timelineRepository.log("LINK", "Foco da Empresa alterado", `Nova Empresa: ${target.name}`);
       showToast("success", `Visualizando ${target.name}.`);
     } finally {
@@ -160,7 +179,6 @@ export const GlobalContextBar: React.FC = () => {
 
   const handleUnitChange = async (unitId: string) => {
     if (unitId === "all") {
-      // Switch back to Company Scope if possible
       if (context.companyId) {
         handleCompanyChange(context.companyId);
       }
@@ -168,18 +186,32 @@ export const GlobalContextBar: React.FC = () => {
     }
     const target = units.find(u => u.id === unitId);
     if (!target) return;
+
+    const workspaceId = context.workspaceId || "workspace_default";
+    const groupId = context.groupId || "group_default";
+    const parentCompany = companies.find(c => c.id === target.parentId);
+    const parentCompanyId = parentCompany?.id;
+    
+    let config = await consultingModelRepository.getConfiguration(workspaceId, parentCompanyId);
+    if (!config) {
+      config = consultingModelRepository.createDefaultConfiguration(workspaceId, groupId, parentCompanyId);
+      await consultingModelRepository.saveConfiguration(config);
+    }
+    setActiveConsultingModelConfigSync(config);
+
     const nextContext = {
       ...context,
       scope: "UNIT" as const,
       unitId,
       companyId: target.parentId,
-      groupId: companies.find(c => c.id === target.parentId)?.parentId,
-      workbookIds: [],
-      datasetIds: []
+      groupId: parentCompany?.parentId,
+      workbookIds: context.workbookIds || [],
+      datasetIds: context.datasetIds || []
     };
     setIsUpdatingContext(true);
     try {
       setEnterpriseContext(nextContext);
+      await enterpriseConsolidationService.refreshActiveDatasetForContext(nextContext);
       await timelineRepository.log("LINK", "Foco da Unidade alterado", `Nova Unidade: ${target.name}`);
       showToast("success", `Visualizando ${target.name}.`);
     } finally {

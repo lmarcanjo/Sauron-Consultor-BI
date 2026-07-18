@@ -68,7 +68,8 @@ export function getConsultingFlowStructure(options?: ConsultingStructureOptions 
       icon: Users,
       subItems: [
         { title: "Gêmeo Digital", id: "digital_twin", icon: Network },
-        { title: "Projetos de Consultoria", id: "area_consultor", icon: FolderOpen }
+        { title: "Projetos de Consultoria", id: "area_consultor", icon: FolderOpen },
+        { title: "Modelo Consultivo", id: "modelo_consultivo", icon: Settings }
       ]
     },
     {

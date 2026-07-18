@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { adaptiveNavigationEngine } from "../core/adaptive-ui";
 import { getConsultingFlowStructure } from '../core/navigation/consultingFlowStructure';
+import { getActiveConsultingModelConfigSync } from '../core/business-intelligence/ConsultingModelRepository';
 import { getModuleCapabilityState, shouldExposeModule } from '../core/navigation/moduleCapabilities';
 
 interface SidebarProps {
@@ -35,13 +36,30 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
   hasActiveDataset = false,
 }) => {
   const [dictionaryTick, setDictionaryTick] = useState(0);
+  const [activeConfig, setActiveConfig] = useState(getActiveConsultingModelConfigSync());
 
   React.useEffect(() => {
     const handleUpdate = () => {
       setDictionaryTick(t => t + 1);
+      setActiveConfig(getActiveConsultingModelConfigSync());
     };
     window.addEventListener("sauron:dictionary-updated", handleUpdate);
-    return () => window.removeEventListener("sauron:dictionary-updated", handleUpdate);
+    window.addEventListener("sauron:consulting-model-updated" as any, handleUpdate);
+    window.addEventListener("sauron:config-updated" as any, handleUpdate);
+    
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "sauron_active_consulting_config") {
+        handleUpdate();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("sauron:dictionary-updated", handleUpdate);
+      window.removeEventListener("sauron:consulting-model-updated" as any, handleUpdate);
+      window.removeEventListener("sauron:config-updated" as any, handleUpdate);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   const menuOptions = {
@@ -104,7 +122,78 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
   };
 
   // Build adapted menu structure
-  const consultingFlowStructure = adaptiveNavigationEngine.adaptMenuStructure(getConsultingFlowStructure(menuOptions));
+  const rawStructure = getConsultingFlowStructure(menuOptions);
+  const consultingFlowStructure = adaptiveNavigationEngine.adaptMenuStructure(rawStructure).map(group => {
+    const enabledModules = activeConfig?.enabledModules || ["diagnostico", "financeiro", "dre", "comercial", "pessoas", "comissao", "apresentacao", "reuniao", "plano", "historico"];
+    
+    let filteredSubItems = group.subItems.filter((item: any) => {
+      if (item.id === "dre_inteligente" && !enabledModules.includes("dre")) return false;
+      if (item.id === "financeiro" && !enabledModules.includes("financeiro")) return false;
+      if (item.id === "comercial" && !enabledModules.includes("comercial")) return false;
+      if (item.id === "comissoes" && !enabledModules.includes("pessoas")) return false;
+      if (item.id === "apresentacoes" && !enabledModules.includes("apresentacao")) return false;
+      if (item.id === "preparacao_reuniao" && !enabledModules.includes("reuniao")) return false;
+      if (item.id === "modo_reuniao" && !enabledModules.includes("reuniao")) return false;
+      if (item.id === "reuniao_ata" && !enabledModules.includes("reuniao")) return false;
+      if (item.id === "reuniao_notes" && !enabledModules.includes("reuniao")) return false;
+      if (item.id === "resumo" && !enabledModules.includes("diagnostico")) return false;
+      if (item.id === "plano_executivo" && !enabledModules.includes("plano")) return false;
+      if (item.id === "plano_responsaveis" && !enabledModules.includes("plano")) return false;
+      if (item.id === "historico_executivo" && !enabledModules.includes("historico")) return false;
+      if (item.id === "comparativos_mensais" && !enabledModules.includes("historico")) return false;
+      if (item.id === "fechamento_mensal" && !enabledModules.includes("historico")) return false;
+      return true;
+    });
+
+    filteredSubItems = filteredSubItems.map((item: any) => {
+      let customTitle = item.title;
+      if (item.id === "comissoes" && activeConfig?.displayDictionary["people"]) {
+        customTitle = activeConfig.displayDictionary["people"];
+      } else if (item.id === "dre_inteligente" && activeConfig?.displayDictionary["dre"]) {
+        customTitle = activeConfig.displayDictionary["dre"];
+      } else if (item.id === "financeiro" && activeConfig?.displayDictionary["financeiro"]) {
+        customTitle = activeConfig.displayDictionary["financeiro"];
+      } else if (item.id === "comercial" && activeConfig?.displayDictionary["comercial"]) {
+        customTitle = activeConfig.displayDictionary["comercial"];
+      } else if (item.id === "resumo" && activeConfig?.displayDictionary["diagnostico"]) {
+        customTitle = activeConfig.displayDictionary["diagnostico"];
+      }
+      return {
+        ...item,
+        title: customTitle
+      };
+    });
+
+    if (group.groupKey === "diagnosticar_negocio" && activeConfig?.businessAreas) {
+      const nextSubs: any[] = [];
+      const resSub = group.subItems.find(s => s.id === "resumo");
+      if (resSub) nextSubs.push(resSub);
+
+      activeConfig.businessAreas.forEach(area => {
+        if (area.visible) {
+          nextSubs.push({
+            title: area.name,
+            id: `custom_area_${area.id}`,
+            icon: Layers,
+            availability: "AVAILABLE" as const
+          });
+        }
+      });
+
+      group.subItems.forEach(s => {
+        if (["obstaculos", "consultor_ia", "relatorios"].includes(s.id)) {
+          nextSubs.push(s);
+        }
+      });
+
+      filteredSubItems = nextSubs;
+    }
+
+    return {
+      ...group,
+      subItems: filteredSubItems
+    };
+  }).filter(group => group.subItems.length > 0);
 
   return (
     <>
@@ -223,7 +312,7 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
                             setActivePage(sub.id);
                             if (window.innerWidth < 1024) setIsMobileOpen(false);
                           }}
-                          data-testid={sub.id === "importacao" ? "btn-open-data-center" : undefined}
+                          data-testid={sub.id === "importacao" ? "btn-open-data-center" : sub.id.startsWith("custom_area_") ? `sidebar-${sub.id}` : undefined}
                           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
                             isActive
                               ? "bg-blue-600/15 text-blue-400 font-extrabold border-l-2 border-blue-500 -ml-px pl-[9px] rounded-l-none"

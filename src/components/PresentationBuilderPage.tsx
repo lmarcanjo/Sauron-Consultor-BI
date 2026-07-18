@@ -264,7 +264,7 @@ Sauron OS - Inteligência BI de Alta Performance
                 <Presentation className="text-blue-600 animate-pulse" size={18} />
                 Módulo Unificado de Apresentações Executivas
               </h2>
-              <p className="text-slate-450 text-xs mt-0.5">Monte decks estratégicos alimentados diretamente por dados reais do cliente.</p>
+              <p className="text-slate-450 text-xs mt-0.5">Monte decks estratégicos alimentados diretamente por dados do cliente.</p>
             </div>
             
             <div className="flex items-center gap-3 w-full md:w-auto">

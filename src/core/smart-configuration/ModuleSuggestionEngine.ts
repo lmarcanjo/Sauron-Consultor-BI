@@ -176,10 +176,10 @@ async function buildSuggestionForSheet(
     reasons: unique([
       ...sheetScore.reasons,
       ...memoryScore.reasons,
-      `${columnSuggestions.length} coluna(s) candidata(s) encontrada(s).`,
-      rowsForScoring(fallbackRows, sheet) > 0 ? "A sugestão usa linhas reais da aba." : "",
+      `Sugestão identificada: ${columnSuggestions.length} coluna(s) encontrada(s).`,
+      rowsForScoring(fallbackRows, sheet) > 0 ? "A sugestão usa linhas da aba." : "",
     ]),
-    warnings: confidence < 0.58 ? ["Confiança baixa: revisar antes de aplicar."] : [],
+    warnings: confidence < 0.58 ? ["Confiança da identificação baixa: revisar antes de aplicar."] : [],
     columnSuggestions,
   };
 }

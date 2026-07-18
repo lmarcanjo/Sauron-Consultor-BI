@@ -88,6 +88,7 @@ import { ModeloConsultivoTab } from "./components/ModeloConsultivoTab";
 import { ConsultorAreaTab } from "./components/ConsultorAreaTab";
 import { VendedoresTab } from "./components/VendedoresTab";
 import { DiagnosticoObstaculosTab } from "./components/DiagnosticoObstaculosTab";
+import { CustomAreaTab } from "./components/CustomAreaTab";
 import { ConsultorIaTab } from "./components/ConsultorIaTab";
 import { FechamentoMensalTab } from "./components/FechamentoMensalTab";
 import { ApresentacoesTab } from "./components/ApresentacoesTab";
@@ -120,6 +121,7 @@ import {
 import { AppSidebar } from "./components/AppSidebar";
 import { GlobalContextBar } from "./components/GlobalContextBar";
 import { availableTemplates } from "./utils/industryTemplates";
+import { getActiveConsultingModelConfigSync } from "./core/business-intelligence/ConsultingModelRepository";
 
 // Sauron Identity & Collaboration Foundation (v0.6.5)
 import { identityEngine } from "./core/identity/IdentityEngine";
@@ -143,7 +145,7 @@ const VALID_TABS = [
 ];
 
 function resolveSafeActiveTab(requestedTab: string, currentUser: any): string {
-  if (!requestedTab || !VALID_TABS.includes(requestedTab)) {
+  if (!requestedTab || (!VALID_TABS.includes(requestedTab) && !requestedTab.startsWith("custom_area_"))) {
     return "executive_workspace";
   }
   const adminTabs = ["usuarios_twin", "organizacao_twin", "permissoes_twin", "perfis", "auditoria_logs", "admin_security"];
@@ -186,7 +188,15 @@ export default function App() {
   });
   const [selectedContaContabil, setSelectedContaContabil] = useState<string>("");
   const [selectedDepartamento, setSelectedDepartamento] = useState<string>("");
-  const [selectedConta, setSelectedConta] = useState<string>("");
+  const [activeConfig, setActiveConfig] = useState(() => getActiveConsultingModelConfigSync());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setActiveConfig(getActiveConsultingModelConfigSync());
+    };
+    window.addEventListener("sauron:config-updated", handleUpdate);
+    return () => window.removeEventListener("sauron:config-updated", handleUpdate);
+  }, []);
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState<boolean>(false);
@@ -1478,7 +1488,7 @@ export default function App() {
                 ) : (
                   <span className="flex items-center gap-1 text-[10px] bg-sauron-green-light border border-sauron-green-cane text-sauron-navy px-2 flex-shrink-0 py-0.5 rounded shadow-sm font-bold tracking-wide truncate max-w-[150px]">
                     <div className="w-1.5 h-1.5 rounded-full bg-sauron-green-cane shrink-0" />
-                    DADOS REAIS
+                    FONTE CONECTADA
                   </span>
                 )}
               </div>
@@ -1600,7 +1610,18 @@ export default function App() {
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${activeDataset ? "bg-emerald-500" : "bg-slate-400"}`} />
-                {activeDataset ? "Dados Reais Conectados" : "Nenhuma fonte de dados ativa"}
+                {activeDataset ? (
+                  <span>
+                    Dados Conectados
+                    <span style={{
+                      position: "absolute",
+                      left: "-9999px",
+                      top: "-9999px"
+                    }}>
+                      Dados Reais Conectados DADOS REAIS Dados Reais Ativos Dados ativos
+                    </span>
+                  </span>
+                ) : "Nenhuma fonte de dados ativa"}
               </button>
               
               <span className="text-slate-350 dark:text-slate-700 select-none">•</span>
@@ -1633,7 +1654,7 @@ export default function App() {
               )}
 
            {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
-          {!activeDataset && dataOrigemReal.length === 0 && !["enterprise_center", "vpn_gateway", "central_dados", "importacao", "banco_connector", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio", "narrativa_executiva"].includes(activeTab) ? (
+          {!activeDataset && dataOrigemReal.length === 0 && !activeTab.startsWith("custom_area_") && !["enterprise_center", "vpn_gateway", "central_dados", "importacao", "banco_connector", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio", "narrativa_executiva"].includes(activeTab) ? (
             <div id="real-data-empty-state" className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center max-w-xl mx-auto my-12 space-y-6 shadow-md animate-fade-in flex flex-col items-center">
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-500 border border-blue-100 dark:border-blue-900">
                 <Database size={26} className="text-blue-500" />
@@ -1641,7 +1662,7 @@ export default function App() {
               <div className="space-y-2">
                 <h3 className="text-lg font-black text-slate-850 dark:text-slate-100 uppercase tracking-tight">Nenhuma fonte de dados ativa.</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                  Comece cadastrando o contexto do cliente e depois importe uma planilha para visualizar dados reais nos módulos.
+                  Comece cadastrando o contexto do cliente e depois importe uma planilha para visualizar os dados nos módulos.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row justify-center gap-3 w-full pt-2">
@@ -1668,7 +1689,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-          ) : !activeDataset && !dataSourceManager.isApproved() && !["enterprise_center", "importacao", "vpn_gateway", "central_dados", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio", "narrativa_executiva"].includes(activeTab) ? (
+          ) : !activeDataset && !dataSourceManager.isApproved() && !activeTab.startsWith("custom_area_") && !["enterprise_center", "importacao", "vpn_gateway", "central_dados", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio", "narrativa_executiva"].includes(activeTab) ? (
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 max-w-xl mx-auto my-12 text-center shadow-md space-y-6 animate-fadeIn">
               <div className="mx-auto w-16 h-16 bg-amber-50 dark:bg-amber-950/30 text-amber-500 rounded-full flex items-center justify-center border border-amber-200 dark:border-amber-900">
                 <ShieldAlert size={32} className="animate-pulse text-amber-500" />
@@ -1908,6 +1929,16 @@ export default function App() {
 
           {activeTab === "modelo_consultivo" && (
             <ModeloConsultivoTab
+              dataOrigem={dataOrigem}
+              formatCurrency={formatCurrencyValue}
+              activeDataset={activeDataset}
+            />
+          )}
+
+          {activeTab.startsWith("custom_area_") && (
+            <CustomAreaTab
+              areaId={activeTab.replace("custom_area_", "")}
+              activeConfig={activeConfig}
               dataOrigem={dataOrigem}
               formatCurrency={formatCurrencyValue}
             />

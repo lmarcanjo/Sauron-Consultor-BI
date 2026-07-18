@@ -2,12 +2,15 @@ import { buildMetricInsights } from "../business-intelligence/BusinessInsightEng
 import { BusinessIntelligenceEngine, BusinessMetric, BusinessMetricName } from "../business-intelligence";
 import { parseNumericValue } from "../data/activeDatasetView";
 import { ModuleFieldMapping, ModuleName } from "../data/moduleMapping";
+import { getEnterpriseContext, enterpriseConsolidationService } from "../enterprise-consolidation";
+import { LancamentoFinanceiro } from "../../types";
 import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
 import { buildMetricCardBlock, buildPendingConfigBlock, buildRankingBlock, buildTableBlock, formatDashboardValue, buildInsightBlock } from "./DashboardBlockBuilder";
 import { buildDashboardDiagnostics } from "./DashboardDiagnostics";
 import { buildBlockLineageFromMapping, emptyDashboardLineage, explainDashboardBlock as explainBlock, getDashboardLineage as getBlockLineage } from "./DashboardLineage";
 import { DashboardBlock, DashboardBlockExplanation, DashboardEngineContext, DashboardLineage, ExecutiveDashboard } from "./DashboardTypes";
 import { buildCertifiedMetricSnapshot, buildConsistencyMetricFromBusinessMetric, certifiedMetricSnapshotStore, financialConsistencyOrchestrator } from "../financial-consistency";
+import { getActiveConsultingModelConfigSync } from "../business-intelligence/ConsultingModelRepository";
 
 const EXECUTIVE_METRICS: BusinessMetricName[] = [
   "totalVendido",
@@ -389,15 +392,118 @@ export async function buildExecutiveDashboard(context: DashboardEngineContext): 
     return buildDashboard({ context, moduleName: "Executive", blocks: [block] });
   }
 
-  const metrics = await calculateMetrics(context, EXECUTIVE_METRICS);
+  // Load dynamic model config
+  const config = getActiveConsultingModelConfigSync();
+
+  if (!config) {
+    const metrics = await calculateMetrics(context, EXECUTIVE_METRICS);
+    const blocks = [
+      ...metricBlocks(metrics, context),
+      ...pendingBlocksFromMetrics("Executive", metrics, context),
+      ...insightBlocks(metrics, context, "Executive"),
+    ];
+    const commercialRankings = await buildModuleRankingBlocks(context, "Comercial", metrics);
+    const peopleRankings = await buildModuleRankingBlocks(context, "Pessoas", metrics);
+    blocks.push(...commercialRankings.slice(0, 1), ...peopleRankings.slice(0, 1));
+    return buildDashboard({ context, moduleName: "Executive", blocks });
+  }
+
+  const customMetrics = config.customMetrics || [];
+
+  if (customMetrics.length === 0) {
+    const block = buildPendingConfigBlock({
+      id: "dashboard-block:pending:no-metrics:Executive",
+      title: "Nenhum indicador confirmado",
+      context,
+      moduleName: "Executive",
+      message: "Nenhum indicador confirmado pelo consultor para esta empresa.",
+    });
+    return buildDashboard({ context, moduleName: "Executive", blocks: [block] });
+  }
+
+  const { records } = await enterpriseConsolidationService.getRecordsForContext(
+    getEnterpriseContext(), 1, 1000000
+  );
+
+  const computedMetrics: BusinessMetric[] = [];
+  for (const metric of customMetrics) {
+    const fieldValues = records.map(row => {
+      const val = row[metric.fieldId as keyof LancamentoFinanceiro] || row[metric.fieldId.toLowerCase() as keyof LancamentoFinanceiro] || 0;
+      return parseNumericValue(val);
+    }).filter(v => !isNaN(v));
+
+    let val = 0;
+    if (metric.operation === "sum") {
+      val = fieldValues.reduce((a, b) => a + b, 0);
+    } else if (metric.operation === "average") {
+      val = fieldValues.length > 0 ? fieldValues.reduce((a, b) => a + b, 0) / fieldValues.length : 0;
+    } else if (metric.operation === "count") {
+      val = fieldValues.length;
+    } else if (metric.operation === "distinct_count") {
+      val = new Set(fieldValues).size;
+    } else if (metric.operation === "min") {
+      val = fieldValues.length > 0 ? Math.min(...fieldValues) : 0;
+    } else if (metric.operation === "max") {
+      val = fieldValues.length > 0 ? Math.max(...fieldValues) : 0;
+    }
+
+    computedMetrics.push({
+      id: `custom_metric_${metric.id}`,
+      metricKey: metric.id as any,
+      name: metric.id as any,
+      label: metric.name,
+      value: val,
+      status: "ready",
+      source: {
+        datasetId: context.activeDataset?.datasetId || "no-dataset",
+        sourceName: context.activeDataset?.sourceName || "Principal",
+        workbookId: "workbook",
+        mappingId: "mapping"
+      },
+      sheetName: "Principal",
+      columnsUsed: [metric.fieldId],
+      rowsSampled: records.length,
+      lineage: {
+        datasetId: context.activeDataset?.datasetId || "no-dataset",
+        workbookId: "workbook",
+        inputSheets: ["Principal"],
+        inputColumns: [metric.fieldId],
+        moduleMappings: [],
+        knowledgeGraphNodes: [],
+        businessRules: [],
+        transformations: [],
+        rowAccess: {
+          strategy: "rowProvider",
+          rowsRead: records.length,
+          rowsSampled: records.length
+        }
+      },
+      diagnostics: {
+        confidence: 1.0,
+        warnings: [],
+        errors: [],
+        missingMappings: [],
+        missingColumns: [],
+        rowsRead: records.length,
+        calculation: "custom"
+      }
+    });
+  }
+
   const blocks = [
-    ...metricBlocks(metrics, context),
-    ...pendingBlocksFromMetrics("Executive", metrics, context),
-    ...insightBlocks(metrics, context, "Executive"),
+    ...metricBlocks(computedMetrics, context),
+    ...insightBlocks(computedMetrics, context, "Executive"),
   ];
-  const commercialRankings = await buildModuleRankingBlocks(context, "Comercial", metrics);
-  const peopleRankings = await buildModuleRankingBlocks(context, "Pessoas", metrics);
-  blocks.push(...commercialRankings.slice(0, 1), ...peopleRankings.slice(0, 1));
+
+  const enabledModules = config?.enabledModules || [];
+  if (enabledModules.includes("comercial")) {
+    const commercialRankings = await buildModuleRankingBlocks(context, "Comercial", computedMetrics);
+    blocks.push(...commercialRankings.slice(0, 1));
+  }
+  if (enabledModules.includes("pessoas")) {
+    const peopleRankings = await buildModuleRankingBlocks(context, "Pessoas", computedMetrics);
+    blocks.push(...peopleRankings.slice(0, 1));
+  }
 
   return buildDashboard({ context, moduleName: "Executive", blocks });
 }

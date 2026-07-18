@@ -18,6 +18,7 @@ import { BusinessMetricName } from "./BusinessMetricTypes";
 import { buildPresentationMetricValues, inferPresentationMappings } from "./PresentationMetricContext";
 import { ModuleFieldMapping } from "../data/moduleMapping";
 import { CertifiedMetricSnapshot, ConsistencyReadinessReport, buildCertifiedMetricSnapshot, buildConsistencyMetricFromBusinessMetric, certifiedMetricSnapshotStore, financialConsistencyOrchestrator } from "../financial-consistency";
+import { getActiveConsultingModelConfigSync } from "./ConsultingModelRepository";
 
 export interface PresentationSlide {
   id: string;
@@ -377,12 +378,81 @@ export class ExecutivePresentationEngine {
       }
     );
 
+    // Filter slides based on dynamic model config
+    const activeConfig = getActiveConsultingModelConfigSync();
+    const enabledModules = activeConfig?.enabledModules || ["diagnostico", "financeiro", "dre", "comercial", "pessoas", "comissao", "apresentacao", "reuniao", "plano", "historico"];
+
+    let finalSlides = slides.filter(slide => {
+      const titleLower = (slide.title || "").toLowerCase();
+      const subtitleLower = (slide.subtitle || "").toLowerCase();
+
+      if (!enabledModules.includes("pessoas") && (titleLower.includes("pessoas") || titleLower.includes("vendedores") || titleLower.includes("equipe") || subtitleLower.includes("pessoas") || subtitleLower.includes("vendedores") || subtitleLower.includes("equipe"))) {
+        return false;
+      }
+      if (!enabledModules.includes("comissao") && (titleLower.includes("comissão") || titleLower.includes("comissões") || subtitleLower.includes("comissão") || subtitleLower.includes("comissões"))) {
+        return false;
+      }
+      if (!enabledModules.includes("dre") && (titleLower.includes("dre") || titleLower.includes("demonstrativo") || subtitleLower.includes("dre") || subtitleLower.includes("demonstrativo"))) {
+        return false;
+      }
+      return true;
+    });
+
+    finalSlides = finalSlides.map(slide => {
+      const content = { ...slide.content };
+      if (content.points) {
+        content.points = content.points.filter(point => {
+          const lower = point.toLowerCase();
+          if (!enabledModules.includes("pessoas") && (lower.includes("vendedor") || lower.includes("vendedores") || lower.includes("equipe"))) {
+            return false;
+          }
+          if (!enabledModules.includes("comissao") && (lower.includes("comissão") || lower.includes("comissões"))) {
+            return false;
+          }
+          return true;
+        });
+      }
+      if (content.metrics) {
+        content.metrics = content.metrics.filter(m => {
+          const lowerLabel = m.label.toLowerCase();
+          if (!enabledModules.includes("comissao") && (lowerLabel.includes("comissão") || lowerLabel.includes("comissões"))) {
+            return false;
+          }
+          return true;
+        });
+      }
+      return {
+        ...slide,
+        content
+      };
+    });
+
+    if (activeConfig?.businessAreas) {
+      activeConfig.businessAreas
+        .filter(area => area.visible && !["financeiro", "comercial", "pessoas"].includes(area.id))
+        .forEach(area => {
+          finalSlides.push({
+            id: `slide_custom_area_${area.id}`,
+            title: area.name,
+            subtitle: area.description || "Análise personalizada do consultor",
+            type: "financial_data",
+            content: {
+              summary: `Análise customizada para a área do cliente. Campos relacionados: ${area.relatedFields.join(", ") || "Nenhum campo selecionado"}.`,
+              points: [
+                `Esta área analisa o desempenho com base nas configurações de ${area.name}.`,
+                `Indicadores associados: ${area.relatedMetrics.join(", ") || "Nenhum indicador associado"}.`
+              ]
+            }
+          });
+        });
+    }
+
     return {
       id: `pres_${Date.now()}`,
       title: adaptivePresentationEngine.adaptText("Apresentação Executiva"),
       targetName,
       targetType,
-      slides: adaptivePresentationEngine.adaptSlides(slides),
+      slides: adaptivePresentationEngine.adaptSlides(finalSlides),
       status: "ready",
       consistency,
       certifiedSnapshot,

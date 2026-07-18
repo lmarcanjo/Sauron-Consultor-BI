@@ -7,6 +7,8 @@ import { identityEngine } from "../identity/IdentityEngine";
 import { workspaceDictionaryRepository } from "./WorkspaceDictionaryRepository";
 import { AdaptiveDisplayLabel } from "./WorkspaceDictionary";
 
+import { getActiveConsultingModelConfigSync } from "../business-intelligence/ConsultingModelRepository";
+
 export class AdaptiveTerminologyEngine {
   public getTerm(key: string): AdaptiveDisplayLabel {
     const ws = identityEngine.getCurrentWorkspace();
@@ -30,6 +32,20 @@ export class AdaptiveTerminologyEngine {
 
     const dict = workspaceDictionaryRepository.getDictionary(wsId, domain);
     const term = dict.terms[key];
+
+    const config = getActiveConsultingModelConfigSync();
+    if (config && config.displayDictionary && config.displayDictionary[key]) {
+      const customName = config.displayDictionary[key];
+      return {
+        canonicalKey: key,
+        displayLabel: customName,
+        displayPlural: customName === "Pessoas" ? "Pessoas" : (customName.endsWith("s") ? customName : customName + "s"),
+        iconKey: term?.iconKey || "HelpCircle",
+        accentColor: term?.accentColor || "#64748b",
+        abbreviation: customName.slice(0, 3).toUpperCase(),
+        workspaceId: wsId
+      };
+    }
 
     if (term) {
       return term;

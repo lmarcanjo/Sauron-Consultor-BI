@@ -14,15 +14,15 @@ import { metricKeyFor } from "./MetricRegistry";
 const METRIC_LABELS: Record<BusinessMetricName, string> = {
   totalVendido: "Total vendido",
   totalComissao: "Total de comissão",
-  despesaCandidata: "Despesa candidata",
+  despesaCandidata: "Possível Despesa",
   resultadoLiquido: "Resultado líquido",
   quantidadeVendedores: "Quantidade de vendedores",
   quantidadeClientes: "Quantidade de clientes",
   quantidadeProdutos: "Quantidade de produtos",
   ticketMedio: "Ticket médio",
-  margemCandidata: "Margem candidata",
-  receitaCandidata: "Receita candidata",
-  custoCandidato: "Custo candidato",
+  margemCandidata: "Possível Margem",
+  receitaCandidata: "Possível Receita",
+  custoCandidato: "Possível Custo",
 };
 
 export function metricLabel(metricName: BusinessMetricName): string {

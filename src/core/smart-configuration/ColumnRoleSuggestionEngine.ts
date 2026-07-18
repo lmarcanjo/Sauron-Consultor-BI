@@ -69,9 +69,9 @@ const ROLE_LABELS: Partial<Record<ModuleName, Record<string, string>>> = {
     date: "Data",
   },
   DRE: {
-    revenue: "Receita candidata",
-    cost: "Custo candidato",
-    expense: "Despesa candidata",
+    revenue: "Possível campo encontrado (Receita)",
+    cost: "Possível campo encontrado (Custo)",
+    expense: "Possível campo encontrado (Despesa)",
     deduction: "Dedução",
     account: "Conta",
     date: "Data",

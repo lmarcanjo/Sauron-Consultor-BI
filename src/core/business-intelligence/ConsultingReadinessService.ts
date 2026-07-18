@@ -28,6 +28,8 @@ import { enterpriseRepository } from "../persistence/EnterpriseRepository";
 import { workbookRepository, DEFAULT_WORKBOOK_PROJECT_ID } from "../workbook-library";
 import { spreadsheetStorageAdapter } from "../storage/IndexedSpreadsheetStorageAdapter";
 
+import { getActiveConsultingModelConfigSync } from "./ConsultingModelRepository";
+
 // ─── Input ────────────────────────────────────────────────────────────────────
 
 export interface ConsultingReadinessInput {
@@ -237,39 +239,68 @@ export class ConsultingReadinessService {
       ));
     }
 
+    const config = getActiveConsultingModelConfigSync();
+    const isDreEnabled = !config || config.enabledModules.includes("dre");
+    const isComercialEnabled = !config || config.enabledModules.includes("comercial");
+    const isPessoasEnabled = !config || config.enabledModules.includes("pessoas");
+    const isComissaoEnabled = !config || config.enabledModules.includes("comissao");
+
     // ── D6: Indicadores ────────────────────────────────────────────────────
     const hasKPI = Object.values(configs).some((c) => c.hasKPI);
-    dimensions.push(dim(
-      DIMENSION_IDS.INDICATORS, "Indicadores (KPI)",
-      hasKPI ? "OK" : "WARNING",
-      hasKPI ? 100 : 30,
-      hasKPI ? "KPIs configurados." : "Nenhum KPI mapeado.",
-      "KPIs alimentam o Dashboard executivo.",
-      hasKPI ? "" : "Mapeie colunas de KPI na configuração de campos.", "Biblioteca"
-    ));
+    const kpiApplicable = isComercialEnabled || isPessoasEnabled || isComissaoEnabled;
+    if (!kpiApplicable) {
+      dimensions.push(dim(
+        DIMENSION_IDS.INDICATORS, "Indicadores (KPI)",
+        "OK", 100,
+        "Indicadores não aplicáveis ao projeto (módulos desabilitados).",
+        "Sem impacto nos demais entregáveis.",
+        "", "Biblioteca"
+      ));
+    } else {
+      dimensions.push(dim(
+        DIMENSION_IDS.INDICATORS, "Indicadores (KPI)",
+        hasKPI ? "OK" : "WARNING",
+        hasKPI ? 100 : 30,
+        hasKPI ? "KPIs configurados." : "Nenhum KPI mapeado.",
+        "KPIs alimentam o Dashboard executivo.",
+        hasKPI ? "" : "Mapeie colunas de KPI na configuração de campos.", "Biblioteca"
+      ));
+    }
 
     // ── D7: DRE ────────────────────────────────────────────────────────────
     const hasDRE = Object.values(configs).some((c) => c.hasDRE);
-    dimensions.push(dim(
-      DIMENSION_IDS.DRE, "DRE",
-      hasDRE ? "OK" : "WARNING",
-      hasDRE ? 100 : 20,
-      hasDRE ? "DRE configurado." : "DRE não configurado.",
-      "DRE permite análise financeira estruturada.",
-      hasDRE ? "" : "Mapeie colunas de DRE (Receita, Custo, Despesa).", "Biblioteca"
-    ));
+    if (!isDreEnabled) {
+      dimensions.push(dim(
+        DIMENSION_IDS.DRE, "DRE",
+        "OK", 100,
+        "DRE não aplicável ao projeto (desabilitado).",
+        "Sem impacto nos demais entregáveis.",
+        "", "Biblioteca"
+      ));
+    } else {
+      dimensions.push(dim(
+        DIMENSION_IDS.DRE, "DRE",
+        hasDRE ? "OK" : "WARNING",
+        hasDRE ? 100 : 20,
+        hasDRE ? "DRE configurado." : "DRE não configurado.",
+        "DRE permite análise financeira estruturada.",
+        hasDRE ? "" : "Mapeie colunas de DRE (Receita, Custo, Despesa).", "Biblioteca"
+      ));
+    }
 
     // ── D8: Dashboard ──────────────────────────────────────────────────────
-    const hasEnoughForDashboard = activeWorkbooks.length > 0 && (hasKPI || hasDRE);
+    const dashboardRequiredKPI = kpiApplicable ? hasKPI : false;
+    const dashboardRequiredDRE = isDreEnabled ? hasDRE : false;
+    const hasEnoughForDashboard = activeWorkbooks.length > 0 && (dashboardRequiredKPI || dashboardRequiredDRE || !isDreEnabled && !kpiApplicable);
     dimensions.push(dim(
       DIMENSION_IDS.DASHBOARD, "Dashboard",
       hasEnoughForDashboard ? "OK" : "WARNING",
       hasEnoughForDashboard ? 100 : activeWorkbooks.length > 0 ? 40 : 0,
       hasEnoughForDashboard
         ? "Dashboard disponível com dados ativos."
-        : "Dashboard requer fontes ativas e pelo menos KPI ou DRE configurados.",
+        : "Dashboard requer fontes ativas e módulos configurados.",
       "Dashboard é o principal entregável da consultoria.",
-      hasEnoughForDashboard ? "" : "Ative fontes e configure KPI ou DRE.", "Dashboard"
+      hasEnoughForDashboard ? "" : "Ative fontes e configure os módulos habilitados.", "Dashboard"
     ));
 
     // ── D9: Apresentação ──────────────────────────────────────────────────

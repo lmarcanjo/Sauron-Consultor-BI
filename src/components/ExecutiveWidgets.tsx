@@ -69,7 +69,7 @@ export const ExecutiveBriefWidget: React.FC<{ context: WidgetContext }> = ({ con
               </h3>
               <p className={DesignSystem.Typography.body}>
                 {hasData
-                  ? <>Faturamento calculado a partir dos dados reais: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(baseRevenue)}</strong>.</>
+                  ? <>Faturamento calculado a partir dos dados conectados: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(baseRevenue)}</strong>.</>
                   : <>Há uma fonte de dados ativa. Confirme os campos desta unidade para calcular o faturamento.</>}
               </p>
             </div>
@@ -128,7 +128,7 @@ export const HealthCenterWidget: React.FC<{ context: WidgetContext }> = ({ conte
     ],
     rituais: [
       "Rituais pendentes de configuração",
-      "Dossiês dependem de dados reais",
+      "Dossiês dependem de dados conectados",
       "Apresentações dependem de métricas auditáveis"
     ]
   };
@@ -188,7 +188,7 @@ export const ClientPulseWidget: React.FC<{ context: WidgetContext }> = ({ contex
 
   // Context-specific values only when real rows are available.
   let kpi1Name = "Resultado Comercial";
-  let kpi1ValueText = hasData ? "Dados reais" : "Configuração pendente";
+  let kpi1ValueText = hasData ? "Dados ativos" : "Configuração pendente";
   let kpi1Progress = hasData ? 100 : 0;
   let kpi1RealizedText = hasData ? `Realizado: ${formatCurrency(revenue)}` : "Sem dados calculados";
   let badgeText = "Consolidado";
@@ -202,7 +202,7 @@ export const ClientPulseWidget: React.FC<{ context: WidgetContext }> = ({ contex
     badgeText = activeFocus.name;
     if (activeFocus.type === "vendedor") {
       kpi1Name = "Resumo Individual";
-      kpi1ValueText = hasData ? "Dados reais" : "Configuração pendente";
+      kpi1ValueText = hasData ? "Dados ativos" : "Configuração pendente";
       kpi1Progress = hasData ? 100 : 0;
       kpi1RealizedText = hasData ? `Realizado: ${formatCurrency(revenue)}` : "Sem dados calculados";
 
@@ -211,8 +211,8 @@ export const ClientPulseWidget: React.FC<{ context: WidgetContext }> = ({ contex
       kpi2Progress = 0;
       kpi2RealizedText = "Sem regra configurada";
     } else if (activeFocus.type === "company") {
-      kpi1Name = "Volume Real";
-      kpi1ValueText = hasData ? "Dados reais" : "Configuração pendente";
+      kpi1Name = "Volume do Período";
+      kpi1ValueText = hasData ? "Dados ativos" : "Configuração pendente";
       kpi1Progress = hasData ? 100 : 0;
       kpi1RealizedText = hasData ? `Realizado: ${formatCurrency(revenue)}` : "Sem dados calculados";
 
@@ -299,7 +299,7 @@ export const DecisionCenterWidget: React.FC<{ context: WidgetContext }> = () => 
       <div className="p-4 space-y-3">
         {decisions.length === 0 && (
           <p className="text-xs text-slate-500 font-medium">
-            Nenhuma deliberação gerada. Configure dados reais e regras para criar recomendações auditáveis.
+            Nenhuma deliberação gerada. Configure dados conectados e regras para criar recomendações auditáveis.
           </p>
         )}
         {decisions.map((dec) => (
@@ -363,7 +363,7 @@ export const ActionBoardWidget: React.FC<{ context: WidgetContext }> = () => {
       <div className="p-4 space-y-3">
         {plans.length === 0 && (
           <p className="text-xs text-slate-500 font-medium">
-            Nenhum plano operacional ativo. Planos serão exibidos somente quando criados a partir de dados reais.
+            Nenhum plano operacional ativo. Planos serão exibidos somente quando criados a partir de dados conectados.
           </p>
         )}
         {plans.map((p) => (

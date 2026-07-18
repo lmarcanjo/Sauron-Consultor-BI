@@ -767,11 +767,11 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                       <span className="font-bold text-slate-700 dark:text-slate-200">{confirmedSegmentLabel}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold">Área identificada:</span>
+                      <span className="text-slate-400 font-semibold">Sugestão identificada:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-200">{detectedSegmentLabel}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold">Confiança:</span>
+                      <span className="text-slate-400 font-semibold">Confiança da identificação:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-200">
                         {currentWorkspace?.domainConfidence ? `${Math.round(currentWorkspace.domainConfidence * 100)}%` : "N/A"}
                       </span>

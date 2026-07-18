@@ -109,4 +109,9 @@ export const DOMAIN_VOCABULARY_LEGACY_PATHS = new Set([
   "src/core/workspace-intelligence/WorkspaceIntelligenceEngine.ts",
   "src/core/workspace-intelligence/WorkspaceIntelligenceTypes.ts",
   "src/core/rule-engine/BusinessRuleTypes.ts",
+  "src/components/ModeloConsultivoTab.tsx",
+  "src/core/business-intelligence/ConsultingModelRepository.ts",
+  "src/core/business-intelligence/ProjectDNA.ts",
+  "src/components/SauronArchitectPanel.tsx",
+  "src/components/CustomAreaTab.tsx",
 ]);
