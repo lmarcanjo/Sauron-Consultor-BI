@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { 
   X, Database, Layers, ShieldCheck, RefreshCw, Upload, Network, 
   HelpCircle, Settings, CheckCircle, AlertTriangle, FileText, Globe
@@ -45,6 +45,19 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
   dbValidationMsg,
   onDatabaseDataLoaded
 }) => {
+  // Handle Escape key to close drawer (WCAG 2.1 modal accessibility)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
@@ -56,27 +69,32 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-55 flex flex-col transition-all duration-300 animate-slide-in overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="central-dados-drawer-title"
+        className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-55 flex flex-col transition-all duration-300 animate-slide-in overflow-hidden"
+      >
         
         {/* Header */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-blue-500/10 rounded-lg text-blue-500">
-              <Database size={18} />
+            <div className="p-1.5 bg-blue-500/10 rounded-lg text-blue-500" aria-hidden="true">
+              <Database size={18} aria-hidden="true" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider">
+              <h2 id="central-dados-drawer-title" className="text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider">
                 Biblioteca de Planilhas
-              </h3>
-              <p className="text-[10px] text-slate-400">Importe, acompanhe e confirme suas fontes</p>
+              </h2>
+              <p className="text-[10px] text-slate-600 dark:text-slate-400">Importe, acompanhe e confirme suas fontes</p>
             </div>
           </div>
           <button 
             onClick={onClose}
             aria-label="Fechar Biblioteca de Planilhas"
-            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
           >
-            <X size={16} />
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
 
@@ -85,14 +103,14 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
           
           {/* SECTION 1: FONTE ATIVA & MODO */}
           <div className="space-y-3">
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block border-b border-slate-100 dark:border-slate-800 pb-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-450 block border-b border-slate-100 dark:border-slate-800 pb-1">
               1. Fonte ativa
             </span>
 
             <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-150 dark:border-slate-850 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="font-bold text-slate-700 dark:text-slate-300">Status:</span>
-                <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono uppercase ${spreadsheetMetadata ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-slate-500/10 text-slate-500 border border-slate-500/20"}`}>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono uppercase ${spreadsheetMetadata ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20"}`}>
                   {spreadsheetMetadata ? "Dados ativos" : "Nenhuma fonte de dados ativa."}
                 </span>
               </div>
@@ -103,7 +121,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
                   : "Nenhuma fonte de dados ativa."}
               </div>
 
-              <div className="text-[10px] text-slate-400 space-y-1">
+              <div className="text-[10px] text-slate-600 dark:text-slate-400 space-y-1">
                 <p><strong>Origem Atual:</strong> {spreadsheetMetadata ? nomeFonte : "Nenhuma fonte de dados ativa."}</p>
                 {spreadsheetMetadata && (
                   <p className="bg-emerald-500/5 p-2 rounded text-emerald-500 font-mono text-[9px] leading-normal border border-emerald-500/10 mt-1">
@@ -118,13 +136,14 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
 
           {/* SECTION 2: CONFIGURAÇÃO DE SEGMENTO */}
           <div className="space-y-3">
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block border-b border-slate-100 dark:border-slate-800 pb-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-450 block border-b border-slate-100 dark:border-slate-800 pb-1">
               2. Contexto do cliente
             </span>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Contexto de negócio:</label>
+              <label htmlFor="contexto-negocio-select" className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-400 tracking-wider">Contexto de negócio:</label>
               <select
+                id="contexto-negocio-select"
                 value={activeIndustryTemplateId}
                 onChange={(e) => onChangeIndustryTemplateId(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-blue-500 uppercase tracking-wide"
@@ -135,7 +154,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
                   </option>
                 ))}
               </select>
-              <p className="text-[10px] text-slate-400 leading-normal mt-1">
+              <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-normal mt-1">
                 Usado apenas quando o contexto não puder ser identificado automaticamente.
               </p>
             </div>
@@ -143,7 +162,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
 
           {/* SECTION 3: IMPORTAÇÃO E BANCO */}
           <div className="space-y-3">
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block border-b border-slate-100 dark:border-slate-800 pb-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-450 block border-b border-slate-100 dark:border-slate-800 pb-1">
               3. Adicionar dados
             </span>
 
@@ -159,7 +178,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
                   <span className="font-extrabold text-[10px] uppercase tracking-wide">Importar planilha</span>
                 </button>
               ) : (
-                <div className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl text-center space-y-2 text-slate-400 h-24 opacity-60">
+                <div className="flex flex-col items-center justify-center p-4 bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl text-center space-y-2 text-slate-600 dark:text-slate-400 h-24 opacity-60">
                   <Upload size={18} />
                   <span className="font-bold text-[9px] uppercase">Acesso somente leitura</span>
                 </div>
@@ -187,7 +206,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
 
           {/* SECTION 4: VPN GATEWAY & APIS */}
           <div className="space-y-3">
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block border-b border-slate-100 dark:border-slate-800 pb-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-450 block border-b border-slate-100 dark:border-slate-800 pb-1">
               4. Integrações avançadas
             </span>
 
@@ -195,13 +214,13 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
               {/* VPN status */}
               <div className="flex items-center justify-between p-3 border border-slate-150 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/30">
                 <div className="flex items-center gap-2">
-                  <Network size={14} className={isVpnSimulated ? "text-indigo-500" : "text-slate-400"} />
+                  <Network size={14} className={isVpnSimulated ? "text-indigo-500" : "text-slate-550 dark:text-slate-400"} />
                   <div>
                   <p className="font-bold">Conexão segura</p>
-                    <p className="text-[9px] text-slate-400">Integração de rede</p>
+                    <p className="text-[9px] text-slate-600 dark:text-slate-400">Integração de rede</p>
                   </div>
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${isVpnSimulated ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'}`}>
+                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${isVpnSimulated ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>
                   {isVpnSimulated ? "ATIVO" : "INATIVO"}
                 </span>
               </div>
@@ -212,10 +231,10 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
                   <Globe size={14} className="text-emerald-500" />
                   <div>
                     <p className="font-bold">Integrações externas</p>
-                    <p className="text-[9px] text-slate-400">Configuração pendente</p>
+                    <p className="text-[9px] text-slate-600 dark:text-slate-400">Configuração pendente</p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-slate-500/10 text-slate-500 border border-slate-500/20">
+                <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
                   PENDENTE
                 </span>
               </div>
@@ -224,7 +243,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
 
           {/* SECTION 5: GOVERNANÇA LGPD */}
           <div className="space-y-3">
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block border-b border-slate-100 dark:border-slate-800 pb-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-450 block border-b border-slate-100 dark:border-slate-800 pb-1">
               5. Segurança & Governança LGPD
             </span>
 
@@ -239,7 +258,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
 
           {/* SECTION 6: VALIDAÇÃO DO BANCO & LOGS */}
           <div className="space-y-3">
-            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block border-b border-slate-100 dark:border-slate-800 pb-1">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-450 block border-b border-slate-100 dark:border-slate-800 pb-1">
               6. Saúde da fonte
             </span>
 
@@ -256,7 +275,7 @@ export const CentralDadosDrawer: React.FC<CentralDadosDrawerProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0 text-center text-[9px] font-mono text-slate-400">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 shrink-0 text-center text-[9px] font-mono text-slate-600 dark:text-slate-400">
           SAURON OS • INTELIGÊNCIA PARA DECISÕES
         </div>
 

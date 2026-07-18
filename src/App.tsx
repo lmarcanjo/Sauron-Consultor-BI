@@ -1543,10 +1543,11 @@ export default function App() {
                       localStorage.removeItem("sauron_user");
                       setCurrentUser(null);
                     }}
-                    className="px-1.5 py-1 text-[8px] uppercase font-black text-rose-600 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/45 rounded-md transition cursor-pointer flex items-center justify-center"
+                    className="px-1.5 py-1 text-[8px] uppercase font-black text-rose-700 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/45 rounded-md transition cursor-pointer flex items-center justify-center"
                     title="Sair da sessão"
+                    aria-label="Sair da sessão"
                   >
-                    <Lock size={10} className="sm:mr-0.5" />
+                    <Lock size={10} className="sm:mr-0.5" aria-hidden="true" />
                     <span className="hidden sm:inline ml-0.5">Sair</span>
                   </button>
                 </div>
@@ -1965,7 +1966,7 @@ export default function App() {
         {/* FOOTER AREA - Compact High Density */}
         <footer className="bg-slate-900 border-t border-slate-950 text-slate-500 py-4 text-center text-[10px] shrink-0 font-sans leading-normal mt-auto">
           <p className="font-semibold text-slate-400">Sauron &copy; 2026</p>
-          <p className="text-slate-600 mt-0.5">Ambiente corporativo de alta confiabilidade operacional e rastreabilidade financeira auditada.</p>
+          <p className="text-slate-400 mt-0.5">Ambiente corporativo de alta confiabilidade operacional e rastreabilidade financeira auditada.</p>
         </footer>
       </div>
 

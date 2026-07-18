@@ -116,7 +116,10 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
         />
       )}
 
-      <aside className={`bg-slate-900 border-r border-slate-800 flex flex-col h-screen fixed left-0 top-0 text-slate-300 z-50 transition-all duration-300 ${
+      <aside
+        role="navigation"
+        aria-label="Menu principal de navegação"
+        className={`bg-slate-900 border-r border-slate-800 flex flex-col h-screen fixed left-0 top-0 text-slate-300 z-50 transition-all duration-300 ${
         isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
       } ${isDesktopCollapsed ? 'lg:w-16' : 'lg:w-64'}`}>
         
@@ -135,9 +138,10 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
           </div>
           <button 
             onClick={() => setIsDesktopCollapsed(!isDesktopCollapsed)}
+            aria-label={isDesktopCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
             className="hidden lg:flex p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
           >
-            {isDesktopCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            {isDesktopCollapsed ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronLeft size={16} aria-hidden="true" />}
           </button>
         </div>
 
@@ -188,47 +192,50 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
                   <button
                     onClick={() => toggleGroup(group.groupKey)}
                     aria-expanded={isGroupExpanded}
+                    aria-controls={`sidebar-group-${group.groupKey}`}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
                       isGroupActive
                         ? "text-blue-400 bg-blue-600/10"
-                        : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
                     }`}
                   >
-                    <GroupIcon size={14} className="shrink-0" />
+                    <GroupIcon size={14} className="shrink-0" aria-hidden="true" />
                     <span className="flex-1 text-left truncate">{group.title}</span>
                     {isGroupExpanded
-                      ? <ChevronUp size={12} className="shrink-0 opacity-60" />
-                      : <ChevronDown size={12} className="shrink-0 opacity-40" />
+                      ? <ChevronUp size={12} className="shrink-0 opacity-60" aria-hidden="true" />
+                      : <ChevronDown size={12} className="shrink-0 opacity-40" aria-hidden="true" />
                     }
                   </button>
 
-                  {/* Sub-items */}
-                  {isGroupExpanded && (
-                    <div className="ml-3 pl-3 border-l border-slate-800 space-y-0.5 mb-1">
-                      {accessibleSubItems.map(sub => {
-                        const SubIcon = sub.icon;
-                        const isActive = activePage === sub.id;
-                        return (
-                          <button
-                            key={sub.id}
-                            onClick={() => {
-                              setActivePage(sub.id);
-                              if (window.innerWidth < 1024) setIsMobileOpen(false);
-                            }}
-                            data-testid={sub.id === "importacao" ? "btn-open-data-center" : undefined}
-                            className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
-                              isActive
-                                ? "bg-blue-600/15 text-blue-400 font-extrabold border-l-2 border-blue-500 -ml-px pl-[9px] rounded-l-none"
-                                : "hover:bg-slate-800/60 text-slate-400 hover:text-slate-200"
-                            }`}
-                          >
-                            <SubIcon size={13} className="shrink-0 opacity-80" />
-                            <span className="truncate">{sub.title}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {/* Sub-items — sempre no DOM para aria-controls válido */}
+                  <div
+                    id={`sidebar-group-${group.groupKey}`}
+                    hidden={!isGroupExpanded}
+                    className="ml-3 pl-3 border-l border-slate-800 space-y-0.5 mb-1"
+                  >
+                    {accessibleSubItems.map(sub => {
+                      const SubIcon = sub.icon;
+                      const isActive = activePage === sub.id;
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => {
+                            setActivePage(sub.id);
+                            if (window.innerWidth < 1024) setIsMobileOpen(false);
+                          }}
+                          data-testid={sub.id === "importacao" ? "btn-open-data-center" : undefined}
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
+                            isActive
+                              ? "bg-blue-600/15 text-blue-400 font-extrabold border-l-2 border-blue-500 -ml-px pl-[9px] rounded-l-none"
+                              : "hover:bg-slate-800/60 text-slate-300 hover:text-slate-100"
+                          }`}
+                        >
+                          <SubIcon size={13} className="shrink-0 opacity-80" aria-hidden="true" />
+                          <span className="truncate">{sub.title}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
@@ -268,7 +275,7 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
         
         {!isDesktopCollapsed && (
           <div className="p-4 border-t border-slate-800 text-center shrink-0">
-            <span className="text-[9px] font-mono text-slate-600 tracking-wider">SAURON OS v0.6.8</span>
+            <span className="text-[9px] font-mono text-slate-400 tracking-wider" aria-hidden="true">SAURON OS v0.6.8</span>
           </div>
         )}
       </aside>

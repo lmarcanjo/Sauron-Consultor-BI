@@ -436,7 +436,7 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
           </div>
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">Conexão com Banco de Dados</h4>
-            <p className="text-[10px] text-slate-400 dark:text-slate-450 mt-0.5">Retorne dados corporativos reais de seus bancos PostgreSQL ou MySQL</p>
+            <p className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5">Retorne dados corporativos reais de seus bancos PostgreSQL ou MySQL</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

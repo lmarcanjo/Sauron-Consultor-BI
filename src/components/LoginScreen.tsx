@@ -184,82 +184,97 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
           /* ONBOARDING FLOW: INITIAL SUPER ADMIN CREATION */
           <div className="bg-slate-950/80 backdrop-blur-md border border-slate-800 p-8 rounded-3xl shadow-2xl space-y-6">
             <div className="border-b border-slate-800 pb-4 flex items-center gap-2">
-              <Sparkles size={18} className="text-blue-400 animate-bounce" />
-              <h3 className="text-xs font-black uppercase text-white tracking-widest">
-                Inicializar Sauron — Criar primeiro Super Admin
-              </h3>
+              <Sparkles size={18} className="text-blue-400 animate-bounce" aria-hidden="true" />
+              <h2 id="boot-form-title" className="text-xs font-black uppercase text-white tracking-widest">
+                Inicializar Sauron — Criar primeiro acesso
+              </h2>
             </div>
 
             <p className="text-xs text-slate-400 leading-relaxed">
               Nenhum consultor ou organização cadastrada no sistema. Preencha o formulário abaixo para registrar suas credenciais de Superadministrador e configurar seu ambiente de trabalho.
             </p>
 
-            <form onSubmit={handleBootstrapSubmit} className="space-y-4">
+            <form onSubmit={handleBootstrapSubmit} className="space-y-4" aria-labelledby="boot-form-title">
               {bootError && (
-                <div className="p-3.5 bg-red-950/40 border border-red-900/50 rounded-xl text-xs font-semibold text-red-400 flex items-center gap-2.5 animate-shake">
-                  <AlertCircle size={15} />
+                <div role="alert" className="p-3.5 bg-red-950/40 border border-red-900/50 rounded-xl text-xs font-semibold text-red-400 flex items-center gap-2.5 animate-shake">
+                  <AlertCircle size={15} aria-hidden="true" />
                   <span>{bootError}</span>
                 </div>
               )}
 
               <div className="space-y-3">
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" />
+                  <label htmlFor="boot-fullname" className="sr-only">Nome completo</label>
+                  <User className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" aria-hidden="true" />
                   <input
+                    id="boot-fullname"
                     type="text"
                     required
                     placeholder="Nome completo"
+                    autoComplete="name"
                     value={bootFullName}
                     onChange={(e) => setBootFullName(e.target.value)}
-                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
+                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
                   />
                 </div>
 
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" />
+                  <label htmlFor="boot-email" className="sr-only">E-mail corporativo</label>
+                  <Mail className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" aria-hidden="true" />
                   <input
+                    id="boot-email"
                     type="email"
                     required
                     placeholder="E-mail corporativo"
+                    autoComplete="email"
                     value={bootEmail}
                     onChange={(e) => setBootEmail(e.target.value)}
-                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
+                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
                   />
                 </div>
 
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" />
+                  <label htmlFor="boot-password" className="sr-only">Senha (mínimo 6 caracteres)</label>
+                  <Lock className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" aria-hidden="true" />
                   <input
+                    id="boot-password"
                     type="password"
                     required
                     placeholder="Senha secreta (mínimo 6 caracteres)"
+                    autoComplete="new-password"
                     value={bootPassword}
                     onChange={(e) => setBootPassword(e.target.value)}
-                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
+                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
                   />
                 </div>
 
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" />
+                  <label htmlFor="boot-confirm-password" className="sr-only">Confirmar senha</label>
+                  <Lock className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" aria-hidden="true" />
                   <input
+                    id="boot-confirm-password"
                     type="password"
                     required
                     placeholder="Confirmar senha"
+                    autoComplete="new-password"
                     value={bootConfirmPassword}
                     onChange={(e) => setBootConfirmPassword(e.target.value)}
-                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
+                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
                   />
                 </div>
 
                 <div className="relative">
-                  <Building className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" />
+                  <label htmlFor="boot-org-name" className="sr-only">Nome da sua consultoria</label>
+                  <Building className="absolute left-3 top-3 h-4.5 w-4.5 text-slate-500" aria-hidden="true" />
                   <input
+                    id="boot-org-name"
                     type="text"
                     required
                     placeholder="Nome da sua consultoria / organização"
+                    autoComplete="organization"
                     value={bootOrgName}
                     onChange={(e) => setBootOrgName(e.target.value)}
-                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
+                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
                   />
                 </div>
               </div>
@@ -268,8 +283,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
                 type="submit"
                 className="w-full p-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold uppercase tracking-wider text-xs rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
               >
-                <span>Inicializar Super Admin & Iniciar</span>
-                <ChevronRight size={14} />
+                <span>Inicializar Super Admin &amp; Iniciar</span>
+                <ChevronRight size={14} aria-hidden="true" />
               </button>
             </form>
           </div>
@@ -277,49 +292,55 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
           /* STANDARD CLEAN LOGIN SCREEN */
           <div className="bg-slate-950/80 backdrop-blur-md border border-slate-800 p-8 rounded-3xl shadow-2xl space-y-6">
             <div className="border-b border-slate-800 pb-4 flex items-center gap-2">
-              <Lock size={16} className="text-blue-500" />
-              <h3 className="text-xs font-black uppercase text-white tracking-widest">
+              <Lock size={16} className="text-blue-500" aria-hidden="true" />
+              <h2 id="login-form-title" className="text-xs font-black uppercase text-white tracking-widest">
                 Controle de Acesso Governança
-              </h3>
+              </h2>
             </div>
 
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <form onSubmit={handleLoginSubmit} className="space-y-4" aria-labelledby="login-form-title">
               {loginError && (
-                <div className="p-3.5 bg-red-950/40 border border-red-900/50 rounded-xl text-xs font-semibold text-red-400 flex items-center gap-2.5">
-                  <AlertCircle size={15} />
+                <div role="alert" className="p-3.5 bg-red-950/40 border border-red-900/50 rounded-xl text-xs font-semibold text-red-400 flex items-center gap-2.5">
+                  <AlertCircle size={15} aria-hidden="true" />
                   <span>{loginError}</span>
                 </div>
               )}
 
               {isExpired && !loginError && (
-                <div className="p-3.5 bg-amber-950/40 border border-amber-900/50 rounded-xl text-xs font-semibold text-amber-400 flex items-center gap-2.5">
-                  <AlertCircle size={15} />
+                <div role="alert" className="p-3.5 bg-amber-950/40 border border-amber-900/50 rounded-xl text-xs font-semibold text-amber-400 flex items-center gap-2.5">
+                  <AlertCircle size={15} aria-hidden="true" />
                   <span>Sessão expirada. Por favor, autentique-se novamente.</span>
                 </div>
               )}
 
               <div className="space-y-3">
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
+                  <label htmlFor="login-email" className="sr-only">E-mail corporativo</label>
+                  <Mail className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" aria-hidden="true" />
                   <input
+                    id="login-email"
                     type="email"
                     required
                     placeholder="E-mail"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3.5 focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
+                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
                   />
                 </div>
 
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" />
+                  <label htmlFor="login-password" className="sr-only">Senha</label>
+                  <Lock className="absolute left-3 top-3.5 h-4 w-4 text-slate-500" aria-hidden="true" />
                   <input
+                    id="login-password"
                     type="password"
                     required
                     placeholder="Senha"
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3.5 focus:outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
+                    className="w-full text-xs font-medium bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-3 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-slate-500 transition-colors"
                   />
                 </div>
               </div>
@@ -327,14 +348,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, darkMode, set
               <button
                 type="submit"
                 disabled={isSubmitting}
+                aria-busy={isSubmitting}
                 className="w-full p-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white font-extrabold uppercase tracking-wider text-xs rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
               >
                 {isSubmitting ? (
-                  <span>Autenticando...</span>
+                  <span aria-live="polite">Autenticando...</span>
                 ) : (
                   <>
                     <span>Entrar no Sauron</span>
-                    <ChevronRight size={14} />
+                    <ChevronRight size={14} aria-hidden="true" />
                   </>
                 )}
               </button>

@@ -172,7 +172,7 @@ export async function navigateSidebar(page: Page, groupName: string | RegExp, it
   await ensureConsultantSession(page);
   await closeBlockingPanels(page);
 
-  const sidebar = page.getByRole('complementary').first();
+  const sidebar = page.locator('aside').first();
   await baseExpect(sidebar).toBeVisible({ timeout: 10000 });
 
   const item = sidebar.getByRole('button', { name: itemName }).last();

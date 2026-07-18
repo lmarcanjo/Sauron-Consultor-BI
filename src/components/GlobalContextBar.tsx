@@ -256,13 +256,13 @@ export const GlobalContextBar: React.FC = () => {
         
         {/* GROUP SELECTOR */}
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
-          <Network size={12} className="text-blue-400 shrink-0" />
-          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Grupo:</span>
+          <Network size={12} className="text-blue-400 shrink-0" aria-hidden="true" />
+          <span className="font-bold uppercase tracking-wider text-slate-400 text-[9px]">Grupo:</span>
           <select
             aria-label="Selecionar grupo"
             value={context.groupId || ""} 
             onChange={(e) => handleGroupChange(e.target.value)}
-            className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px] max-w-[120px]"
+            className="bg-transparent text-white font-bold pr-1 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded cursor-pointer text-[11px] max-w-[120px]"
           >
             {groups.length === 0 && <option value="" className="bg-slate-900">Nenhum</option>}
             {groups.map(g => (
@@ -273,13 +273,13 @@ export const GlobalContextBar: React.FC = () => {
 
         {/* COMPANY SELECTOR */}
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
-          <Building size={12} className="text-emerald-450 shrink-0" />
-          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Empresa:</span>
+          <Building size={12} className="text-emerald-450 shrink-0" aria-hidden="true" />
+          <span className="font-bold uppercase tracking-wider text-slate-400 text-[9px]">Empresa:</span>
           <select
             aria-label="Selecionar empresa"
             value={context.companyId || "all"} 
             onChange={(e) => handleCompanyChange(e.target.value)}
-            className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px] max-w-[120px]"
+            className="bg-transparent text-white font-bold pr-1 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded cursor-pointer text-[11px] max-w-[120px]"
           >
             <option value="all" className="bg-slate-900 text-slate-400">Consolidado</option>
             {availableCompanies.map(c => (
@@ -290,14 +290,14 @@ export const GlobalContextBar: React.FC = () => {
 
         {/* UNIT SELECTOR */}
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
-          <Layers size={12} className="text-purple-400 shrink-0" />
-          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Unidade:</span>
+          <Layers size={12} className="text-purple-400 shrink-0" aria-hidden="true" />
+          <span className="font-bold uppercase tracking-wider text-slate-400 text-[9px]">Unidade:</span>
           <select
             aria-label="Selecionar unidade"
             value={context.unitId || "all"} 
             disabled={!context.companyId}
             onChange={(e) => handleUnitChange(e.target.value)}
-            className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px] max-w-[120px] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="bg-transparent text-white font-bold pr-1 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded cursor-pointer text-[11px] max-w-[120px] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <option value="all" className="bg-slate-900 text-slate-400">Geral</option>
             {availableUnits.map(u => (
@@ -308,13 +308,13 @@ export const GlobalContextBar: React.FC = () => {
 
         {/* WORKSPACE SELECTOR */}
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
-          <Building size={12} className="text-amber-400 shrink-0" />
-          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Projeto:</span>
+          <Building size={12} className="text-amber-400 shrink-0" aria-hidden="true" />
+          <span className="font-bold uppercase tracking-wider text-slate-400 text-[9px]">Projeto:</span>
           <select
             aria-label="Selecionar projeto"
             value={currentWorkspace?.id || ""} 
             onChange={(e) => handleWorkspaceChange(e.target.value)}
-            className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px] max-w-[120px]"
+            className="bg-transparent text-white font-bold pr-1 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded cursor-pointer text-[11px] max-w-[120px]"
           >
             {workspaces.map(w => (
               <option key={w.id} value={w.id} className="bg-slate-900 text-slate-200">{w.name}</option>
@@ -329,13 +329,13 @@ export const GlobalContextBar: React.FC = () => {
 
         {/* PERIOD SELECTOR */}
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
-          <Calendar size={12} className="text-indigo-400 shrink-0" />
-          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Período:</span>
+          <Calendar size={12} className="text-indigo-400 shrink-0" aria-hidden="true" />
+          <span className="font-bold uppercase tracking-wider text-slate-400 text-[9px]">Período:</span>
           <select
             aria-label="Selecionar período"
             value={context.period?.start || ""} 
             onChange={(e) => handlePeriodChange(e.target.value)}
-            className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px]"
+            className="bg-transparent text-white font-bold pr-1 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded cursor-pointer text-[11px]"
           >
             <option value="" className="bg-slate-900 text-slate-400">Todos</option>
             {periods.map(p => (
@@ -346,13 +346,13 @@ export const GlobalContextBar: React.FC = () => {
 
         {/* SEGMENT/DOMAIN SELECTOR */}
         <div className="flex items-center gap-1.5 bg-slate-950/60 hover:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800 transition-colors">
-          <Sliders size={12} className="text-slate-400 shrink-0" />
-          <span className="font-bold uppercase tracking-wider text-slate-500 text-[9px]">Área de atuação:</span>
+          <Sliders size={12} className="text-slate-400 shrink-0" aria-hidden="true" />
+          <span className="font-bold uppercase tracking-wider text-slate-400 text-[9px]">Área de atuação:</span>
           <select
             aria-label="Selecionar área de atuação"
             value={currentSegment} 
             onChange={(e) => handleSegmentChange(e.target.value)}
-            className="bg-transparent text-white font-bold pr-1 focus:outline-none cursor-pointer text-[11px]"
+            className="bg-transparent text-white font-bold pr-1 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded cursor-pointer text-[11px]"
           >
             {getDomainDisplayOptions().map(option => (
               <option key={option.id} value={option.id} className="bg-slate-900 text-slate-200">{option.label}</option>

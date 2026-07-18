@@ -24,11 +24,11 @@ async function startSession(page: Page): Promise<void> {
     await page.fill("input[placeholder='Senha']", "SenhaRC3Final!");
     await page.getByRole("button", { name: /Entrar no Sauron/i }).click();
   }
-  await expect(page.getByRole("complementary").first()).toBeVisible({ timeout: 15000 });
+  await expect(page.locator("aside").first()).toBeVisible({ timeout: 15000 });
 }
 
 async function navigate(page: Page, itemName: RegExp | string): Promise<void> {
-  const sidebar = page.getByRole("complementary").first();
+  const sidebar = page.locator("aside").first();
   const item = sidebar.getByRole("button", { name: itemName }).last();
   await expect(item).toBeVisible({ timeout: 15000 });
   await item.click({ force: true });
