@@ -1,0 +1,33 @@
+[
+  {
+    "id": "ff9d5cd1",
+    "clientName": "Farbege",
+    "vpnType": "openvpn",
+    "vpnUser": "alan.cruz",
+    "dbHost": "10.12.22.14",
+    "dbPort": "3306",
+    "dbType": "mysql",
+    "dbUser": "",
+    "status": "connected",
+    "containerId": "",
+    "logs": [
+      "Estado anterior invalidado; execute Testar alcance para obter evidência do processo Node.",
+      "[2026-07-22T14:26:19.931Z] Socket TCP aberto em 10.12.22.14:3306 pelo processo Node.",
+      "[2026-07-22T14:26:19.931Z] Alcance de rede confirmado; VPN e autenticação ainda não foram declaradas.",
+      "[2026-07-22T14:51:59.885Z] Verificação de alcance de rede removida.",
+      "[2026-07-22T14:51:59.885Z] Nenhum processo de VPN é gerenciado por esta API.",
+      "[2026-07-22T18:32:13.614Z] Socket TCP aberto em 10.12.22.14:3306 pelo processo Node.",
+      "[2026-07-22T18:32:13.614Z] Alcance de rede confirmado; VPN e autenticação ainda não foram declaradas.",
+      "[2026-07-22T20:45:08.245Z] Verificação de alcance de rede removida.",
+      "[2026-07-22T20:45:08.245Z] Nenhum processo de VPN é gerenciado por esta API.",
+      "[2026-07-22T20:45:10.058Z] Socket TCP aberto em 10.12.22.14:3306 pelo processo Node.",
+      "[2026-07-22T20:45:10.058Z] Alcance de rede confirmado; VPN e autenticação ainda não foram declaradas.",
+      "[2026-07-22T20:47:22.368Z] Verificação de alcance de rede removida.",
+      "[2026-07-22T20:47:22.368Z] Nenhum processo de VPN é gerenciado por esta API.",
+      "[2026-07-22T21:12:42.515Z] Socket TCP aberto em 10.12.22.14:3306 pelo processo Node.",
+      "[2026-07-22T21:12:42.515Z] Alcance de rede confirmado; VPN e autenticação ainda não foram declaradas."
+    ],
+    "ovpnConfigured": true,
+    "networkVerifiedAt": "2026-07-22T21:12:42.515Z"
+  }
+]

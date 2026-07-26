@@ -276,15 +276,15 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
     // queue until their metadata job has completed. This keeps the user
     // action and activation in the same transaction even for slower XLSX.
     const stageUntilReady = initialFilesRef.current === files;
-    const visibleItems = stageUntilReady
-      ? newItems.map((item) => ({ ...item, fileName: "" }))
-      : newItems;
-    setQueue((prev) => [...prev, ...visibleItems]);
+    // Keep the selected name visible while metadata is being read. The shared
+    // picker is still a one-step flow, but the consultant must see which file
+    // was received before activation closes the modal.
+    setQueue((prev) => [...prev, ...newItems]);
     if (!activeQueueId) {
       setActiveQueueId(newItems[0].queueItemId);
     }
 
-    if (initialFilesRef.current === files && typeof window !== "undefined") {
+    if (stageUntilReady && typeof window !== "undefined") {
       // The shared file picker historically confirmed receipt immediately;
       // keep that contract after the queue item is registered, while parsing
       // and activation continue in the same ImportService transaction.
@@ -607,7 +607,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
 
       showToast(
         "success",
-        `${successCount} ${successCount === 1 ? "planilha importada" : "planilhas importadas"} com sucesso. Configure os campos na Biblioteca.`
+        `${successCount} ${successCount === 1 ? "planilha importada" : "planilhas importadas"} com sucesso. Configure os campos na Análise da fonte.`
       );
       // Limpar fila transitória após sucesso
       clearQueue(userId, workspaceId);
@@ -636,7 +636,9 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
     if (!autoImportInitialFilesRef.current || isSaving) return;
     if (!queue.some(item => item.status === ImportStatus.READY && item.file !== null && item.selectedSheets.length > 0)) return;
     autoImportInitialFilesRef.current = false;
-    void handleImportAll();
+    // Let the READY state paint once so the received file and its status are
+    // observable before the automatic one-step activation closes the modal.
+    window.setTimeout(() => void handleImportAll(), 0);
   }, [queue, isSaving]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -1069,11 +1071,11 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
                     </div>
                   )}
 
-                  {/* Dica: configuração de campos ocorre na Biblioteca */}
+                  {/* Dica: a configuração de campos ocorre na análise da fonte */}
                   <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl">
                     <FileSpreadsheet size={13} className="text-blue-500 shrink-0 mt-0.5" />
                     <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
-                      Depois de adicionar a planilha, acesse a <strong>Biblioteca de Planilhas</strong> para confirmar
+                      Depois de adicionar a planilha, acesse a <strong>Análise da fonte</strong> para confirmar
                       as informações e liberar a análise.
                     </p>
                   </div>

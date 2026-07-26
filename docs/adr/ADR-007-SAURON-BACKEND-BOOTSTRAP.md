@@ -21,3 +21,7 @@ We establish:
 ## Consequences
 - **Positive**: Clear separation of concerns; server-side execution of heavy analytics; multi-tenant row-level security boundaries; background task execution reliability; and structured API communication contracts.
 - **Negative**: Adds a development stack (NestJS/Prisma/PostgreSQL), but this microservice separation provides massive enterprise stability, complete auditability, and production-ready scale.
+
+## Permanent Cleanup Rule
+
+Nenhuma Sprint poderá adicionar uma nova funcionalidade sem identificar explicitamente quais componentes, telas, serviços, rotas, testes e documentos se tornaram obsoletos e deverão ser removidos.

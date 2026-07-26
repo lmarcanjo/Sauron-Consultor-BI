@@ -395,7 +395,7 @@ export async function buildExecutiveDashboard(context: DashboardEngineContext): 
   // Load dynamic model config
   const config = getActiveConsultingModelConfigSync();
 
-  if (!config) {
+  if (!config || (config.customMetrics || []).length === 0) {
     const metrics = await calculateMetrics(context, EXECUTIVE_METRICS);
     const blocks = [
       ...metricBlocks(metrics, context),

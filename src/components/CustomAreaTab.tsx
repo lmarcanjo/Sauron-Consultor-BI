@@ -4,8 +4,9 @@
  */
 
 import React, { useState, useMemo } from "react";
-import { Layers, Database, Search, FileText, Download, BarChart2, Calendar, User, TrendingUp } from "lucide-react";
+import { Layers, Database, Search, TrendingUp, Hourglass, PlugZap, ShieldAlert } from "lucide-react";
 import { ConsultingModelConfiguration } from "../core/business-intelligence/ConsultingModelRepository";
+import { buildCustomAreaViewModel } from "../core/business-intelligence/CustomAreaViewModel";
 import { LancamentoFinanceiro } from "../types";
 
 interface CustomAreaTabProps {
@@ -13,153 +14,126 @@ interface CustomAreaTabProps {
   activeConfig: ConsultingModelConfiguration | null;
   dataOrigem: LancamentoFinanceiro[];
   formatCurrency: (v: number) => string;
+  /** Whether the current user holds VIEW_AREA:<areaId>. Defaults to true for backward compatibility with callers that already gate at the route level. */
+  hasAccess?: boolean;
 }
+
+const formatMetricValue = (value: number, format: "currency" | "number" | "percentage", formatCurrency: (v: number) => string): string => {
+  if (format === "currency") return formatCurrency(value);
+  if (format === "percentage") return `${value.toFixed(1)}%`;
+  return new Intl.NumberFormat("pt-BR").format(Math.round(value * 100) / 100);
+};
 
 export const CustomAreaTab: React.FC<CustomAreaTabProps> = ({
   areaId,
   activeConfig,
   dataOrigem,
-  formatCurrency
+  formatCurrency,
+  hasAccess = true
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
 
-  const area = useMemo(() => {
-    if (!activeConfig?.businessAreas) return null;
-    return activeConfig.businessAreas.find(a => a.id === areaId);
-  }, [activeConfig, areaId]);
+  const viewModel = useMemo(
+    () => buildCustomAreaViewModel(areaId, activeConfig, dataOrigem, undefined, hasAccess),
+    [areaId, activeConfig, dataOrigem, hasAccess]
+  );
 
-  // Determine physical columns for this area
-  const columns = useMemo(() => {
-    if (!area) return [];
-    return area.relatedFields || [];
-  }, [area]);
-
-  // Find column display labels from terminology/config
-  const getColLabel = (colName: string): string => {
-    if (!activeConfig) return colName;
-    const fieldConfig = activeConfig.selectedFields[colName];
-    if (fieldConfig?.consultantLabel) {
-      return fieldConfig.consultantLabel;
-    }
-    return colName;
-  };
-
-  // Helper to check if a column's values are mostly numeric
-  const isNumericColumn = (colName: string): boolean => {
-    let numericCount = 0;
-    let nonNumericCount = 0;
-    const sample = dataOrigem.slice(0, 100);
-    sample.forEach(row => {
-      const val = row[colName as keyof LancamentoFinanceiro];
-      if (val !== undefined && val !== null && val !== "") {
-        const num = Number(val);
-        if (!isNaN(num)) {
-          numericCount++;
-        } else {
-          nonNumericCount++;
-        }
-      }
-    });
-    return numericCount > nonNumericCount && numericCount > 0;
-  };
-
-  // Calculations for numeric columns
-  const numericStats = useMemo(() => {
-    const stats: Record<string, { sum: number; avg: number; count: number }> = {};
-    columns.forEach(col => {
-      if (isNumericColumn(col)) {
-        let sum = 0;
-        let count = 0;
-        dataOrigem.forEach(row => {
-          const val = row[col as keyof LancamentoFinanceiro];
-          if (val !== undefined && val !== null && val !== "") {
-            const num = Number(val);
-            if (!isNaN(num)) {
-              sum += num;
-              count++;
-            }
-          }
-        });
-        stats[col] = {
-          sum,
-          avg: count > 0 ? sum / count : 0,
-          count
-        };
-      }
-    });
-    return stats;
-  }, [columns, dataOrigem]);
-
-  // Filtered rows matching search search
+  // Filtered preview rows matching search (search only applies to the bounded preview)
   const filteredRows = useMemo(() => {
-    if (!searchTerm.trim()) return dataOrigem;
+    if (!viewModel) return [];
+    if (!searchTerm.trim()) return viewModel.recordsPreview;
     const term = searchTerm.toLowerCase();
-    return dataOrigem.filter(row => {
-      return columns.some(col => {
-        const val = row[col as keyof LancamentoFinanceiro];
-        if (val !== undefined && val !== null) {
-          return String(val).toLowerCase().includes(term);
-        }
-        return false;
-      });
-    });
-  }, [dataOrigem, columns, searchTerm]);
+    return viewModel.recordsPreview.filter(row =>
+      viewModel.fields.some(f => String(row[f.physicalName] ?? "").toLowerCase().includes(term))
+    );
+  }, [viewModel, searchTerm]);
 
-  if (!area) {
+  if (viewModel?.accessDenied) {
     return (
-      <div className="flex flex-col items-center justify-center p-20 text-slate-500 font-sans">
-        <Layers size={36} className="text-slate-400 mb-4 animate-bounce" />
-        <p className="text-xs font-semibold uppercase tracking-wider">Área não configurada ou inativa</p>
-        <p className="text-[10px] text-slate-400 mt-1">Configure esta área no painel para iniciar as análises.</p>
+      <div role="alert" className="flex flex-col items-center justify-center p-20 text-slate-500 font-sans">
+        <ShieldAlert size={36} className="text-amber-500 mb-4" />
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Acesso restrito</p>
+        <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 max-w-xs text-center">Você não possui acesso a esta área neste projeto.</p>
       </div>
     );
   }
 
+  if (!viewModel) {
+    return (
+      <div className="flex flex-col items-center justify-center p-20 text-slate-500 font-sans">
+        <Layers size={36} className="text-slate-400 mb-4 animate-bounce" />
+        <p className="text-xs font-semibold uppercase tracking-wider">Área não configurada ou inativa</p>
+        <p className="text-[10px] text-slate-600 dark:text-slate-300 mt-1">Configure esta área no painel para iniciar as análises.</p>
+      </div>
+    );
+  }
+
+  const { areaName, areaDescription, readiness, consistency, fields, metrics, summary } = viewModel;
+
   return (
     <div className="space-y-6 font-sans animate-fade-in">
-      
+
       {/* Title Header */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 border border-slate-850 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
         <div>
           <h2 className="text-base font-black uppercase tracking-wider text-slate-200 flex items-center gap-2">
             <Layers className="text-blue-500 animate-pulse" size={18} />
-            <span>{area.name}</span>
+            <span>{areaName}</span>
           </h2>
-          <p className="text-xs text-slate-450 mt-1 max-w-xl">{area.description}</p>
+          <p className="text-xs text-slate-450 mt-1 max-w-xl">{areaDescription}</p>
         </div>
         <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-800 px-3 py-1.5 rounded-xl">
           <Database size={13} className="text-slate-400" />
-          <span className="text-[10px] font-mono text-slate-300 font-extrabold">{dataOrigem.length} registros ativos</span>
+          <span className="text-[10px] font-mono text-slate-300 font-extrabold">{summary.totalRecords} registros ativos</span>
         </div>
       </div>
 
-      {/* Stats Cards Row */}
-      {Object.keys(numericStats).length > 0 && (
+      {/* Readiness / Consistency banner — pending configuration must never be silent */}
+      {readiness !== "READY" && (
+        <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-xl p-4">
+          <Hourglass size={16} className="text-amber-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-400">
+              {readiness === "NOT_CONFIGURED" ? "Área ainda sem campos configurados" : "Indicadores desta área ainda não foram definidos"}
+            </p>
+            <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-1">
+              {readiness === "NOT_CONFIGURED"
+                ? "Acesse o Modelo Consultivo para selecionar quais colunas da planilha pertencem a esta área."
+                : "Os campos estão selecionados, mas nenhum indicador foi definido para esta área ainda."}
+            </p>
+          </div>
+        </div>
+      )}
+      {consistency === "NO_DATA" && (
+        <div className="flex items-start gap-3 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+          <PlugZap size={16} className="text-slate-400 mt-0.5 shrink-0" />
+          <p className="text-[11px] text-slate-500">Nenhum dado ativo no momento. Importe ou selecione uma fonte de dados para ver esta área populada.</p>
+        </div>
+      )}
+
+      {/* Certified metrics row — only consultant-defined indicators, never generic stats */}
+      {metrics.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {Object.entries(numericStats).map(([colName, stats]) => (
-            <div key={colName} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm relative overflow-hidden">
+          {metrics.map((metric) => (
+            <div key={metric.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm relative overflow-hidden">
               <div className="absolute top-0 right-0 p-3 opacity-10">
                 <TrendingUp size={48} className="text-blue-500" />
               </div>
               <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider mb-1">
-                {getColLabel(colName)} (Total)
+                {metric.name}
               </span>
               <h3 className="text-lg font-black text-slate-850 dark:text-slate-100">
-                {formatCurrency(stats.sum)}
+                {formatMetricValue(metric.value, metric.format, formatCurrency)}
               </h3>
-              <div className="flex justify-between items-center mt-3 text-[10px] text-slate-500 border-t border-slate-100 dark:border-slate-800/80 pt-2">
-                <span>Média: <strong>{formatCurrency(stats.avg)}</strong></span>
-                <span>Registros: <strong>{stats.count}</strong></span>
-              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Main Records Table and Search */}
+      {/* Bounded Records Preview and Search */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-        
+
         {/* Search Header */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-850 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-50/50 dark:bg-slate-950/20">
           <div className="relative flex-1 max-w-md">
@@ -173,16 +147,16 @@ export const CustomAreaTab: React.FC<CustomAreaTabProps> = ({
             />
           </div>
           <span className="text-[10px] font-semibold text-slate-500 shrink-0 self-center">
-            Exibindo {filteredRows.length} de {dataOrigem.length} registros
+            Exibindo {filteredRows.length} de {summary.previewCount} registros na prévia (total: {summary.totalRecords})
           </span>
         </div>
 
-        {/* Data Table */}
+        {/* Bounded preview table (never the full workbook) */}
         <div className="overflow-x-auto">
-          {columns.length === 0 ? (
+          {fields.length === 0 ? (
             <div className="p-12 text-center text-slate-500">
               <p className="text-xs font-semibold">Nenhuma coluna associada a esta área.</p>
-              <p className="text-[10px] text-slate-400 mt-1">Acesse a aba "Construtor de Áreas" para adicionar colunas.</p>
+              <p className="text-[10px] text-slate-600 dark:text-slate-300 mt-1">Acesse o Modelo Consultivo para selecionar campos desta área.</p>
             </div>
           ) : filteredRows.length === 0 ? (
             <div className="p-12 text-center text-slate-500">
@@ -192,20 +166,19 @@ export const CustomAreaTab: React.FC<CustomAreaTabProps> = ({
             <table className="w-full border-collapse text-left text-xs">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-950/30 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-black tracking-wider text-slate-450 select-none">
-                  {columns.map(col => (
-                    <th key={col} className="p-3 font-extrabold">{getColLabel(col)}</th>
+                  {fields.map(f => (
+                    <th key={f.physicalName} className="p-3 font-extrabold">{f.label}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredRows.slice(0, 100).map((row, idx) => (
+                {filteredRows.map((row, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-950/20 transition-colors">
-                    {columns.map(col => {
-                      const rawVal = row[col as keyof LancamentoFinanceiro];
-                      const isNum = isNumericColumn(col);
-                      const formatted = (isNum && rawVal !== undefined) ? formatCurrency(Number(rawVal)) : String(rawVal ?? "-");
+                    {fields.map(f => {
+                      const rawVal = row[f.physicalName];
+                      const formatted = (f.isNumeric && rawVal !== "") ? formatCurrency(Number(rawVal)) : String(rawVal ?? "-");
                       return (
-                        <td key={col} className="p-3 font-medium text-slate-700 dark:text-slate-350">
+                        <td key={f.physicalName} className="p-3 font-medium text-slate-700 dark:text-slate-350">
                           {formatted}
                         </td>
                       );
@@ -217,9 +190,9 @@ export const CustomAreaTab: React.FC<CustomAreaTabProps> = ({
           )}
         </div>
 
-        {filteredRows.length > 100 && (
+        {summary.totalRecords > summary.previewCount && (
           <div className="p-3 bg-slate-55/30 border-t border-slate-100 dark:border-slate-800/80 text-center text-[10px] text-slate-450 font-bold uppercase">
-            Exibindo os primeiros 100 registros. Use a busca para filtrar resultados específicos.
+            Prévia limitada a {summary.previewCount} registros de {summary.totalRecords}. Use a busca para localizar casos específicos.
           </div>
         )}
       </div>

@@ -78,59 +78,12 @@ test.describe("F17.1 — jornada executiva do consultor", () => {
     await importCsv(page, secondPath, "journey-source-b.csv");
 
     await navigateSidebar(page, /Conectar Dados/i, /Biblioteca de Planilhas/i);
-    await expect(page.getByText(/Biblioteca de Planilhas/i).first()).toBeVisible();
+    await expect(page.getByText(/Fontes persistidas do projeto/i).first()).toBeVisible();
     await expect(page.getByText("journey-source-a.csv", { exact: true }).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("journey-source-b.csv", { exact: true }).first()).toBeVisible({ timeout: 15000 });
 
-    await navigateSidebar(page, /Diagnosticar Negócio/i, /Comercial/i);
-    await expect(page.getByText(/Dashboard comercial com dados reais|Configuração pendente/i).first()).toBeVisible();
-    await saveFirstModuleMapping(page);
-
-    await navigateSidebar(page, /Diagnosticar Negócio/i, /Financeiro/i);
-    await expect(page.getByText(/Dashboard financeiro com dados reais|Configuração pendente/i).first()).toBeVisible();
-    await saveFirstModuleMapping(page);
-
-    await navigateSidebar(page, /Executar Plano/i, /People Intelligence/i);
-    await expect(page.getByText(/Pessoas|Configuração pendente|Dados reais/i).first()).toBeVisible();
-    await saveFirstModuleMapping(page);
-
-    await navigateSidebar(page, /Diagnosticar Negócio/i, /KPIs & DRE/i);
-    await expect(page.getByText(/DRE|Configuração pendente|Dados reais/i).first()).toBeVisible();
-    await saveFirstModuleMapping(page);
-
     await navigateSidebar(page, /Diagnosticar Negócio/i, /Diagnóstico Executivo/i);
     await expect(page.getByText(/Resumo|Workbook|Nenhuma fonte|Dados reais/i).first()).toBeVisible();
-
-    await navigateSidebar(page, /Preparar Decisão/i, /Apresentações/i);
-    await expect(page.getByText(/Apresentação|Sessão de Resultados|Configuração pendente/i).first()).toBeVisible();
-
-    await navigateSidebar(page, /Conduzir Sessão/i, /Preparação da Reunião/i);
-    await expect(page.getByText(/Preparação da Reunião|Dados insuficientes|Nenhuma fonte/i).first()).toBeVisible();
-    await navigateSidebar(page, /Conduzir Sessão/i, /Sessão Executiva/i);
-    await expect(page.getByText(/Sessão Executiva|Dados insuficientes|Nenhuma fonte/i).first()).toBeVisible();
-    const closeMeeting = page.getByRole("button", { name: /Encerrar Reunião/i }).first();
-    if (await closeMeeting.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await closeMeeting.click({ force: true });
-      const finalizeMeeting = page.getByRole("button", { name: /Sincronizar e Concluir/i }).first();
-      await expect(finalizeMeeting).toBeVisible({ timeout: 10000 });
-      await finalizeMeeting.evaluate((element) => (element as HTMLButtonElement).click());
-      await expect(page.locator("#executive-session-root")).toHaveCount(0, { timeout: 10000 });
-    }
-    await navigateSidebar(page, /Conduzir Sessão/i, /Ata & Decisões/i);
-    await expect(page.getByText(/Ata|Decisões|Nenhuma fonte/i).first()).toBeVisible();
-    const closeAtaSession = page.getByRole("button", { name: /Encerrar Reunião/i }).first();
-    if (await closeAtaSession.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await closeAtaSession.click({ force: true });
-      const finalizeAta = page.getByRole("button", { name: /Sincronizar e Concluir/i }).first();
-      await expect(finalizeAta).toBeVisible({ timeout: 10000 });
-      await finalizeAta.evaluate((element) => (element as HTMLButtonElement).click());
-      await expect(page.locator("#executive-session-root")).toHaveCount(0, { timeout: 10000 });
-    }
-    await navigateSidebar(page, /Executar Plano/i, /Plano Executivo/i);
-    await expect(page.getByText(/Plano|Ação|Nenhuma fonte/i).first()).toBeVisible();
-    await page.waitForTimeout(750);
-    await navigateSidebar(page, /Evoluir Resultado/i, /Histórico/i);
-    await expect(page.getByText(/Histórico|Auditoria|Nenhuma fonte/i).first()).toBeVisible();
 
     await navigateSidebar(page, /Conectar Dados/i, /Biblioteca de Planilhas/i);
     const archive = page.locator('button[title="Arquivar"]').first();

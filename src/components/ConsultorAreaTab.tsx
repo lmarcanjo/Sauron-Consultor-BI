@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { User, Sparkles, Plus, Trash2, CheckCircle2, Save, FileText, Target, HelpCircle, Eye, Sliders } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
-import { dataSourceManager } from "../services/dataSourceManager";
 
 interface ConsultorAreaTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -24,7 +23,7 @@ export const ConsultorAreaTab: React.FC<ConsultorAreaTabProps> = ({ dataOrigem }
 
   // Populate actual list of available items for options
   const listValues = useMemo(() => {
-    const records = dataSourceManager.getActiveSource() === "SPREADSHEET_DATA" ? dataSourceManager.getActiveRecords() : dataOrigem;
+    const records = dataOrigem;
 
     if (selectedEntity === "empresa") {
       return Array.from(new Set(records.map((d: any) => d.Empresa))).filter(Boolean).sort();

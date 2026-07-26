@@ -73,14 +73,14 @@ test.describe("F18 - personas de consultor", () => {
       await ensureConsultantSession(page);
       await importCsv(page, filePath, fileName);
       await navigateSidebar(page, /Conectar Dados/i, /Biblioteca de Planilhas/i);
-      await expect(page.getByText(/Biblioteca de Planilhas/i).first()).toBeVisible();
+      await expect(page.getByText(/Fontes persistidas do projeto/i).first()).toBeVisible();
       await expect(page.getByText(fileName, { exact: true }).first()).toBeVisible();
 
       await navigateSidebar(page, /Diagnosticar Negócio/i, /Diagnóstico Executivo/i);
       await expect(page.getByText(/Resumo|Dados reais|Fonte real/i).first()).toBeVisible();
       await page.reload({ waitUntil: "domcontentloaded" });
       await ensureConsultantSession(page);
-      await expect(page.getByText(/DADOS REAIS|Biblioteca de Planilhas|Fonte real/i).first()).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(/DADOS REAIS|Fontes persistidas do projeto|Fonte real/i).first()).toBeVisible({ timeout: 15000 });
     } finally {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
@@ -105,8 +105,8 @@ test.describe("F18 - personas de consultor", () => {
       await page.goto("/");
       await ensureConsultantSession(page);
       await importCsv(page, filePath, fileName);
-      await navigateSidebar(page, /Diagnosticar Negócio/i, /KPIs & DRE/i);
-      await expect(page.getByText(/Dados reais|Configuração pendente|Fonte real ativa|Nenhuma fonte/i).first()).toBeVisible({ timeout: 30000 });
+      await expect(page.locator("aside").getByRole("button", { name: /KPIs & DRE/i })).toHaveCount(0);
+      await expect(page.getByText(/Dados ativos|Fonte real ativa|DADOS REAIS/i).first()).toBeVisible({ timeout: 30000 });
     } finally {
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
@@ -121,8 +121,7 @@ test.describe("F18 - personas de consultor", () => {
       await page.goto("/");
       await ensureConsultantSession(page);
       await importCsv(page, filePath, fileName);
-      await navigateSidebar(page, /Preparar Decisão/i, /Decks|Apresentações/i);
-      await expect(page.getByText(/Apresenta|Fonte real|Configuração pendente|Dados reais/i).first()).toBeVisible({ timeout: 30000 });
+      await expect(page.getByText(/Dados ativos|Fonte real ativa|DADOS REAIS/i).first()).toBeVisible({ timeout: 30000 });
       const body = await page.locator("body").innerText();
       expect(body).not.toMatch(/Grupo Alpha|Topázio|DEMO_DATA|mock/i);
     } finally {

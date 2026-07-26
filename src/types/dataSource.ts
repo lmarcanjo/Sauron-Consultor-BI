@@ -145,6 +145,8 @@ export interface SheetMetadata {
   sheetName: string;
   rowCount: number;
   columnCount: number;
+  /** Physical headers found in the source file. Never renamed by the UI. */
+  columns?: string[];
   formulaCount: number;
   storageRef: string;
   classification: "Base de dados" | "Cadastro" | "Relatório" | "Cálculo/Fórmulas" | "Configuração" | "Vazia" | "Não classificada";
@@ -179,6 +181,14 @@ export interface ActiveDataset {
     | "ARCHIVED"
     | "DELETED";
   sourceIdentity?: SourceIdentity;
+  databaseType?: string;
+  databaseHost?: string;
+  databasePort?: number;
+  databaseName?: string;
+  tableName?: string;
+  physicalColumns?: string[];
+  activatedAt?: string;
+  version?: number;
 }
 
 export interface ActiveWorkbookDataset extends ActiveDataset {

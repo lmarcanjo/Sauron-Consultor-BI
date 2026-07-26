@@ -32,28 +32,13 @@ test.describe("RC-3 — certificação de produto enterprise", () => {
     await importCsv(page, filePath, fileName);
 
     await navigateSidebar(page, /Centro de Comando/i, /Diagnóstico Executivo/i);
-    await expect(page.getByText(/Fonte real ativa|Resumo do workbook|Configuração pendente|Dados conferidos/i).first()).toBeVisible({ timeout: 30000 });
-
-    await navigateSidebar(page, /Diagnosticar Negócio/i, /Comercial/i);
-    await expect(page.getByText(/Dashboard comercial com dados reais|Configuração pendente|Prévia real/i).first()).toBeVisible({ timeout: 30000 });
-
-    await navigateSidebar(page, /Diagnosticar Negócio/i, /Financeiro/i);
-    await expect(page.getByText(/Dashboard financeiro com dados reais|Configuração pendente|Prévia real/i).first()).toBeVisible({ timeout: 30000 });
-
-    await navigateSidebar(page, /Executar Plano/i, /People Intelligence/i);
-    await expect(page.getByText(/Pessoas|Configuração pendente|Dados reais/i).first()).toBeVisible({ timeout: 30000 });
-
-    await navigateSidebar(page, /Diagnosticar Negócio/i, /KPIs & DRE/i);
-    await expect(page.getByText(/DRE|Configuração pendente|Fonte real ativa/i).first()).toBeVisible({ timeout: 30000 });
-
-    await navigateSidebar(page, /Preparar Decisão/i, /Apresentações/i);
-    await expect(page.getByText(/Apresentação|Configuração pendente|Dados conferidos|Dados aguardando confirmação/i).first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/Fonte ativa|Dados ativos|Resumo do workbook|Configuração pendente|Dados conferidos/i).first()).toBeVisible({ timeout: 30000 });
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await ensureConsultantSession(page);
-    await expect(page.getByText(/DADOS REAIS|Fonte real ativa|Nenhuma fonte de dados ativa/i).first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/DADOS REAIS|Fonte ativa|Nenhuma fonte de dados ativa/i).first()).toBeVisible({ timeout: 30000 });
     await navigateSidebar(page, /Centro de Comando/i, /Diagnóstico Executivo/i);
-    await expect(page.getByText(/Resumo do workbook|Fonte real ativa|Configuração pendente/i).first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/Resumo do workbook|Fonte ativa|Dados ativos|Configuração pendente/i).first()).toBeVisible({ timeout: 30000 });
 
     const body = await page.locator("body").innerText();
     expect(body).not.toMatch(/Grupo Alpha|Topázio|DEMO_DATA|MOCK DATA/i);

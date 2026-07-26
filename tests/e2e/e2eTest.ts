@@ -146,8 +146,8 @@ export async function ensureConsultantSession(page: Page): Promise<void> {
 
 export async function openDataCenter(page: Page): Promise<void> {
   await ensureConsultantSession(page);
-  const drawerCloseButton = page.getByRole("button", { name: /Fechar Biblioteca de Planilhas|Fechar Central de Dados/i }).first();
-  if (await drawerCloseButton.isVisible({ timeout: 500 }).catch(() => false)) {
+  const sourceScreen = page.locator("main").getByText(/Fontes persistidas do projeto|Saúde da fonte/i).first();
+  if (await sourceScreen.isVisible({ timeout: 500 }).catch(() => false)) {
     return;
   }
 
@@ -155,9 +155,7 @@ export async function openDataCenter(page: Page): Promise<void> {
   const button = page.locator('header [data-testid="btn-open-data-center"]').first();
   await baseExpect(button).toBeVisible({ timeout: 10000 });
   await button.click({ force: true });
-  await baseExpect(
-    page.getByRole("button", { name: /Fechar Biblioteca de Planilhas|Fechar Central de Dados/i }).first()
-  ).toBeVisible({ timeout: 10000 });
+  await baseExpect(page.locator("main").getByText(/Fontes persistidas do projeto|Saúde da fonte/i).first()).toBeVisible({ timeout: 10000 });
 }
 
 export async function closeBlockingPanels(page: Page): Promise<void> {

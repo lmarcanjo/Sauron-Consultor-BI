@@ -19,4 +19,12 @@ We need a structured, bulletproof design language-as-code platform with strict b
 
 ## Consequences
 - **Positive**: Absolute visual alignment, 10x faster prototyping speed, automatic dark mode compliance, protected focus and touch targets, and robust accessibility standards out of the box.
-- **Negative**: Developers must use Sauron SDK components instead of raw HTML elements with custom styles. Any deviation requires approval from the lead architect.
+
+## Current Status
+
+The SDK remains an internal component library. The former SDL Studio showcase
+route was retired in Sprint 15 because it was not a consultant product flow.
+
+## Permanent Cleanup Rule
+
+Nenhuma Sprint poderá adicionar uma nova funcionalidade sem identificar explicitamente quais componentes, telas, serviços, rotas, testes e documentos se tornaram obsoletos e deverão ser removidos.

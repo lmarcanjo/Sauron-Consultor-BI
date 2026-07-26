@@ -8,11 +8,36 @@ export class ActiveDatasetStore {
   private static instance: ActiveDatasetStore;
   private activeDataset: ActiveDataset | null = null;
   private activeRows: any[] = [];
+  private storageMetadataChecked = false;
   private subscribers: ((event: DatasetEvent) => void)[] = [];
   private eventHistory: DatasetEvent[] = [];
 
   private constructor() {
     // Private constructor for singleton
+  }
+
+  private normalizePersistedDataset(value: unknown): ActiveDataset {
+    const raw = (value && typeof value === "object" ? value : {}) as Partial<ActiveDataset>;
+    return {
+      ...raw,
+      datasetId: String(raw.datasetId || ""),
+      sourceType: raw.sourceType || "SPREADSHEET_DATA",
+      sourceName: String(raw.sourceName || "Fonte sem nome"),
+      importedAt: String(raw.importedAt || new Date(0).toISOString()),
+      rowCount: Number(raw.rowCount || 0),
+      columnCount: Number(raw.columnCount || 0),
+      sheets: Array.isArray(raw.sheets)
+        ? raw.sheets
+        : raw.activeSheet
+          ? [raw.activeSheet]
+          : [],
+      activeSheet: String(raw.activeSheet || ""),
+      previewRows: Array.isArray(raw.previewRows) ? raw.previewRows : [],
+      columnProfiles: Array.isArray(raw.columnProfiles) ? raw.columnProfiles : [],
+      importProfile: raw.importProfile || null,
+      rawStorageRef: String(raw.rawStorageRef || raw.datasetId || ""),
+      status: raw.status || "READY",
+    } as ActiveDataset;
   }
 
   public static getInstance(): ActiveDatasetStore {
@@ -31,14 +56,39 @@ export class ActiveDatasetStore {
   }
 
   public getActiveDataset(): ActiveDataset | null {
+    this.hydrateMetadataIfNeeded();
     return this.activeDataset;
   }
 
   public getActiveRows(): any[] {
+    this.hydrateMetadataIfNeeded();
     return this.activeRows;
   }
 
+  /**
+   * Make the persisted source visible on the first render after reload.
+   * Only the bounded metadata/preview is restored here; complete rows stay in
+   * IndexedDB and are still queried by paginated consumers.
+   */
+  private hydrateMetadataIfNeeded(): void {
+    if (this.storageMetadataChecked || typeof localStorage === "undefined") return;
+    this.storageMetadataChecked = true;
+
+    const savedDatasetStr = localStorage.getItem("sauron_ds_active_dataset");
+    if (!savedDatasetStr) return;
+
+    try {
+      const dataset = this.normalizePersistedDataset(JSON.parse(savedDatasetStr));
+      this.activeDataset = dataset;
+      this.activeRows = (dataset.previewRows || []).slice(0, 100).map(row => row.raw);
+    } catch {
+      this.activeDataset = null;
+      this.activeRows = [];
+    }
+  }
+
   public setActiveDataset(dataset: ActiveDataset | null, rawRows?: any[]) {
+    this.storageMetadataChecked = true;
     this.activeDataset = dataset;
     if (dataset) {
       // The active store is a metadata/preview bus. Full rows stay in the
@@ -85,6 +135,7 @@ export class ActiveDatasetStore {
 
   public async rehydrateFromStorage(): Promise<ActiveDataset | null> {
     if (typeof localStorage === "undefined") return null;
+    this.storageMetadataChecked = true;
 
     const savedDatasetStr = localStorage.getItem("sauron_ds_active_dataset");
     if (!savedDatasetStr) {
@@ -94,7 +145,7 @@ export class ActiveDatasetStore {
     }
 
     try {
-      const dataset: ActiveDataset = JSON.parse(savedDatasetStr);
+      const dataset = this.normalizePersistedDataset(JSON.parse(savedDatasetStr));
       
       this.activeDataset = dataset;
       // Rehydration must never materialize the complete workbook. Consumers
@@ -182,7 +233,16 @@ export class ActiveDatasetStore {
           importProfile: dataset.importProfile,
           rawStorageRef: dataset.rawStorageRef,
           status: dataset.status,
-          importedAt: dataset.importedAt
+          importedAt: dataset.importedAt,
+          databaseType: dataset.databaseType,
+          databaseHost: dataset.databaseHost,
+          databasePort: dataset.databasePort,
+          databaseName: dataset.databaseName,
+          tableName: dataset.tableName,
+          physicalColumns: dataset.physicalColumns,
+          activatedAt: dataset.activatedAt,
+          version: dataset.version,
+          sourceIdentity: dataset.sourceIdentity,
         }
       }
     };

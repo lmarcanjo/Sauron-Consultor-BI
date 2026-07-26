@@ -30,7 +30,8 @@ export type TrashEntityType =
   | "Workbook"
   | "Apresentacao"
   | "Reuniao"
-  | "PlanoDeAcao";
+  | "PlanoDeAcao"
+  | "BusinessArea";
 
 export type TrashItemStage = "ARCHIVED" | "TRASH";
 
@@ -172,6 +173,15 @@ export class TrashRepository {
     await this.appendAudit(
       this.makeAuditEvent("MOVED_TO_TRASH", items[idx], performedBy)
     );
+  }
+
+  /** Updates an archived snapshot without changing its lifecycle stage. */
+  async updateSnapshot(entityId: string, snapshot: Record<string, unknown>): Promise<void> {
+    const items = await this.getItems();
+    const idx = items.findIndex(item => item.entityId === entityId);
+    if (idx < 0) throw new Error(`Entidade ${entityId} não encontrada na lixeira.`);
+    items[idx] = { ...items[idx], snapshot: { ...snapshot } };
+    await this.saveItems(items);
   }
 
   /**

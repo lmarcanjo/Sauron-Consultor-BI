@@ -39,7 +39,6 @@ import {
   Users,
   Award,
   Presentation,
-  CheckCircle2,
   ShieldAlert,
   ShieldCheck,
   Network,
@@ -49,21 +48,16 @@ import {
 } from "lucide-react";
 
 import { LancamentoFinanceiro, FiltrosDashboard, MetricasConsolidadas, ActiveDataSourceType } from "./types";
-import { useDataSourceManager } from "./hooks/useDataSourceManager";
 import { activeDatasetStore } from "./core/data/ActiveDatasetStore";
+import { getActiveDistinctValues } from "./core/data/activeDatasetView";
+import { activateDatabaseSource, DatabaseSourceSelection } from "./core/data/DataActivation";
+import { resolveImportMode } from "./core/import/ImportService";
 import { enterpriseConsolidationService } from "./core/enterprise-consolidation";
-import { getEnterpriseContext } from "./core/enterprise-consolidation/EnterpriseContextStore";
+import { getEnterpriseContext, subscribeEnterpriseContext } from "./core/enterprise-consolidation/EnterpriseContextStore";
 import { ClientFilterManager } from "./services/clientFilterManager";
 import { exportToCSV } from "./utils/dataGenerator";
 import { parseCSV } from "./utils/csvParser";
-import { KpiCard } from "./components/KpiCard";
-import { SidebarFilters } from "./components/SidebarFilters";
-import { ChartsGrid } from "./components/ChartsGrid";
-import { TraceabilityPanel } from "./components/TraceabilityPanel";
-import { StreamlitExporter } from "./components/StreamlitExporter";
-import { DatabaseConnector } from "./components/DatabaseConnector";
 import { DynamicFilterDrawer } from "./components/DynamicFilterDrawer";
-import { CentralDadosDrawer } from "./components/CentralDadosDrawer";
 
 // Modular Sector Components
 import { ContabilTab } from "./components/ContabilTab";
@@ -80,9 +74,7 @@ import { LgpdConsent } from "./components/LgpdConsent";
 import { auditLog } from "./utils/profileManager";
 
 // Sauron Consulting OS Agent Modules
-import { dataSourceManager } from "./services/dataSourceManager";
 import { CentralDadosTab } from "./components/CentralDadosTab";
-import { WorkbookLibraryTab } from "./components/WorkbookLibraryTab";
 import { IntelligentDRETab } from "./components/IntelligentDRETab";
 import { ModeloConsultivoTab } from "./components/ModeloConsultivoTab";
 import { ConsultorAreaTab } from "./components/ConsultorAreaTab";
@@ -91,19 +83,13 @@ import { DiagnosticoObstaculosTab } from "./components/DiagnosticoObstaculosTab"
 import { CustomAreaTab } from "./components/CustomAreaTab";
 import { ConsultorIaTab } from "./components/ConsultorIaTab";
 import { FechamentoMensalTab } from "./components/FechamentoMensalTab";
-import { ApresentacoesTab } from "./components/ApresentacoesTab";
-import { ExecutiveStoryTab } from "./components/ExecutiveStoryTab";
 import { MeetingModePage } from "./components/MeetingModePage";
 import { MeetingPrepTab } from "./components/MeetingPrepTab";
-import { VpnGatewayTab } from "./components/VpnGatewayTab";
 import { PresentationBuilderPage } from "./components/PresentationBuilderPage";
 import { DashboardPage } from "./components/pages/DashboardPage";
 import { ReportsPage } from "./components/pages/ReportsPage";
-import { ExecutiveWorkspace } from "./components/ExecutiveWorkspace";
-import { EnterpriseDigitalTwinTab } from "./components/EnterpriseDigitalTwinTab";
 import { EnterpriseCenter } from "./components/EnterpriseCenter";
 import { CommandPalette } from "./components/CommandPalette";
-import { SDLStudio } from "./components/SDLStudio";
 import { ProductQAConsole } from "./components/ProductQAConsole";
 import { DataFlowDebugPanel } from "./components/DataFlowDebugPanel";
 import {
@@ -122,35 +108,34 @@ import { AppSidebar } from "./components/AppSidebar";
 import { GlobalContextBar } from "./components/GlobalContextBar";
 import { availableTemplates } from "./utils/industryTemplates";
 import { getActiveConsultingModelConfigSync } from "./core/business-intelligence/ConsultingModelRepository";
+import { resolveNavigationTarget, classifyMissingBusinessAreaRoute } from "./core/navigation/NavigationRegistry";
+import { isBusinessAreaRoute, extractBusinessAreaId } from "./core/navigation/PageCapabilityModel";
 
 // Sauron Identity & Collaboration Foundation (v0.6.5)
 import { identityEngine } from "./core/identity/IdentityEngine";
 import { accessControlEngine } from "./core/identity/AccessControlEngine";
-import { digitalTwinEngine } from "./core/identity/digitalTwin/DigitalTwinEngine";
 import { PLATFORM_EVENTS, subscribePlatformEvent } from "./core/events/PlatformEvents";
 import { runLegacyCompatibilityMigration } from "./core/migrations/LegacyCompatibilityMigration";
+import { repairLegacyLocalState } from "./core/migrations/LegacyLocalStateRepairService";
 import { platformLogger } from "./core/platform/PlatformLogger";
-
-const VALID_TABS = [
-  "enterprise_center", "executive_workspace", "digital_twin", "area_consultor", 
-  "importacao", "biblioteca_workbooks", "resumo", "comercial", "obstaculos", 
-  "consultor_ia", "relatorios", "narrativa_executiva", "apresentacoes", 
-  "apresentacoes_templates", "preparacao_reuniao", "modo_reuniao", "reuniao_ata", 
-  "reuniao_notes", "plano_executivo", "plano_responsaveis", "comissoes", 
-  "historico_executivo", "comparativos_mensais", "fechamento_mensal", "usuarios_twin", 
-  "organizacao_twin", "permissoes_twin", "perfis", "auditoria_logs", "admin_security", 
-  "qa_console", "sdl_studio", "dre_inteligente", "contabil", "vendedores", 
-  "banco_connector", "vpn_gateway", "operacoes_servicos", "itens", "estoque", "financeiro",
-  "modelo_consultivo"
-];
+import { applicationContextResolver } from "./core/enterprise-consolidation/ApplicationContextResolver";
 
 function resolveSafeActiveTab(requestedTab: string, currentUser: any): string {
-  if (!requestedTab || (!VALID_TABS.includes(requestedTab) && !requestedTab.startsWith("custom_area_"))) {
-    return "executive_workspace";
-  }
-  const adminTabs = ["usuarios_twin", "organizacao_twin", "permissoes_twin", "perfis", "auditoria_logs", "admin_security"];
-  if (adminTabs.includes(requestedTab) && currentUser?.role !== "SUPER_ADMIN") {
-    return "executive_workspace";
+  const result = resolveNavigationTarget(requestedTab, {
+    userRole: currentUser?.role || "GUEST",
+    // Real per-area grants (F20.3 Bloco 8/9) — previously this always
+    // resolved to an empty array because PlatformUser has no `.permissions`
+    // field, silently disabling Business Area navigation authorization.
+    userPermissions: accessControlEngine.getAreaPermissionStrings(currentUser, getEnterpriseContext()),
+    // Dataset/approval readiness never causes a redirect away from a route —
+    // in-page gates render the appropriate empty/pending state instead. Only
+    // existence, visibility and role/permission authorization can redirect.
+    hasActiveDataset: true,
+    isApproved: true,
+  }, "enterprise_center");
+
+  if (result.status === "NOT_FOUND" || result.status === "NOT_AUTHORIZED" || result.status === "NOT_APPLICABLE") {
+    return result.fallbackRouteKey;
   }
   return requestedTab;
 }
@@ -159,16 +144,63 @@ runLegacyCompatibilityMigration();
 
 export default function App() {
   // --- STATE ---
+  useEffect(() => {
+    let disposed = false;
+    const validateContext = async () => {
+      const result = await applicationContextResolver.validateAndRepair();
+      if (disposed) return;
+      if (result.issues.length > 0) {
+        const message = result.recommendedAction === "bind_source"
+          ? "Fonte ainda não vinculada. Abra a Biblioteca de Planilhas para escolher a empresa."
+          : result.recommendedAction === "select_project"
+            ? "Este projeto não está mais disponível. Selecione outro projeto para continuar."
+            : result.issues[0];
+        setNavigationNotice(message);
+      }
+    };
+
+    // Repairs only compatibility references. Workbook rows and current
+    // metadata remain untouched; unresolved context is left for the UI.
+    void repairLegacyLocalState().then(validateContext);
+    const unsubscribe = subscribeEnterpriseContext(() => { void validateContext(); });
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, []);
   const [activeTab, setActiveTabState] = useState<string>(() => {
     const saved = localStorage.getItem("sauron_active_tab") || "enterprise_center";
     return resolveSafeActiveTab(saved, identityEngine.getCurrentUser());
   });
+  const [navigationNotice, setNavigationNotice] = useState<string | null>(null);
 
   const setActiveTab = useCallback((tab: string) => {
     const safeTab = resolveSafeActiveTab(tab, identityEngine.getCurrentUser());
+    if (safeTab !== tab) {
+      const classification = classifyMissingBusinessAreaRoute(tab);
+      setNavigationNotice(classification === "ARCHIVED"
+        ? "Esta área foi arquivada e não está disponível nas análises atuais. Abra o Modelo Consultivo para restaurá-la."
+        : classification === "NEVER_EXISTED"
+          ? "Esta área não está disponível neste projeto. Escolha uma área ativa no menu."
+          : "Esta página não está disponível neste contexto. O Centro de Comando foi aberto.");
+    } else {
+      setNavigationNotice(null);
+    }
     localStorage.setItem("sauron_active_tab", safeTab);
     setActiveTabState(safeTab);
   }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("sauron_active_tab");
+    if (saved && saved !== activeTab) {
+      const classification = classifyMissingBusinessAreaRoute(saved);
+      setNavigationNotice(classification === "ARCHIVED"
+        ? "Esta área foi arquivada e não está disponível nas análises atuais. Abra o Modelo Consultivo para restaurá-la."
+        : classification === "NEVER_EXISTED"
+          ? "Esta área não está disponível neste projeto. Escolha uma área ativa no menu."
+          : "Esta página não está disponível neste contexto. O Centro de Comando foi aberto.");
+    }
+  }, [activeTab]);
 
   const [activeIndustryTemplateId, setActiveIndustryTemplateId] = useState<string>(() => {
     if (typeof localStorage !== "undefined") {
@@ -195,7 +227,11 @@ export default function App() {
       setActiveConfig(getActiveConsultingModelConfigSync());
     };
     window.addEventListener("sauron:config-updated", handleUpdate);
-    return () => window.removeEventListener("sauron:config-updated", handleUpdate);
+    window.addEventListener("sauron:area-permissions-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("sauron:config-updated", handleUpdate);
+      window.removeEventListener("sauron:area-permissions-updated", handleUpdate);
+    };
   }, []);
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
@@ -203,20 +239,17 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingSharedFiles, setPendingSharedFiles] = useState<File[] | null>(null);
 
-  const {
-    activeDataSource,
-    activeRecords,
-    activeSourceLabel,
-    activeFiles,
-    approvedByConsultant,
-    activeDataset,
-    getNormalizedView,
-    getAvailableFilters,
-    setActiveSource,
-    approveSource,
-    rejectSource,
-    refreshDataSource
-  } = useDataSourceManager();
+  const [activeDataset, setActiveDataset] = useState(activeDatasetStore.getActiveDataset());
+  const [activeRecords, setActiveRecords] = useState<LancamentoFinanceiro[]>(() => activeDatasetStore.getActiveRows() as LancamentoFinanceiro[]);
+  const refreshDataSource = useCallback(() => {
+    setActiveDataset(activeDatasetStore.getActiveDataset());
+    setActiveRecords(activeDatasetStore.getActiveRows() as LancamentoFinanceiro[]);
+  }, []);
+  const activeDataSource: ActiveDataSourceType = activeDataset?.sourceType || "SPREADSHEET_DATA";
+  const activeSourceLabel = activeDataset?.sourceName || "Nenhuma fonte de dados ativa.";
+  const approvedByConsultant = Boolean(activeDataset);
+  const getAvailableFilters = useCallback(() => (activeDataset?.columnProfiles || []).filter(profile => profile.isFilter), [activeDataset]);
+  const getNormalizedView = useCallback((_moduleName: string) => activeRecords.map(row => ({ ...row })), [activeRecords]);
 
   const [historicalData, setHistoricalData] = useState<LancamentoFinanceiro[] | null>(null);
   const dataOrigem = historicalData || activeRecords;
@@ -247,12 +280,11 @@ export default function App() {
 
   const [camposAusentes, setCamposAusentes] = useState<string[]>([]);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
-  const [isCentralDadosOpen, setIsCentralDadosOpen] = useState<boolean>(false);
   const [visibleFilters, setVisibleFilters] = useState<string[]>(["grupos", "cnpjs", "marcas", "meses", "razoes"]);
   const derivedSpreadsheetMetadata = activeDataset
     ? {
         fileName: activeDataset.sourceName,
-        sheetNames: activeDataset.sheets.map(sheet => typeof sheet === "string" ? sheet : sheet.sheetName),
+        sheetNames: (activeDataset.sheets || []).map(sheet => typeof sheet === "string" ? sheet : sheet.sheetName),
         rowCount: activeDataset.rowCount,
         colCount: activeDataset.columnCount,
         importedAt: activeDataset.importedAt
@@ -282,7 +314,7 @@ export default function App() {
   const [narrarFeedback, setNarrarFeedback] = useState<boolean>(false);
   const [faturamentoOffset, setFaturamentoOffset] = useState<number>(0);
   const [despesaOffset, setDespesaOffset] = useState<number>(0);
-  const [isVpnSimulated, setIsVpnSimulated] = useState<boolean>(false);
+  const [isNetworkReachable, setIsNetworkReachable] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem("sauron-theme") === "dark";
   });
@@ -335,14 +367,11 @@ export default function App() {
   }, [activeSimUser]);
 
   useEffect(() => {
-    const handleOpenCentralDados = () => setIsCentralDadosOpen(true);
     const handleOpenFilters = () => setIsFilterDrawerOpen(true);
 
-    window.addEventListener("sauron:open-central-dados", handleOpenCentralDados);
     window.addEventListener("sauron:open-filters", handleOpenFilters);
 
     return () => {
-      window.removeEventListener("sauron:open-central-dados", handleOpenCentralDados);
       window.removeEventListener("sauron:open-filters", handleOpenFilters);
     };
   }, []);
@@ -356,12 +385,10 @@ export default function App() {
 
       if (event.type === "DATASET_ACTIVATED" || event.type === "DATASET_REHYDRATED") {
         if (event.payload.datasetId) {
-          setActiveSource("SPREADSHEET_DATA");
           setHistoricalData(null);
           refreshDataSource();
         }
       } else if (event.type === "DATASET_REMOVED") {
-        setActiveSource("SPREADSHEET_DATA");
         setHistoricalData(null);
         refreshDataSource();
       }
@@ -371,7 +398,6 @@ export default function App() {
     activeDatasetStore.rehydrateFromStorage().then((dataset) => {
       if (dataset) {
         platformLogger.info(`[App] Rehydrated active dataset on mount: ${dataset.sourceName}`);
-        setActiveSource("SPREADSHEET_DATA");
         refreshDataSource();
         void enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
       }
@@ -380,7 +406,7 @@ export default function App() {
     return () => {
       unsubscribe();
     };
-  }, [setActiveSource, refreshDataSource]);
+  }, [refreshDataSource]);
 
   useEffect(() => {
     if (activeDataset) {
@@ -493,24 +519,9 @@ export default function App() {
   };
 
   const checkServerConfigAndSyncOnMount = async () => {
-    try {
-      const response = await fetch("/api/db/config");
-      const resData = await response.json();
-      if (response.ok && resData.success && resData.config) {
-        setSyncStatus("Tentando sincronização do Banco de Dados configurado automaticamente...");
-        const syncRes = await fetch("/api/db/sync", { method: "POST" });
-        const syncData = await syncRes.json();
-        if (syncRes.ok && syncData.success) {
-          dataSourceManager.syncDatabaseRecords(syncData.data, syncData.sourceName);
-          setSyncStatus("");
-          loadReportHistoryMetadata();
-        } else {
-          setSyncStatus("Nenhum banco configurado na nuvem. Nenhuma fonte de dados ativa.");
-        }
-      }
-    } catch {
-      setSyncStatus("Nenhum banco configurado na nuvem. Nenhuma fonte de dados ativa.");
-    }
+    // SQL refresh is explicit. A persisted configuration alone is not an
+    // active source and must never trigger a global sync on application boot.
+    setSyncStatus("");
   };
 
   // Run dynamic DB Synchronization - USER refresh button action
@@ -518,10 +529,35 @@ export default function App() {
     setIsSyncing(true);
     setSyncStatus("");
     try {
-      const res = await fetch("/api/db/sync", { method: "POST" });
+      const current = activeDatasetStore.getActiveDataset();
+      const sourceId = current?.sourceIdentity?.sourceId;
+      if (!current || current.sourceType !== "DATABASE_DATA" || !sourceId || !current.databaseType) {
+        setSyncStatus("Selecione uma fonte SQL ativa antes de atualizar a conexão.");
+        return;
+      }
+      const res = await fetch("/api/db/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceId }),
+      });
       const resData = await res.json();
       if (res.ok && resData.success) {
-        dataSourceManager.syncDatabaseRecords(resData.data, resData.sourceName);
+        await handleDatabaseDataLoaded(resData.data, current.sourceName, {
+          sourceLabel: current.sourceName,
+          expectedSourceId: sourceId,
+          enterpriseContext: getEnterpriseContext(),
+          config: {
+            type: current.databaseType as any,
+            host: current.databaseHost || "",
+            port: current.databasePort || 0,
+            user: "",
+            database: current.databaseName || "",
+            ssl: false,
+            table: current.tableName || current.activeSheet,
+            query: "",
+            mappings: {},
+          },
+        });
         setCamposAusentes([]);
         setSyncStatus(`Sucesso! Banco de dados atualizado. Importados ${resData.count} registros.`);
         await loadReportHistoryMetadata();
@@ -606,7 +642,7 @@ export default function App() {
           }
         }
         if (consolidated.length > 0) {
-          setHistoricalData(consolidated);
+          setHistoricalData(consolidated.slice(0, 100));
           setSyncStatus(`Sucesso! Consolidado faturamento de ${reportHistory.length} uploads históricos combinados.`);
         } else {
           setSyncStatus("Nenhum snapshot no histórico. Salve ou importe para habilitar consolidado.");
@@ -624,7 +660,7 @@ export default function App() {
         const r = await fetch(`/api/reports/history/${snapshotId}`);
         const rData = await r.json();
         if (r.ok && rData.success && rData.snapshot) {
-          setHistoricalData(rData.snapshot.data);
+          setHistoricalData(Array.isArray(rData.snapshot.data) ? rData.snapshot.data.slice(0, 100) : []);
           setSyncStatus(`Exibindo dados históricos de: ${rData.snapshot.sourceName}`);
         }
       } catch (err) {
@@ -638,9 +674,13 @@ export default function App() {
   // --- INITIALIZATION ---
   useEffect(() => {
     // Load metadata, system database configs and check for cloud database sync
-    loadReportHistoryMetadata();
-    checkServerConfigAndSyncOnMount();
-    loadSystemDb();
+    if (resolveImportMode() === "api") {
+      loadReportHistoryMetadata();
+      checkServerConfigAndSyncOnMount();
+    } else {
+      setReportHistory([]);
+      setSyncStatus("");
+    }
   }, []);
 
   // Handle document dark class theme pairing
@@ -714,6 +754,21 @@ export default function App() {
       });
     }
   }, [dataOrigem, actualKeys, activeDataset, availableColumnProfilesString]);
+
+  // Filter options are sourced from bounded storage pages. The React shell
+  // keeps only the distinct values needed by the drawer, never all rows.
+  useEffect(() => {
+    if (!activeDataset || availableColumnProfiles.length === 0) return;
+    const controller = new AbortController();
+    void Promise.all(availableColumnProfiles.map(async profile => [
+      profile.name,
+      await getActiveDistinctValues(profile.name, { limit: 500, pageSize: 500, signal: controller.signal }),
+    ] as const)).then(entries => {
+      if (controller.signal.aborted) return;
+      setFiltros(previous => ({ ...previous, ...Object.fromEntries(entries) }));
+    });
+    return () => controller.abort();
+  }, [activeDataset?.datasetId, availableColumnProfilesString]);
 
   // Unique elements for Sidebar choice indicators with standard contextual filtering (Requirement 7)
   const availableFilters = useMemo<FiltrosDashboard>(() => {
@@ -1193,24 +1248,16 @@ export default function App() {
       return;
     }
 
-    const hasEmptyFields = data.some(row => !row.Grupo || !row.CNPJ || !row.Empresa || !row.Mês);
-    const totalReceita = data.reduce((acc, curr) => acc + (curr.Receita || 0), 0);
-    const uniqueGroups = Array.from(new Set(data.filter(d => d.Grupo).map(d => d.Grupo)));
-
-    let status = `✓ CONEXÃO INTEGRA: ${data.length} registros financeiros extraídos e mapeados com absoluto sucesso. `;
-    status += `Volume consolidado de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalReceita)}. `;
-    status += `Grupo(s) ativo(s): [${uniqueGroups.join(", ")}]. `;
-
-    if (hasEmptyFields) {
-      status += "⚠️ ALERTA: Detectamos linhas com campos ou strings vazias no preenchimento do seu banco de dados original.";
-    } else {
-      status += "✓ 100% dos registros possuem dados íntegros de mapeamento e foram perfeitamente agregados no painel visual.";
-    }
-
-    setDbValidationMsg(status);
+    const physicalColumns = Array.from(new Set(data.flatMap(row => Object.keys(row))))
+      .filter(column => column !== "id");
+    setDbValidationMsg(
+      `✓ Fonte conectada: ${data.length} registro(s) carregado(s). ` +
+      `Colunas físicas disponíveis: ${physicalColumns.join(", ") || "nenhuma"}. ` +
+      "A interpretação dos campos pode ser configurada depois."
+    );
   };
 
-  const handleDatabaseDataLoaded = (data: LancamentoFinanceiro[], sourceName: string, isVpn?: boolean) => {
+  const handleDatabaseDataLoaded = async (data: LancamentoFinanceiro[], sourceName: string, selection?: DatabaseSourceSelection) => {
     // F6 double ingestion protection
     const currentActiveDataset = activeDatasetStore.getActiveDataset();
     if (currentActiveDataset && currentActiveDataset.datasetId && currentActiveDataset.rawStorageRef) {
@@ -1234,19 +1281,25 @@ export default function App() {
     }
     setActualKeys(Array.from(keys));
 
-    // DatabaseConnector is a database source. Spreadsheet files are persisted
-    // exclusively by ImportService and never converted into virtual files here.
-    dataSourceManager.syncDatabaseRecords(data, sourceName);
-
-    if (isVpn !== undefined) {
-      setIsVpnSimulated(isVpn);
+    if (selection) {
+      const sourceId = await activateDatabaseSource({
+        records: data,
+        sourceLabel: sourceName,
+        config: selection.config,
+        enterpriseContext: selection.enterpriseContext,
+        expectedSourceId: selection.expectedSourceId,
+      });
+      runDbValidationCheck(data);
+      return sourceId;
     }
+
+    // Legacy callers remain compatible; DatabaseConnector always supplies the
+    // explicit selection above.
     runDbValidationCheck(data);
   };
 
   const triggerFileSelect = () => {
-    setIsCentralDadosOpen(false);
-    setActiveTab("importacao");
+    setActiveTab("central_dados");
     fileInputRef.current?.click();
   };
 
@@ -1258,7 +1311,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (activeTab !== "importacao" || !pendingSharedFiles) return;
+    if (activeTab !== "central_dados" || !pendingSharedFiles) return;
 
     // A rota já está montada neste ponto, então o listener da importação não
     // é perdido durante a troca de tela iniciada pelo seletor global.
@@ -1433,7 +1486,8 @@ export default function App() {
         isDesktopCollapsed={isDesktopSidebarCollapsed}
         setIsDesktopCollapsed={setIsDesktopSidebarCollapsed}
                 userRole={activeSimUser?.role}
-                hasActiveDataset={!!activeDataset}
+                hasActiveDataset={Boolean(activeDataset || activeDatasetStore.getActiveDataset())}
+                userPermissions={accessControlEngine.getAreaPermissionStrings(activeSimUser, getEnterpriseContext())}
       />
 
       {/* Main Content wrapper */}
@@ -1507,7 +1561,7 @@ export default function App() {
 
               {/* Discrete Central de Dados button */}
               <button
-                onClick={() => setIsCentralDadosOpen(true)}
+                onClick={() => setActiveTab("central_dados")}
                 data-testid="btn-open-data-center"
                 className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-800 rounded-lg text-[10px] uppercase tracking-wide font-black cursor-pointer h-8 shrink-0 shadow-xs"
                 title="Configurações de banco de dados, planilhas, VPN, segmentos e APIs"
@@ -1571,6 +1625,12 @@ export default function App() {
           {/* CONTEXT BAR (v0.6.8 - Consulting OS Cognitive Anchor) */}
           <GlobalContextBar />
 
+          {navigationNotice && (
+            <div role="status" aria-live="polite" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              {navigationNotice}
+            </div>
+          )}
+
           {/* Header/Breadcrumb local da página */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm shrink-0">
             <div>
@@ -1602,10 +1662,10 @@ export default function App() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs text-xs mb-1">
             <div className="flex flex-wrap items-center gap-2">
               <button 
-                onClick={() => setIsCentralDadosOpen(true)}
+                onClick={() => setActiveTab("central_dados")}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold uppercase tracking-wide cursor-pointer transition text-[10px] ${
                   activeDataset
-                    ? "bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    ? "bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                     : "bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-300"
                 }`}
               >
@@ -1631,7 +1691,7 @@ export default function App() {
             </div>
 
             <button 
-              onClick={() => setIsCentralDadosOpen(true)}
+              onClick={() => setActiveTab("central_dados")}
               className="text-[10px] font-black uppercase tracking-wider text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition shrink-0 cursor-pointer flex items-center gap-1"
             >
               <Database size={12} />
@@ -1654,7 +1714,7 @@ export default function App() {
               )}
 
            {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
-          {!activeDataset && dataOrigemReal.length === 0 && !activeTab.startsWith("custom_area_") && !["enterprise_center", "vpn_gateway", "central_dados", "importacao", "banco_connector", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio", "narrativa_executiva"].includes(activeTab) ? (
+          {!activeDataset && dataOrigemReal.length === 0 && !isBusinessAreaRoute(activeTab) && !["enterprise_center", "central_dados", "analise_estrutura", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias"].includes(activeTab) ? (
             <div id="real-data-empty-state" className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center max-w-xl mx-auto my-12 space-y-6 shadow-md animate-fade-in flex flex-col items-center">
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-500 border border-blue-100 dark:border-blue-900">
                 <Database size={26} className="text-blue-500" />
@@ -1667,7 +1727,7 @@ export default function App() {
               </div>
               <div className="flex flex-col sm:flex-row justify-center gap-3 w-full pt-2">
                 <button
-                  onClick={() => setActiveTab("importacao")}
+                  onClick={() => setActiveTab("central_dados")}
                   className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[11px] uppercase font-black tracking-wider rounded-xl shadow-sm transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
                 >
                   <FileSpreadsheet size={14} />
@@ -1681,7 +1741,7 @@ export default function App() {
                   <span>Empresas e grupos</span>
                 </button>
                 <button
-                  onClick={() => setActiveTab("banco_connector")}
+                  onClick={() => setActiveTab("central_dados")}
                   className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-750 dark:text-slate-200 text-[11px] uppercase font-black tracking-wider rounded-xl border border-slate-200 dark:border-slate-750 transition-all cursor-pointer inline-flex items-center justify-center gap-1.5"
                 >
                   <Server size={14} />
@@ -1689,36 +1749,26 @@ export default function App() {
                 </button>
               </div>
             </div>
-          ) : !activeDataset && !dataSourceManager.isApproved() && !activeTab.startsWith("custom_area_") && !["enterprise_center", "importacao", "vpn_gateway", "central_dados", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias", "digital_twin", "sdl_studio", "narrativa_executiva"].includes(activeTab) ? (
+          ) : !activeDataset && !approvedByConsultant && !isBusinessAreaRoute(activeTab) && !["enterprise_center", "central_dados", "analise_estrutura", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias"].includes(activeTab) ? (
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 max-w-xl mx-auto my-12 text-center shadow-md space-y-6 animate-fadeIn">
               <div className="mx-auto w-16 h-16 bg-amber-50 dark:bg-amber-950/30 text-amber-500 rounded-full flex items-center justify-center border border-amber-200 dark:border-amber-900">
                 <ShieldAlert size={32} className="animate-pulse text-amber-500" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-black text-slate-850 dark:text-slate-100 uppercase tracking-tight">Base Real Pendente de Homologação</h3>
+                <h3 className="text-xl font-black text-slate-850 dark:text-slate-100 uppercase tracking-tight">Fonte aguardando confirmação</h3>
                 <p className="text-slate-550 dark:text-slate-400 text-xs leading-relaxed">
-                  As conexões de banco de dados ou planilhas importadas para a empresa <strong>{nomeFonte}</strong> foram carregadas com sucesso no Sauron OS, mas permanecem no estado de <strong>Pendente de Homologação</strong>.
+                  A fonte <strong>{nomeFonte}</strong> foi carregada, mas ainda precisa ser confirmada na análise da fonte.
                 </p>
                 <p className="text-slate-450 dark:text-slate-550 text-[11px] leading-relaxed">
-                  Para habilitar com segurança a DRE inteligente, gráficos contábeis, filtros dinâmicos e apresentações formais para reuniões corporativas, é necessário homologar explicitamente a integridade desses dados.
+                  Revise a estrutura, confirme as informações necessárias e então os resultados compatíveis serão liberados.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
                 <button
-                  onClick={() => {
-                    dataSourceManager.setApproved(true);
-                    alert("Base de dados homologada com sucesso! Todos os relatórios gerenciais e apresentações foram desbloqueados.");
-                  }}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] uppercase tracking-wide rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  onClick={() => setActiveTab("analise_estrutura")}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[11px] uppercase tracking-wide rounded-xl border border-blue-500 transition-all cursor-pointer"
                 >
-                  <CheckCircle2 size={14} />
-                  Homologar e Liberar Relatórios
-                </button>
-                <button
-                  onClick={() => setActiveTab("importacao")}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-[11px] uppercase tracking-wide rounded-xl border border-slate-205 dark:border-slate-805 transition-all cursor-pointer"
-                >
-                    Revisar fonte
+                    Revisar análise da fonte
                 </button>
               </div>
             </div>
@@ -1727,10 +1777,6 @@ export default function App() {
               <MainContentErrorBoundary>
               {activeTab === "qa_console" && (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.search.includes("qa=true"))) && (
                 <ProductQAConsole setActivePage={setActiveTab} />
-              )}
-
-              {activeTab === "sdl_studio" && (
-                <SDLStudio onExit={() => setActiveTab("executive_workspace")} />
               )}
 
               {activeTab === "enterprise_center" && (
@@ -1746,6 +1792,7 @@ export default function App() {
                     formatCurrency={formatCurrencyValue}
                     activeIndustryTemplateId={activeIndustryTemplateId}
                     activeDataset={activeDataset}
+                    onOpenSourceAnalysis={() => setActiveTab("analise_estrutura")}
                   />
                 </DashboardErrorBoundary>
               )}
@@ -1770,30 +1817,22 @@ export default function App() {
                 </DashboardErrorBoundary>
               )}
 
-          {activeTab === "biblioteca_workbooks" && (
-            <DataLibraryErrorBoundary>
-              <WorkbookLibraryTab />
-            </DataLibraryErrorBoundary>
-          )}
-          {["importacao", "banco_connector", "etl_pipeline", "validacao_dados", "apis_feed", "sincronizacao", "fonte_ativa", "vpn_gateway"].includes(activeTab) && (
+          {["analise_estrutura", "central_dados", "etl_pipeline", "validacao_dados", "apis_feed", "sincronizacao", "fonte_ativa"].includes(activeTab) && (
             <DataLibraryErrorBoundary>
               <CentralDadosTab
                 dataOrigem={dataOrigem}
                 onDataLoaded={handleDatabaseDataLoaded}
                 currentSource={nomeFonte}
+                sharedFiles={pendingSharedFiles}
                 camposAusentes={camposAusentes}
                 filtros={filtros}
                 visibleFilters={visibleFilters}
                 fieldMappings={fieldMappings}
-                initialStep={
-                  activeTab === "importacao" ? 0 :
-                  activeTab === "banco_connector" ? 2 :
-                  activeTab === "vpn_gateway" ? 1 : 0
-                }
+                initialStep={activeTab === "analise_estrutura" ? 0 : 1}
               />
             </DataLibraryErrorBoundary>
           )}
-          {["apresentacoes", "narrativa_executiva", "story_builder", "apresentacoes_templates"].includes(activeTab) && (
+          {["apresentacoes", "apresentacoes_templates"].includes(activeTab) && (
             <PresentationErrorBoundary>
               <PresentationBuilderPage 
                 dataOrigem={dataOrigem}
@@ -1829,6 +1868,7 @@ export default function App() {
                 metrics={metrics}
                 formatCurrency={formatCurrencyValue}
                 activeDataset={activeDataset}
+                onOpenSourceAnalysis={() => setActiveTab("analise_estrutura")}
               />
             </DashboardErrorBoundary>
           )}
@@ -1866,6 +1906,7 @@ export default function App() {
                 metrics={metrics}
                 formatCurrency={formatCurrencyValue}
                 activeDataset={activeDataset}
+                onOpenSourceAnalysis={() => setActiveTab("analise_estrutura")}
               />
             </DashboardErrorBoundary>
           )}
@@ -1907,6 +1948,7 @@ export default function App() {
                   alert("Configurações contábeis e parametrização de comissões gravadas com total sucesso no Banco Próprio do Sistema!");
                 }}
                 userRole={currentUser?.role}
+                onOpenSourceAnalysis={() => setActiveTab("analise_estrutura")}
               />
             </SettingsErrorBoundary>
           )}
@@ -1917,15 +1959,6 @@ export default function App() {
             </SettingsErrorBoundary>
           )}
 
-          {activeTab === "digital_twin" && (
-            <EnterpriseCenterErrorBoundary>
-              <EnterpriseDigitalTwinTab />
-            </EnterpriseCenterErrorBoundary>
-          )}
-
-          {activeTab === "vpn_gateway" && (
-            <VpnGatewayTab />
-          )}
 
           {activeTab === "modelo_consultivo" && (
             <ModeloConsultivoTab
@@ -1935,12 +1968,13 @@ export default function App() {
             />
           )}
 
-          {activeTab.startsWith("custom_area_") && (
+          {isBusinessAreaRoute(activeTab) && extractBusinessAreaId(activeTab) && (
             <CustomAreaTab
-              areaId={activeTab.replace("custom_area_", "")}
+              areaId={extractBusinessAreaId(activeTab)!}
               activeConfig={activeConfig}
               dataOrigem={dataOrigem}
               formatCurrency={formatCurrencyValue}
+              hasAccess={accessControlEngine.canViewArea(identityEngine.getCurrentUser(), extractBusinessAreaId(activeTab)!, getEnterpriseContext())}
             />
           )}
 
@@ -1965,21 +1999,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === "narrativa_executiva" && (
-            <ExecutiveStoryTab />
-          )}
-
-          {activeTab === "executive_workspace" && !activeDataset && (
-            <ExecutiveWorkspace
-              filteredData={filteredData}
-              activeFiles={activeFiles}
-              onSelectTab={setActiveTab}
-              formatCurrency={formatCurrencyValue}
-              onDataLoaded={handleDatabaseDataLoaded}
-            />
-          )}
-
-          {(["resumo", "resultados_consolidados", "comparativos_mensais"].includes(activeTab) || (activeDataset && activeTab === "executive_workspace")) && (
+          {(["resumo", "resultados_consolidados", "comparativos_mensais"].includes(activeTab)) && (
             <DashboardPage filteredData={filteredData} formatCurrency={formatCurrencyValue} activeDataset={activeDataset} />
           )}
 
@@ -2011,23 +2031,6 @@ export default function App() {
         visibleFilters={visibleFilters}
         onChangeVisibleFilters={setVisibleFilters}
         actualKeys={actualKeys}
-      />
-
-      <CentralDadosDrawer
-        isOpen={isCentralDadosOpen}
-        onClose={() => setIsCentralDadosOpen(false)}
-        activeIndustryTemplateId={activeIndustryTemplateId}
-        onChangeIndustryTemplateId={setActiveIndustryTemplateId}
-        availableTemplates={availableTemplates}
-        onTriggerFileSelect={triggerFileSelect}
-        nomeFonte={nomeFonte}
-        isSyncing={isSyncing}
-        onSyncDatabase={handleSyncDatabaseData}
-        isVpnSimulated={isVpnSimulated}
-        spreadsheetMetadata={derivedSpreadsheetMetadata}
-        currentUser={currentUser}
-        dbValidationMsg={dbValidationMsg}
-        onDatabaseDataLoaded={handleDatabaseDataLoaded}
       />
 
       <CommandPalette onSelectTab={setActiveTab} />

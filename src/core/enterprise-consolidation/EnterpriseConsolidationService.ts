@@ -88,27 +88,19 @@ export class EnterpriseConsolidationService {
         .map(entity => entity.id)
     );
 
-    const selectedBindings = bindings.filter(binding => {
+    const selectedBindings = bindings.filter(binding => binding.status === "ACTIVE").filter(binding => {
       if (context.scope === "WORKBOOK") return context.workbookIds.includes(binding.workbookId);
       
       if (context.scope === "UNIT") {
-        const u = allEnterprises.find(e => e.id === unitId) as Unit;
-        const cId = u?.parentId;
-        const gId = cId ? (allEnterprises.find(e => e.id === cId) as Company)?.parentId : undefined;
         return Boolean(unitId && (
-          binding.unitId === unitId ||
-          (cId && binding.companyId === cId) ||
-          (gId && binding.groupId === gId)
+          binding.unitId === unitId
         ));
       }
       
       if (context.scope === "COMPANY") {
-        const c = allEnterprises.find(e => e.id === companyId) as Company;
-        const gId = c?.parentId;
         return Boolean(companyId && (
           binding.companyId === companyId ||
-          (binding.unitId && childUnitIds.has(binding.unitId)) ||
-          (gId && binding.groupId === gId)
+          (binding.unitId && childUnitIds.has(binding.unitId))
         ));
       }
       
@@ -314,6 +306,13 @@ export class EnterpriseConsolidationService {
     if (refreshSequence !== this.activeDatasetRefreshSequence) return;
     const datasets = sources.map(source => source.activeDataset).filter(Boolean) as ActiveDataset[];
     if (sources.length === 0) {
+      // A workbook imported before an organizational entity exists is a valid
+      // workbook-scoped source. Keep its persisted metadata visible on reload
+      // instead of turning the first context refresh into a data loss signal.
+      // An explicit company/group/unit context still clears as expected when
+      // it has no bound source.
+      const hasExplicitOrganization = Boolean(context.groupId || context.companyId || context.unitId);
+      if (!hasExplicitOrganization && activeDatasetStore.getActiveDataset()) return;
       activeDatasetStore.clearActiveDataset();
       return;
     }

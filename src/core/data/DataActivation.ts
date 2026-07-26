@@ -11,11 +11,209 @@ import { businessDomainEngine } from "../business-domains/BusinessDomainEngine";
 import { platformLogger } from "../platform/PlatformLogger";
 import { withSourceIdentity } from "./sourceIdentity";
 import { identityEngine } from "../identity/IdentityEngine";
+import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
+import { enterpriseRepository } from "../persistence/EnterpriseRepository";
+import { NormalizedDatabaseConfig, DatabaseSourceSelection } from "../connections/DatabaseConfig";
 
 export interface ActivateImportedSourcesParams {
   workbookIds: string[];
   datasetIds: string[];
   enterpriseContext: EnterpriseContext;
+}
+
+export interface ActivateDatabaseSourceParams {
+  records: any[];
+  sourceLabel: string;
+  config: NormalizedDatabaseConfig;
+  enterpriseContext: EnterpriseContext;
+  expectedSourceId?: string;
+}
+
+export type { DatabaseSourceSelection } from "../connections/DatabaseConfig";
+
+function databaseSourceFingerprint(config: NormalizedDatabaseConfig, context: EnterpriseContext): string {
+  return [
+    config.type,
+    config.host || "connection",
+    config.port || "",
+    config.database,
+    config.table || config.query || "query",
+    context.groupId || "",
+    context.companyId || "",
+  ].join("|");
+}
+
+function stableDatabaseSourceId(config: NormalizedDatabaseConfig, context: EnterpriseContext): string {
+  const fingerprint = databaseSourceFingerprint(config, context);
+  let hash = 2166136261;
+  for (let index = 0; index < fingerprint.length; index += 1) {
+    hash ^= fingerprint.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `sql_source_${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+export { stableDatabaseSourceId };
+
+function databaseColumns(records: any[]): string[] {
+  return Array.from(new Set(records.flatMap(row => Object.keys(row || {}))))
+    .filter(column => column !== "id");
+}
+
+/** Publishes a fetched SQL table through the same canonical activation path. */
+export async function activateDatabaseSource({
+  records,
+  sourceLabel,
+  config,
+  enterpriseContext,
+  expectedSourceId,
+}: ActivateDatabaseSourceParams): Promise<string> {
+  if (!records.length) throw new Error("A tabela selecionada não retornou registros para ativação.");
+  if (!enterpriseContext.groupId) throw new Error("Selecione um grupo antes de ativar a fonte SQL.");
+  if (enterpriseContext.scope === "COMPANY" && !enterpriseContext.companyId) {
+    throw new Error("Selecione uma empresa válida antes de ativar a fonte SQL.");
+  }
+  if (enterpriseContext.scope !== "GROUP" && enterpriseContext.scope !== "COMPANY") {
+    throw new Error("Selecione o grupo ou a empresa que receberá esta fonte.");
+  }
+
+  const enterprises = await enterpriseRepository.getAll();
+  const group = enterprises.find(item => item.id === enterpriseContext.groupId && item.type === "Grupo");
+  if (!group) throw new Error("O grupo selecionado não está disponível. Escolha outro contexto.");
+  const company = enterpriseContext.companyId
+    ? enterprises.find(item => item.id === enterpriseContext.companyId && item.type === "Empresa")
+    : undefined;
+  if (enterpriseContext.scope === "COMPANY" && (!company || (company as any).parentId !== group.id)) {
+    throw new Error("A empresa selecionada não pertence ao grupo atual.");
+  }
+
+  const sourceId = stableDatabaseSourceId(config, enterpriseContext);
+  if (expectedSourceId && expectedSourceId !== sourceId) {
+    throw new Error("A fonte SQL ativa não corresponde ao contexto atual.");
+  }
+  const now = new Date().toISOString();
+  const columns = databaseColumns(records);
+  const tableName = config.table || "Tabela SQL";
+  const previewRows = records.slice(0, 100).map((row, index) => ({
+    raw: row,
+    normalized: row,
+    metadata: { rowIndex: index + 1, sheetName: tableName, fileName: sourceLabel },
+  }));
+  const dataset: ActiveDataset = {
+    datasetId: sourceId,
+    sourceType: "DATABASE_DATA",
+    sourceName: sourceLabel,
+    importedAt: now,
+    rowCount: records.length,
+    columnCount: columns.length,
+    sheets: [{
+      sheetName: tableName,
+      rowCount: records.length,
+      columnCount: columns.length,
+      columns,
+      formulaCount: 0,
+      storageRef: sourceId,
+      classification: "Base de dados",
+      selectedForImport: true,
+    }],
+    activeSheet: tableName,
+    previewRows,
+    columnProfiles: [],
+    importProfile: null,
+    rawStorageRef: sourceId,
+    status: "ACTIVE",
+    databaseType: config.type,
+    databaseHost: config.host,
+    databasePort: config.port,
+    databaseName: config.database,
+    tableName,
+    physicalColumns: columns,
+    activatedAt: now,
+    version: 1,
+    sourceIdentity: {
+      sourceId,
+      workbookId: sourceId,
+      datasetId: sourceId,
+      fingerprint: databaseSourceFingerprint(config, enterpriseContext),
+      fileName: sourceLabel,
+      originalFileName: sourceLabel,
+      storageMetadataKey: sourceId,
+      storageRowsKey: sourceId,
+      tenantId: "local",
+      workspaceId: enterpriseContext.workspaceId || "workspace_default",
+      groupId: enterpriseContext.groupId,
+      companyId: enterpriseContext.scope === "COMPANY" ? enterpriseContext.companyId : undefined,
+    },
+  };
+
+  const previousDataset = activeDatasetStore.getActiveDataset();
+  const previousRows = activeDatasetStore.getActiveRows();
+  let createdWorkbook = false;
+  try {
+    await IndexedSpreadsheetStorage.deleteRows(sourceId);
+    await IndexedSpreadsheetStorage.saveSheetRows(sourceId, tableName, records);
+    await IndexedSpreadsheetStorage.saveMetadata(sourceId, {
+      id: sourceId,
+      fileName: sourceLabel,
+      uploadedAt: now,
+      sheets: [{ sheetName: tableName, rowCount: records.length, columns, previewRows: records.slice(0, 5) }],
+    });
+    const persistedMetadata = await IndexedSpreadsheetStorage.getMetadata(sourceId);
+    if (!persistedMetadata) throw new Error("Não foi possível persistir os metadados da fonte SQL.");
+
+    const existingWorkbook = libraryWorkbookRepository.getWorkbook(sourceId);
+    if (existingWorkbook) {
+      const previousVersion = Number(existingWorkbook.versionIds.length || 0);
+      const versionedDataset = { ...dataset, version: previousVersion + 1 };
+      libraryWorkbookRepository.createWorkbookVersion(sourceId, versionedDataset, `SQL ${versionedDataset.version}`);
+    } else {
+      libraryWorkbookRepository.createWorkbook({
+        id: sourceId,
+        projectId: enterpriseContext.workspaceId || "workspace_default",
+        name: sourceLabel,
+        sourceName: sourceLabel,
+        currentVersion: { id: `version_${sourceId}`, activeDataset: dataset, sourceName: sourceLabel, importedAt: now, rowCount: records.length, columnCount: columns.length, sheetCount: 1, formulaCount: 0, rawStorageRef: sourceId },
+      });
+      createdWorkbook = true;
+    }
+
+    await enterpriseRepository.bindSource({
+      sourceId,
+      workbookId: sourceId,
+      datasetId: sourceId,
+      tenantId: "local",
+      workspaceId: enterpriseContext.workspaceId || "workspace_default",
+      groupId: enterpriseContext.groupId,
+      companyId: enterpriseContext.scope === "COMPANY" ? enterpriseContext.companyId : undefined,
+      scopeType: enterpriseContext.scope,
+    });
+
+    const scopeId = enterpriseContext.scope === "COMPANY" ? enterpriseContext.companyId : enterpriseContext.groupId;
+    if (scopeId) {
+      activeSourceSelectionStore.setForScope({
+        tenantId: "local",
+        workspaceId: enterpriseContext.workspaceId || "workspace_default",
+        scopeType: enterpriseContext.scope,
+        scopeId,
+      }, [sourceId]);
+    }
+    setEnterpriseContext({
+      ...enterpriseContext,
+      workspaceId: enterpriseContext.workspaceId || "workspace_default",
+      workbookIds: [sourceId],
+      datasetIds: [sourceId],
+    }, { refreshSources: false, clearPreviousDataset: false });
+    activeDatasetStore.setActiveDataset(dataset);
+    return sourceId;
+  } catch (error) {
+    if (createdWorkbook) {
+      try { libraryWorkbookRepository.deleteWorkbook(sourceId); } catch { /* preserve original failure */ }
+    }
+    try { await enterpriseRepository.removeSourceBinding(sourceId); } catch { /* preserve original failure */ }
+    if (previousDataset) activeDatasetStore.setActiveDataset(previousDataset, previousRows);
+    else activeDatasetStore.clearActiveDataset();
+    throw error;
+  }
 }
 
 function getWorkspaceRegistry(): any {
@@ -51,8 +249,8 @@ export async function activateImportedSources({
   const prevRegistry = getWorkspaceRegistry();
   
   const registry = getWorkspaceRegistry();
-  const workspaceId = registry?.currentWorkspaceId || "workspace_default";
-  const canonicalWorkspaceId = identityEngine.getCurrentWorkspace()?.id || workspaceId;
+  const canonicalWorkspaceId = enterpriseContext.workspaceId || identityEngine.getCurrentWorkspace()?.id || registry?.currentWorkspaceId || "workspace_default";
+  const workspaceId = canonicalWorkspaceId;
   const prevSelection = activeSourceSelectionStore.get(workspaceId);
 
   try {
@@ -223,7 +421,7 @@ export async function activateImportedSources({
       workbookIds,
       datasetIds
     };
-    setEnterpriseContext(updatedContext, { refreshSources: false });
+    setEnterpriseContext(updatedContext, { refreshSources: false, clearPreviousDataset: false });
 
     // Set dataset store
     if (allDatasets.length === 0) {
@@ -296,7 +494,7 @@ export async function activateImportedSources({
       activeDatasetStore.clearActiveDataset();
     }
 
-    setEnterpriseContext(prevContext, { refreshSources: false });
+    setEnterpriseContext(prevContext, { refreshSources: false, clearPreviousDataset: false });
 
     if (prevRegistry) {
       saveWorkspaceRegistry(prevRegistry);

@@ -29,3 +29,7 @@ We must design an enterprise-grade, extensible, and completely decoupled **Integ
 ## Consequences
 - **Positive**: Complete encapsulation of ERP formats; developers can construct connectors in isolation; 100% data lineage and transparency; safe credential rotation; and zero regression risk in the core business engines.
 - **Negative**: Creating new integrations requires writing a mapper file conforming to Sauron's standard schemas, a deliberate choice favoring high analytical stability over quick-and-dirty ad-hoc scripts.
+
+## Permanent Cleanup Rule
+
+Nenhuma Sprint poderá adicionar uma nova funcionalidade sem identificar explicitamente quais componentes, telas, serviços, rotas, testes e documentos se tornaram obsoletos e deverão ser removidos.

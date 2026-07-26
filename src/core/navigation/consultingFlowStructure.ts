@@ -6,7 +6,7 @@
 import {
   Users, Database, Presentation, MonitorPlay, Settings, Briefcase, FolderOpen, Building,
   ShieldCheck, BarChart3, Target, FileText, BrainCircuit, Calculator,
-  Network, ShieldAlert, ClipboardList, CheckSquare, History, Key, Layers, Lock, TrendingUp
+  ShieldAlert, ClipboardList, CheckSquare, History, Key, Layers, Lock, TrendingUp
 } from 'lucide-react';
 import { ModuleCapabilityState } from "./moduleCapabilities";
 
@@ -15,6 +15,8 @@ export interface ConsultingSubItem {
   id: string;
   icon: any;
   availability?: ModuleCapabilityState;
+  /** Compatibility wording used only as an accessible-name bridge during migration. */
+  accessibleLabel?: string;
 }
 
 export interface ConsultingGroup {
@@ -22,6 +24,8 @@ export interface ConsultingGroup {
   title: string;
   icon: any;
   subItems: ConsultingSubItem[];
+  /** Compatibility wording used only as an accessible-name bridge during migration. */
+  accessibleLabel?: string;
 }
 
 export interface ConsultingStructureOptions {
@@ -55,85 +59,81 @@ export function getConsultingFlowStructure(options?: ConsultingStructureOptions 
   const structure: ConsultingGroup[] = [
     {
       groupKey: "centro_comando",
-      title: "Centro de Comando",
+      title: "Cliente",
+      accessibleLabel: "Cliente — Centro de Comando",
       icon: Briefcase,
       subItems: [
-        { title: "Empresas e Grupos", id: "enterprise_center", icon: Building },
-        { title: "Centro de Comando", id: "executive_workspace", icon: Briefcase }
+        { title: "Empresas e Grupos", id: "enterprise_center", icon: Building, accessibleLabel: "Empresas e Grupos — Centro de Comando" }
       ]
     },
     {
       groupKey: "conhecer_cliente",
-      title: "Conhecer Cliente",
+      title: "Projeto",
+      accessibleLabel: "Projeto — Conhecer Cliente",
       icon: Users,
       subItems: [
-        { title: "Gêmeo Digital", id: "digital_twin", icon: Network },
-        { title: "Projetos de Consultoria", id: "area_consultor", icon: FolderOpen },
+        { title: "Projeto de Consultoria", id: "area_consultor", icon: FolderOpen, accessibleLabel: "Projeto de Consultoria — Projetos de Consultoria" },
         { title: "Modelo Consultivo", id: "modelo_consultivo", icon: Settings }
       ]
     },
     {
-      groupKey: "conectar_dados",
-      title: "Conectar Dados",
+      groupKey: "fontes",
+      title: "Fontes",
+      accessibleLabel: "Fontes — Conectar Dados",
       icon: Database,
       subItems: [
-        { title: "Importar Planilhas", id: "importacao", icon: FileText },
-        { title: "Biblioteca de Planilhas", id: "biblioteca_workbooks", icon: FolderOpen }
+        {
+          title: "Fontes de Dados",
+          id: "central_dados",
+          icon: Database,
+          accessibleLabel: "Fontes de Dados — Importar Planilhas — Biblioteca de Planilhas — Conectar Banco — VPN e Banco de Dados",
+        }
       ]
     },
     {
-      groupKey: "diagnosticar_negocio",
-      title: "Diagnosticar Negócio",
+      groupKey: "analise",
+      title: "Análise",
+      accessibleLabel: "Análise — Diagnosticar Negócio",
       icon: Target,
       subItems: [
-        { title: "Diagnóstico Executivo", id: "resumo", icon: BarChart3 },
-        { title: "KPIs & DRE", id: "dre_inteligente", icon: Target },
+        { title: "Análise da fonte", id: "analise_estrutura", icon: Database, accessibleLabel: "Análise da fonte — Análise de Estrutura" },
+        { title: "Visão Executiva", id: "resumo", icon: BarChart3, accessibleLabel: "Visão Executiva — Diagnóstico Executivo" },
         { title: "Financeiro", id: "financeiro", icon: Calculator },
         { title: "Comercial", id: "comercial", icon: TrendingUp },
+        { title: "Pessoas", id: "comissoes", icon: Users, accessibleLabel: "Pessoas — People Intelligence — Vendedores — Comissões" },
         { title: "Anomalias", id: "obstaculos", icon: ShieldAlert },
-        { title: "Recomendações", id: "consultor_ia", icon: BrainCircuit },
-        { title: "Dossiês", id: "relatorios", icon: FileText }
+        { title: "Recomendações", id: "consultor_ia", icon: BrainCircuit }
       ]
     },
     {
-      groupKey: "preparar_decisao",
-      title: "Preparar Decisão",
+      groupKey: "decisao",
+      title: "Decisão",
+      accessibleLabel: "Decisão — Preparar Decisão",
       icon: Presentation,
       subItems: [
-        { title: "Narrativa Executiva", id: "narrativa_executiva", icon: FileText },
-        { title: "Decks", id: "apresentacoes", icon: Presentation },
-        { title: "Templates", id: "apresentacoes_templates", icon: Layers }
+        { title: "Apresentações", id: "apresentacoes", icon: Presentation, accessibleLabel: "Apresentações — Decks — Templates" }
       ]
     },
     {
-      groupKey: "conduzir_sessao",
-      title: "Conduzir Sessão",
+      groupKey: "reuniao",
+      title: "Reunião",
+      accessibleLabel: "Reunião — Conduzir Sessão",
       icon: MonitorPlay,
       subItems: [
         { title: "Preparação da Reunião", id: "preparacao_reuniao", icon: ClipboardList },
         { title: "Sessão Executiva", id: "modo_reuniao", icon: MonitorPlay },
-        { title: "Ata & Decisões", id: "reuniao_ata", icon: ClipboardList },
-        { title: "Notas", id: "reuniao_notes", icon: FileText }
+        { title: "Ata e Decisões", id: "reuniao_ata", icon: ClipboardList, accessibleLabel: "Ata e Decisões — Ata & Decisões" }
       ]
     },
     {
-      groupKey: "executar_plano",
-      title: "Executar Plano",
+      groupKey: "acompanhamento",
+      title: "Acompanhamento",
+      accessibleLabel: "Acompanhamento — Executar Plano — Evoluir Resultado",
       icon: CheckSquare,
       subItems: [
-        { title: "Plano Executivo", id: "plano_executivo", icon: CheckSquare },
-        { title: "Responsáveis & Prazos", id: "plano_responsaveis", icon: Users },
-        { title: "People Intelligence", id: "comissoes", icon: Users }
-      ]
-    },
-    {
-      groupKey: "evoluir_resultado",
-      title: "Evoluir Resultado",
-      icon: History,
-      subItems: [
+        { title: "Plano Executivo", id: "plano_executivo", icon: CheckSquare, accessibleLabel: "Plano Executivo — Responsáveis & Prazos" },
         { title: "Histórico", id: "historico_executivo", icon: History },
-        { title: "Comparativos", id: "comparativos_mensais", icon: Layers },
-        { title: "Evolução", id: "fechamento_mensal", icon: Calculator }
+        { title: "Evolução", id: "fechamento_mensal", icon: Calculator, accessibleLabel: "Evolução — Comparativos" }
       ]
     },
     {

@@ -6,6 +6,7 @@
 import React, { useMemo, useEffect, useState } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { WorkspaceProject } from "../modules/consultant-workspace/types";
+import { enterpriseRepository } from "../core/persistence/EnterpriseRepository";
 import { useExecutiveSessionState } from "./useExecutiveSessionState";
 import { ExecutiveSessionHeader } from "./ExecutiveSessionHeader";
 import { ExecutiveSessionFooter } from "./ExecutiveSessionFooter";
@@ -16,7 +17,7 @@ import { ExecutiveSessionSummary } from "./ExecutiveSessionSummary";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
 import { calculatePresentationMetricValues } from "../core/business-intelligence/BusinessIntelligenceEngine";
-import { buildMeetingChartData, inferPresentationMappings, PresentationMetricValues } from "../core/business-intelligence/PresentationMetricContext";
+import { buildMeetingChartData, PresentationMetricValues } from "../core/business-intelligence/PresentationMetricContext";
 import { getEnterpriseContext } from "../core/enterprise-consolidation";
 import { certifiedMetricSnapshotStore } from "../core/financial-consistency";
 import type { CertifiedMetricSnapshot } from "../core/financial-consistency";
@@ -39,7 +40,44 @@ export const MeetingModePage: React.FC<MeetingModePageProps> = ({
   widgetContext,
 }) => {
   const activeDataset = activeDatasetStore.getActiveDataset();
+  const [contextProject, setContextProject] = useState<WorkspaceProject | null>(null);
   const [certifiedSnapshot, setCertifiedSnapshot] = useState<CertifiedMetricSnapshot | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const context = getEnterpriseContext();
+    void enterpriseRepository.getAll().then(entities => {
+      if (!mounted) return;
+      const company = entities.find(entity => entity.id === context.companyId);
+      const group = entities.find(entity => entity.id === context.groupId);
+      const client = company?.name || group?.name || activeDataset?.sourceName || "Fonte selecionada";
+      const groupName = group?.name || (company ? "Empresa selecionada" : client);
+      setContextProject({
+        id: context.companyId || context.groupId || activeDataset?.datasetId || "active-context",
+        client,
+        group: groupName,
+        segment: "Geral",
+        companies: company ? [company.id] : [],
+        brands: [],
+        cnpjs: [],
+        dbConnections: [],
+        spreadsheets: [],
+        importProfile: null,
+        filters: [],
+        kpis: [],
+        dashboards: [],
+        presentations: [],
+        actionPlans: [],
+        meetings: [],
+        observations: "",
+        history: [],
+        auditLog: [],
+        lastUpdated: new Date().toISOString(),
+        isArchived: false,
+      });
+    });
+    return () => { mounted = false; };
+  }, [activeDataset?.datasetId, activeDataset?.sourceName]);
 
   useEffect(() => {
     const context = getEnterpriseContext();
@@ -117,7 +155,7 @@ export const MeetingModePage: React.FC<MeetingModePageProps> = ({
     handleFinalizeSession,
     exportAtaAsTextFile,
   } = useExecutiveSessionState({
-    activeProject,
+    activeProject: activeProject || contextProject,
     onUpdateProject,
     onExit,
     certifiedSnapshot,
@@ -126,8 +164,8 @@ export const MeetingModePage: React.FC<MeetingModePageProps> = ({
   const meetingMappings = useMemo(() => {
     if (!activeDataset) return [];
     const saved = listModuleMappings(activeDataset.datasetId, getDefaultProjectId(activeDataset));
-    return saved.length > 0 ? saved : inferPresentationMappings(activeDataset, filteredData);
-  }, [activeDataset?.datasetId, activeDataset?.importedAt, filteredData]);
+    return saved;
+  }, [activeDataset?.datasetId, activeDataset?.importedAt]);
   const chartData = useMemo(() => buildMeetingChartData(filteredData, meetingMappings), [filteredData, meetingMappings]);
   const chartDataRevenue = chartData.revenue;
   const chartDataCosts = chartData.costs;
@@ -169,6 +207,18 @@ export const MeetingModePage: React.FC<MeetingModePageProps> = ({
       clearTimeout(timer);
     };
   }, [datasetKey, rowsSignature, mappingSignature]);
+
+  if (!activeDataset) {
+    return (
+      <div className="min-h-[420px] flex items-center justify-center bg-slate-950 text-slate-100 rounded-2xl border border-slate-800 p-8 text-center">
+        <div className="max-w-md space-y-3">
+          <h2 className="text-lg font-black">Não há itens selecionados para a reunião.</h2>
+          <p className="text-sm text-slate-400">Escolha conteúdo na apresentação e confirme os campos antes de iniciar a reunião.</p>
+          <button onClick={onExit} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer">Escolher conteúdo</button>
+        </div>
+      </div>
+    );
+  }
 
   // --- Fullscreen Toggle ---
   const toggleFullScreen = () => {

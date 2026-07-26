@@ -1,0 +1,13 @@
+{
+  "testName": "protecao-duplo-clique",
+  "startAt": "2026-07-20T04:25:51.956Z",
+  "stepsCompleted": [
+    "18. Duplo clique nao quebrou a importacao"
+  ],
+  "stepsFailed": [],
+  "clickCount": 2,
+  "retries": 0,
+  "errorsEncountered": [],
+  "endAt": "2026-07-20T04:25:55.834Z",
+  "durationMs": 3878
+}

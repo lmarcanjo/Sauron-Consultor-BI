@@ -2,7 +2,7 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  *
- * CentralDadosTab.tsx — Centro Operacional e Biblioteca Documental do Consultor.
+ * CentralDadosTab.tsx — Central de Fontes do Consultor.
  * Totalmente derivado de estados reais, sem mocks, painéis técnicos ou VPNs na interface permanente.
  */
 
@@ -14,9 +14,7 @@ import {
   Settings2, FolderOpen, Clock, Search, Archive, RotateCcw, Building, Move, Eye, Trash, CheckSquare, X, HelpCircle
 } from "lucide-react";
 import { LancamentoFinanceiro, FiltrosDashboard } from "../types";
-import { DatabaseConnector } from "./DatabaseConnector";
-import { useDataSourceManager } from "../hooks/useDataSourceManager";
-import { dataSourceManager } from "../services/dataSourceManager";
+import { DatabaseConnector, DatabaseDataLoadedHandler } from "./DatabaseConnector";
 import { SimpleSpreadsheetImporter } from "./spreadsheet/SimpleSpreadsheetImporter";
 import { getActiveColumns, getPreviewRows } from "../core/data/activeDatasetView";
 import { buildWorkbookOverview, WorkbookOverview } from "../core/data/businessViews";
@@ -33,11 +31,14 @@ import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/Work
 import { showToast } from "./Toast";
 import { EnterpriseTimeline } from "./EnterpriseTimeline";
 import { getDomainDisplayLabel, getDomainDisplayOptions } from "../core/business-domains";
+import { repairLegacyLocalState } from "../core/migrations/LegacyLocalStateRepairService";
+import { ChaosProfilingPanel } from "./ChaosProfilingPanel";
 
 interface CentralDadosTabProps {
   dataOrigem: LancamentoFinanceiro[];
-  onDataLoaded: (data: LancamentoFinanceiro[], sourceName: string) => void;
+  onDataLoaded: DatabaseDataLoadedHandler;
   currentSource: string;
+  sharedFiles?: File[] | null;
   camposAusentes: string[];
   filtros?: FiltrosDashboard;
   visibleFilters?: string[];
@@ -49,6 +50,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   dataOrigem,
   onDataLoaded,
   currentSource,
+  sharedFiles,
   camposAusentes,
   filtros = { grupos: [], cnpjs: [], marcas: [], meses: [], razoes: [] },
   visibleFilters = [],
@@ -56,8 +58,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   initialStep = 0,
 }) => {
   // Tabs Selection:
-  // 0: Centro Operacional
-  // 1: Biblioteca Enterprise
+  // 0: Saúde da fonte
+  // 1: Fontes persistidas
   // 2: Timeline Empresarial
   const [activeTab, setActiveTab] = useState<number>(initialStep);
 
@@ -89,8 +91,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
   const steps = useMemo(() => {
     const list = [
-      { id: 0, title: "Centro Operacional", desc: "Métricas e Saúde de Dados", icon: Database },
-      { id: 1, title: "Biblioteca Enterprise", desc: "Gerenciador Documental", icon: FolderOpen }
+      { id: 0, title: "Saúde da fonte", desc: "Métricas e estrutura encontrada", icon: Database },
+      { id: 1, title: "Fontes de dados", desc: "Importar, ativar e organizar fontes", icon: FolderOpen }
     ];
     if (displayHistory) {
       list.push({ id: 2, title: "Timeline Empresarial", desc: "Histórico de Eventos Reais", icon: Clock });
@@ -98,19 +100,17 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     return list;
   }, [displayHistory]);
 
-  const {
-    activeDataSource,
-    approvedByConsultant,
-    workspace,
-    refreshDataSource,
-    activeDataset,
-    tick,
-    activeRecords
-  } = useDataSourceManager();
+  const [activeDataset, setActiveDataset] = useState(activeDatasetStore.getActiveDataset());
+  const [libraryTick, setLibraryTick] = useState(0);
+
+  useEffect(() => activeDatasetStore.subscribe(() => {
+    setActiveDataset(activeDatasetStore.getActiveDataset());
+  }), []);
 
   // Modals / Overlays States
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const directFileInputRef = useRef<HTMLInputElement>(null);
   const [isDbConnectorOpen, setIsDbConnectorOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewWb, setPreviewWb] = useState<any | null>(null);
@@ -120,6 +120,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   const [linkTargetCompanyId, setLinkTargetCompanyId] = useState("");
   const [isMoveBatchOpen, setIsMoveBatchOpen] = useState(false);
   const [batchTargetCompanyId, setBatchTargetCompanyId] = useState("");
+  const [localRepairMessage, setLocalRepairMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const receiveFiles = (event: Event) => {
@@ -131,6 +132,15 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     window.addEventListener("sauron:spreadsheet-files-selected", receiveFiles);
     return () => window.removeEventListener("sauron:spreadsheet-files-selected", receiveFiles);
   }, []);
+
+  // The shared header keeps the selected File objects as props while this
+  // route mounts. This closes the handoff race where a one-shot window event
+  // could fire before the importer listener was attached.
+  useEffect(() => {
+    if (!sharedFiles || sharedFiles.length === 0) return;
+    setPendingFiles(sharedFiles);
+    setIsUploaderOpen(true);
+  }, [sharedFiles]);
 
   // Enterprise / Context structures state
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
@@ -197,24 +207,6 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
   // Compute visible files list dynamically
   const visibleFilesList = useMemo(() => {
-    const workspaceFiles = (workspace?.files || []).map(f => ({
-      id: f.id,
-      name: f.fileName,
-      size: f.totalRows * 120,
-      sheets: f.sheets.map(s => s.sheetName),
-      date: f.importedAt ? f.importedAt.split("T")[0] : new Date().toISOString().split("T")[0],
-      status: f.status,
-      version: f.version || f.versao || "v1",
-      qualityScore: f.qualityScore ?? 100,
-      qualityLabel: f.qualityLabel || "Excelente",
-      totalRows: f.totalRows,
-      totalColumns: f.totalColumns,
-      totalAbas: f.sheets.length,
-      approvedByConsultant: f.approvedByConsultant,
-      importedBy: f.importedBy,
-      importedAt: f.importedAt,
-      sheetsData: f.sheets
-    }));
     const libraryFiles = libraryWorkbookRepository.listWorkbooks({ includeArchived: true }).map(workbook => {
       const version = libraryWorkbookRepository.getCurrentVersion(workbook.id);
       const dataset = version?.activeDataset;
@@ -237,9 +229,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
         sheetsData: [],
       };
     });
-    const byId = new Map([...libraryFiles, ...workspaceFiles].map(file => [file.id, file]));
+    const byId = new Map(libraryFiles.map(file => [file.id, file]));
     return Array.from(byId.values());
-  }, [workspace, tick, contextTick]);
+  }, [libraryTick, contextTick]);
 
   const bindingFor = (workbookId: string) => sourceBindings.find(binding => binding.workbookId === workbookId || binding.sourceId === workbookId);
   const linkedCompanyFor = (workbookId: string) => {
@@ -364,8 +356,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
         id: "active_sources",
         problem: "Nenhuma fonte de dados selecionada como ativa",
         impact: "O DRE e painéis não mostram resultados por falta de seleção.",
-        solution: "Acesse a Biblioteca e ative os workbooks desejados para a análise.",
-        actionLabel: "Ir para Biblioteca",
+        solution: "Abra Fontes persistidas e ative as fontes desejadas para a análise.",
+        actionLabel: "Ir para Fontes",
         actionTabIdx: 1
       });
     }
@@ -375,9 +367,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
         id: "mapping",
         problem: "Existem colunas pendentes de mapeamento de campos",
         impact: "Receitas, custos e despesas não são somados adequadamente no DRE.",
-        solution: "Acesse a Biblioteca e edite as colunas correspondentes na planilha.",
+        solution: "Abra Análise da fonte e confirme as informações encontradas.",
         actionLabel: "Ajustar Mapeamentos",
-        actionTabIdx: 1
+        actionTabIdx: 0
       });
     }
 
@@ -386,9 +378,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
         id: "segment",
         problem: "Segmento de atuação indefinido (Neutro/Geral)",
         impact: "Regras de EBITDA e fórmulas financeiras operam com termos genéricos.",
-        solution: "Selecione o segmento real (ex: Agronegócio) no cabeçalho permanente.",
+        solution: "O segmento é opcional e pode ser definido em Empresas e Grupos.",
         actionLabel: "Definir Segmento",
-        actionTab: "perfis"
+        actionTab: "enterprise_center"
       });
     }
 
@@ -421,22 +413,34 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   // SINGLE WORKBOOK ACTIONS
   const handleOpenWorkbook = async (wbId: string) => {
     const context = getEnterpriseContext();
+    const binding = bindingFor(wbId);
+    const bindingScope = binding?.scopeType || (binding?.unitId ? "UNIT" : binding?.companyId ? "COMPANY" : "GROUP");
+    const sourceContext = binding
+      ? {
+          ...context,
+          workspaceId: binding.workspaceId || context.workspaceId,
+          groupId: binding.groupId,
+          companyId: binding.companyId,
+          unitId: binding.unitId,
+          scope: bindingScope as "GROUP" | "COMPANY" | "UNIT",
+        }
+      : context;
     try {
       await activateImportedSources({
         workbookIds: [wbId],
         datasetIds: [wbId],
         enterpriseContext: {
-          ...context,
+          ...sourceContext,
           workbookIds: [wbId],
           datasetIds: [wbId]
         }
       });
       const name = visibleFilesList.find(f => f.id === wbId)?.name || wbId;
       await timelineRepository.log("ACTIVATE", "Planilha ativada como fonte única", name);
-      showToast("success", "Workbook carregado e ativado.");
-      refreshDataSource();
+      showToast("success", "Fonte carregada e ativada.");
+      setLibraryTick(value => value + 1);
     } catch (e: any) {
-      showToast("error", `Erro ao ativar workbook: ${e.message}`);
+      showToast("error", `Erro ao ativar fonte: ${e.message}`);
     }
   };
 
@@ -468,7 +472,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       });
       await timelineRepository.log("IMPORT", "Workbook duplicado", `Cópia de ${wb.name}`);
       showToast("success", "Cópia criada com sucesso.");
-      refreshDataSource();
+      setLibraryTick(value => value + 1);
     } catch (err: any) {
       showToast("error", `Erro ao duplicar: ${err.message}`);
     }
@@ -479,7 +483,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     const name = visibleFilesList.find(f => f.id === wbId)?.name || wbId;
     await timelineRepository.log("ARCHIVE", "Workbook arquivado", name);
     showToast("info", "Workbook arquivado com sucesso.");
-    refreshDataSource();
+    setLibraryTick(value => value + 1);
   };
 
   const handleRestoreWorkbook = async (wbId: string) => {
@@ -487,7 +491,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     const name = visibleFilesList.find(f => f.id === wbId)?.name || wbId;
     await timelineRepository.log("RESTORE", "Workbook restaurado", name);
     showToast("success", "Workbook restaurado com sucesso.");
-    refreshDataSource();
+    setLibraryTick(value => value + 1);
   };
 
   const handleDeleteWorkbook = async (wbId: string) => {
@@ -501,9 +505,10 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     }
     libraryWorkbookRepository.setWorkbookStatus(workbook.id, "DELETED");
     await enterpriseRepository.removeSourceBinding(wbId);
-    dataSourceManager.deleteSpreadsheetFile(wbId);
-    await spreadsheetStorageAdapter.deleteRows(wbId);
-    await spreadsheetStorageAdapter.deleteMetadata(wbId);
+    const version = libraryWorkbookRepository.getCurrentVersion(workbook.id);
+    const storageId = version?.activeDataset?.datasetId || wbId;
+    await spreadsheetStorageAdapter.deleteRows(storageId);
+    await spreadsheetStorageAdapter.deleteMetadata(storageId);
 
     try {
       await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
@@ -511,7 +516,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       await timelineRepository.log("DELETE", "Workbook excluído", name);
       showToast("success", "Workbook excluído permanentemente.");
       setSelectedWbIds(selectedWbIds.filter(id => id !== wbId));
-      refreshDataSource();
+      setLibraryTick(value => value + 1);
     } catch(err: any) {
       showToast("error", err.message);
     }
@@ -551,7 +556,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       setIsLinkOpen(false);
       setLinkWb(null);
       loadData();
-      refreshDataSource();
+      setLibraryTick(value => value + 1);
     } catch {
       showToast("error", "Erro ao alterar o vínculo.");
     }
@@ -580,7 +585,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       await timelineRepository.log("DELETE", `${selectedWbIds.length} workbooks excluídos em lote`, `${selectedWbIds.length} registros purgados`);
       showToast("success", "Exclusão em lote concluída.");
       setSelectedWbIds([]);
-      refreshDataSource();
+      setLibraryTick(value => value + 1);
     } catch(err: any) {
       showToast("error", err.message);
     }
@@ -598,7 +603,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
     await timelineRepository.log("ARCHIVE", `${selectedWbIds.length} workbooks arquivados em lote`, `${selectedWbIds.length} itens inativados`);
     showToast("info", "Planilhas arquivadas com sucesso.");
     setSelectedWbIds([]);
-    refreshDataSource();
+    setLibraryTick(value => value + 1);
   };
 
   const handleBatchActivate = async (activate: boolean) => {
@@ -616,7 +621,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       await timelineRepository.log("ACTIVATE", `${selectedWbIds.length} planilhas ${logAction.toLowerCase()} em lote`, `${selectedWbIds.length} fontes alteradas`);
       showToast("success", `Planilhas ${activate ? "ativadas" : "desativadas"} com sucesso.`);
       setSelectedWbIds([]);
-      refreshDataSource();
+      setLibraryTick(value => value + 1);
     } catch(err: any) {
       showToast("error", err.message);
     }
@@ -649,7 +654,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       setIsMoveBatchOpen(false);
       setSelectedWbIds([]);
       loadData();
-      refreshDataSource();
+      setLibraryTick(value => value + 1);
     } catch {
       showToast("error", "Erro ao mover as planilhas.");
     }
@@ -669,7 +674,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       await enterpriseConsolidationService.refreshActiveDatasetForContext(getEnterpriseContext());
       await timelineRepository.log("ACTIVATE", `Todas as planilhas foram ${activate ? "ativadas" : "desativadas"}`, `${targetIds.length} planilhas`);
       showToast("success", `Todas as planilhas foram ${activate ? "ativadas" : "desativadas"}.`);
-      refreshDataSource();
+      setLibraryTick(value => value + 1);
     } catch(err: any) {
       showToast("error", err.message);
     }
@@ -678,7 +683,6 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   // Resolved dynamic values for Operational Center
   const activePeriodStr = activeDataset?.importedAt ? new Date(activeDataset.importedAt).toLocaleDateString("pt-BR") : "N/A";
   const numColumns = activeDataset?.columnCount || 0;
-  const detectedSegmentLabel = getDomainDisplayLabel(currentWorkspace?.detectedDomain);
   const confirmedSegmentLabel = getDomainDisplayLabel(currentWorkspace?.manualDomain);
 
   return (
@@ -717,6 +721,22 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
               <Plus size={14} />
               <span>Importar Planilha</span>
             </button>
+            <input
+              ref={directFileInputRef}
+              data-testid="btn-drawer-import"
+              aria-label="Selecionar arquivo para importar"
+              type="file"
+              multiple
+              accept=".xlsx,.xls,.csv"
+              className="absolute h-px w-px opacity-0"
+              onChange={(event) => {
+                const files = Array.from(event.target.files || []);
+                event.target.value = "";
+                if (files.length === 0) return;
+                setPendingFiles(files);
+                setIsUploaderOpen(true);
+              }}
+            />
             <button
               onClick={() => setIsDbConnectorOpen(true)}
               className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-black uppercase rounded-xl transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200 dark:border-slate-700"
@@ -724,9 +744,25 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
               <Server size={14} className="text-blue-500" />
               <span>Conectar Banco (ERP)</span>
             </button>
+            <button
+              onClick={async () => {
+                const report = await repairLegacyLocalState();
+                const repaired = report.repairedKeys.length;
+                const unresolved = report.unresolvedKeys.length;
+                setLocalRepairMessage(`${repaired} referência(s) verificadas; ${unresolved} item(ns) precisam de revisão. Nenhuma planilha foi apagada.`);
+              }}
+              className="px-3.5 py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-black uppercase rounded-xl transition-all border border-slate-200 dark:border-slate-700"
+            >
+              <span>Verificar dados locais</span>
+            </button>
           </div>
         </div>
+        {localRepairMessage && <p className="mt-3 text-xs font-bold text-emerald-700 dark:text-emerald-300" role="status">{localRepairMessage}</p>}
       </div>
+
+      <ChaosProfilingPanel activeDataset={activeDataset} />
+
+
 
       {/* TABS CONTENT RENDERING */}
       <div className="w-full">
@@ -767,16 +803,6 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                       <span className="font-bold text-slate-700 dark:text-slate-200">{confirmedSegmentLabel}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold">Sugestão identificada:</span>
-                      <span className="font-bold text-slate-700 dark:text-slate-200">{detectedSegmentLabel}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold">Confiança da identificação:</span>
-                      <span className="font-bold text-slate-700 dark:text-slate-200">
-                        {currentWorkspace?.domainConfidence ? `${Math.round(currentWorkspace.domainConfidence * 100)}%` : "N/A"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
                       <span className="text-slate-400 font-semibold">Período Fiscal:</span>
                       <span className="font-bold text-slate-700 dark:text-slate-200">
                         {getEnterpriseContext().period ? `${getEnterpriseContext().period?.start} a ${getEnterpriseContext().period?.end}` : "Todos"}
@@ -804,7 +830,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
                       <span className="text-slate-400 font-semibold">Total de Registros (Linhas):</span>
-                      <span className="font-bold text-slate-700 dark:text-slate-200">{activeRecords.length.toLocaleString("pt-BR")} registros</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-200">{(activeDataset?.rowCount || 0).toLocaleString("pt-BR")} registros</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
                       <span className="text-slate-400 font-semibold">Total de Colunas:</span>
@@ -859,9 +885,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                       </span>
                     </div>
                     <div className="flex justify-between border-b border-slate-50 dark:border-slate-900/50 pb-1.5">
-                      <span className="text-slate-400 font-semibold">Campos Obrigatórios Faltantes:</span>
+                      <span className="text-slate-400 font-semibold">Campos personalizados:</span>
                       <span className={`font-bold ${camposAusentes.length > 0 ? "text-rose-500" : "text-slate-450"}`}>
-                        {camposAusentes.length > 0 ? `${camposAusentes.join(", ")}` : "Nenhum"}
+                        {camposAusentes.length > 0 ? `${camposAusentes.join(", ")}` : "0 campos personalizados"}
                       </span>
                     </div>
                     <div className="flex flex-col gap-1 pt-1">
@@ -976,7 +1002,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    refreshDataSource();
+                    setLibraryTick(value => value + 1);
                     showToast("success", "Status de dados atualizados.");
                   }}
                   className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-black uppercase rounded-lg border border-slate-250 dark:border-slate-700 transition-colors cursor-pointer text-[10px]"
@@ -999,7 +1025,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
               <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
                 <h3 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
                   <FolderOpen size={16} className="text-blue-500" />
-                  Biblioteca de planilhas do projeto
+                  Fontes persistidas do projeto
                 </h3>
                 
                 {/* Search field */}
@@ -1020,8 +1046,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                 
                 {/* Group */}
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-450 block uppercase">Grupo</label>
+                  <label htmlFor="source-filter-group" className="text-[9px] font-bold text-slate-450 block uppercase">Grupo</label>
                   <select 
+                    id="source-filter-group"
                     value={filterGroup} 
                     onChange={e => setFilterGroup(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-855 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-350 focus:outline-none text-[11px]"
@@ -1035,8 +1062,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
                 {/* Company */}
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-450 block uppercase">Empresa</label>
+                  <label htmlFor="source-filter-company" className="text-[9px] font-bold text-slate-450 block uppercase">Empresa</label>
                   <select 
+                    id="source-filter-company"
                     value={filterCompany} 
                     onChange={e => setFilterCompany(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-855 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-350 focus:outline-none text-[11px]"
@@ -1050,8 +1078,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
                 {/* Unit */}
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-455 block uppercase">Unidade</label>
+                  <label htmlFor="source-filter-unit" className="text-[9px] font-bold text-slate-455 block uppercase">Unidade</label>
                   <select 
+                    id="source-filter-unit"
                     value={filterUnit} 
                     onChange={e => setFilterUnit(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-855 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-350 focus:outline-none text-[11px]"
@@ -1065,8 +1094,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
                 {/* Segment */}
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-455 block uppercase">Segmento</label>
+                  <label htmlFor="source-filter-segment" className="text-[9px] font-bold text-slate-455 block uppercase">Segmento</label>
                   <select 
+                    id="source-filter-segment"
                     value={filterSegment} 
                     onChange={e => setFilterSegment(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-855 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-350 focus:outline-none text-[11px]"
@@ -1080,8 +1110,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
                 {/* Status */}
                 <div className="space-y-1 col-span-2 md:col-span-1">
-                  <label className="text-[9px] font-bold text-slate-455 block uppercase">Status</label>
+                  <label htmlFor="source-filter-status" className="text-[9px] font-bold text-slate-455 block uppercase">Status</label>
                   <select 
+                    id="source-filter-status"
                     value={filterStatus} 
                     onChange={e => setFilterStatus(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-855 px-2 py-1.5 rounded-lg text-slate-700 dark:text-slate-350 focus:outline-none text-[11px]"
@@ -1156,6 +1187,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                     <th className="p-3 w-8">
                       <input
                         type="checkbox"
+                        aria-label="Selecionar todas as fontes"
                         checked={filteredLibrary.length > 0 && selectedWbIds.length === filteredLibrary.length}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -1201,8 +1233,9 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                       >
                         {/* Checkbox cell */}
                         <td className="p-3">
-                          <input
-                            type="checkbox"
+                            <input
+                              type="checkbox"
+                              aria-label={`Selecionar fonte ${f.name}`}
                             checked={isSelected}
                             onChange={(e) => {
                               if (e.target.checked) {
@@ -1361,8 +1394,8 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
                   })}
                   {filteredLibrary.length === 0 && (
                     <tr>
-                      <td colSpan={12} className="p-8 text-center text-slate-400 italic font-semibold">
-                        Nenhum workbook correspondente aos filtros foi encontrado na biblioteca.
+                      <td colSpan={12} className="p-8 text-center text-slate-600 dark:text-slate-300 italic font-semibold">
+                        Nenhuma fonte correspondente aos filtros foi encontrada.
                       </td>
                     </tr>
                   )}
@@ -1546,7 +1579,7 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
               onImported={async (dataset) => {
                 setIsUploaderOpen(false);
                 setPendingFiles([]);
-                refreshDataSource();
+                setLibraryTick(value => value + 1);
                 await timelineRepository.log("IMPORT", "Planilha importada com sucesso", dataset.sourceName);
                 showToast("success", "Planilha importada com sucesso.");
               }}
@@ -1571,11 +1604,12 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
             </div>
             <div className="border border-slate-800 rounded-xl p-2 bg-slate-950/40">
               <DatabaseConnector 
-                onDataLoaded={(data, name) => {
-                  onDataLoaded(data, name);
+                onDataLoaded={async (data, name, selection) => {
+                  const sourceId = await onDataLoaded(data, name, selection);
                   setIsDbConnectorOpen(false);
                   timelineRepository.log("LINK", "Banco de dados integrado", name);
                   showToast("success", `Banco conectado: ${name}`);
+                  return sourceId;
                 }} 
                 currentSource={currentSource} 
               />

@@ -138,6 +138,35 @@ describe("F11.2 — Raw Mode & Demonstration Flow Test Suite", () => {
       workspace: null,
       activeDataset: dataset,
       allRows: mockRows,
+      moduleMappings: [
+        {
+          projectId: "default",
+          datasetId: dataset.datasetId,
+          moduleName: "DRE",
+          sheetName: "Safra 2026",
+          selectedColumns: ["Receita", "Custo", "Despesa"],
+          semanticRoles: { revenue: "Receita", cost: "Custo", expense: "Despesa" },
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          projectId: "default",
+          datasetId: dataset.datasetId,
+          moduleName: "Comercial",
+          sheetName: "Safra 2026",
+          selectedColumns: ["Vendedor", "Receita", "Empresa", "Mês"],
+          semanticRoles: { seller: "Vendedor", value: "Receita", client: "Empresa", date: "Mês" },
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          projectId: "default",
+          datasetId: dataset.datasetId,
+          moduleName: "Comissão",
+          sheetName: "Safra 2026",
+          selectedColumns: ["Vendedor", "Comissão"],
+          semanticRoles: { seller: "Vendedor", amount: "Comissão" },
+          updatedAt: new Date().toISOString(),
+        },
+      ],
     });
 
     expect(res.status).toBe("ready");

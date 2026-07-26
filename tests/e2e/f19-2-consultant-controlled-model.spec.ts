@@ -131,8 +131,9 @@ test.describe("F19.2 — Consultant-Controlled Business Model & Switching", () =
       // 5. Create custom indicator: "Faturamento"
       await page.getByRole("button", { name: "Qual pergunta deseja responder?" }).click();
       await page.fill("input[placeholder='Ex: Faturamento Consolidado']", "Faturamento");
-      await page.locator("select").nth(0).selectOption({ label: "Valor" });
-      await page.locator("select").nth(1).selectOption({ label: "Soma (Total)" });
+      const metricFormSelects = page.locator("#modelo-consultivo-tab select");
+      await metricFormSelects.nth(0).selectOption({ label: "Valor" });
+      await metricFormSelects.nth(1).selectOption({ label: "Soma (Total)" });
       await page.getByRole("button", { name: "Salvar Indicador" }).click();
       await expect(page.getByText("Faturamento").first()).toBeVisible({ timeout: 10000 });
 

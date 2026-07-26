@@ -46,9 +46,9 @@ export const MeetingChecklistWidget: React.FC<MeetingChecklistWidgetProps> = ({
 
   const checklistItems = [
     { id: "ent", label: "Empresas cadastradas", done: hasEnterprise, tab: "enterprise_center" },
-    { id: "data", label: "Dados atualizados (planilha importada)", done: hasData, tab: "importacao" },
+    { id: "data", label: "Dados atualizados", done: hasData, tab: "central_dados" },
     { id: "seg", label: "Segmento operacional identificado", done: hasSegment, tab: "enterprise_center" },
-    { id: "map", label: "Campos financeiros configurados", done: hasMapping, tab: "perfis" },
+    { id: "map", label: "Campos financeiros configurados", done: hasMapping, tab: "analise_estrutura" },
     { id: "kpis", label: "Indicadores chave (KPIs) disponíveis", done: hasMapping, tab: "resumo" },
     { id: "pres", label: "Apresentação executiva pronta", done: hasPresentation, tab: "preparacao_reuniao" },
     { id: "mkt", label: "Inteligência de mercado ativa", done: isMarketConfigured, tab: "enterprise_center" },

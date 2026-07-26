@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { AlertCircle, ArrowRight, ShieldAlert, Sparkles, TrendingDown, HelpCircle, CheckCircle, Calendar, MapPin, DollarSign, RefreshCw } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
-import { dataSourceManager } from "../services/dataSourceManager";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { platformLogger } from "../core/platform/PlatformLogger";
 
@@ -28,7 +27,7 @@ export const DiagnosticoObstaculosTab: React.FC<DiagnosticoObstaculosTabProps> =
 
   const isPendingConfiguration = useMemo(() => {
     if (!activeDataset) return false;
-    if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
+    if (!activeDataset) return false;
     if (activeDataset && activeDataset.columnProfiles) {
       // Diagnostico requires KPIs or DREs to detect anomalies
       const hasDiagnosticoCol = activeDataset.columnProfiles.some((p: any) => p.isKPI || p.isDRE);

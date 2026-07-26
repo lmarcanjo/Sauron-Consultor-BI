@@ -29,3 +29,7 @@ We need a flexible, enterprise-grade, and completely decoupled **Persistence Pla
 ## Consequences
 - **Positive**: Complete encapsulation of storage technologies; domain logic is fully testable in memory; and the database backend can be swapped out with zero impact on the core engines.
 - **Negative**: Domain updates must be registered through the Unit of Work, but this structured approach provides high operational stability and transactional safety.
+
+## Permanent Cleanup Rule
+
+Nenhuma Sprint poderá adicionar uma nova funcionalidade sem identificar explicitamente quais componentes, telas, serviços, rotas, testes e documentos se tornaram obsoletos e deverão ser removidos.

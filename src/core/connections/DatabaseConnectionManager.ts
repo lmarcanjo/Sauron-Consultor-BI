@@ -5,7 +5,16 @@
 
 import { LancamentoFinanceiro } from "../../types";
 import { securityEngine } from "../security/SecurityEngine";
+import { normalizeDatabaseConfig } from "./DatabaseConfig";
 import { platformLogger } from "../platform/PlatformLogger";
+import * as fs from "node:fs";
+import * as net from "node:net";
+import * as os from "node:os";
+import { promises as dns } from "node:dns";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 export type DatabaseType =
   | "postgres"
@@ -15,8 +24,12 @@ export type DatabaseType =
   | "mongodb";
 
 export type ConnectionStage =
+  | "vpn"
+  | "configuration"
+  | "route"
   | "host"
   | "port"
+  | "handshake"
   | "auth"
   | "database"
   | "schema"
@@ -26,25 +39,438 @@ export type ConnectionStage =
   | "readonly"
   | "unknown";
 
+export type ConnectionStageStatus = "passed" | "failed" | "skipped";
+
+export interface ConnectionStageResult {
+  stage: ConnectionStage;
+  status: ConnectionStageStatus;
+  message: string;
+}
+
+export interface ConnectionStageTiming {
+  stage: ConnectionStage;
+  elapsedMs: number;
+}
+
+export interface ConnectionErrorDetails {
+  message: string;
+  code?: string;
+  stack?: string;
+}
+
+export interface DatabaseServerInfo {
+  version?: string;
+  currentUser?: string;
+  database?: string | null;
+}
+
+export interface ConnectionRuntimeContext {
+  process: "node";
+  pid: number;
+  startedAt: string;
+  hostname: string;
+  containerized: boolean;
+  containerEvidence: string[];
+  effectiveUser: { uid: number | null; username: string };
+  processExecutable: string;
+  networkNamespaceId: string | null;
+  interfaces: NetworkInterfaceSnapshot[];
+  proxyEnvironmentVariables: string[];
+  isolationSignals: string[];
+}
+
+export interface NetworkInterfaceSnapshot {
+  name: string;
+  address: string;
+  family: string;
+  netmask?: string;
+  cidr?: string | null;
+  internal: boolean;
+}
+
+export interface NetworkRouteProbe {
+  status: "passed" | "failed" | "unavailable";
+  host: string;
+  resolvedAddress?: string;
+  family?: number;
+  interfaceName?: string;
+  gateway?: string;
+  localAddress?: string;
+  command?: string;
+  code?: string;
+  error?: string;
+}
+
+export interface NetworkTcpProbe {
+  status: "passed" | "failed" | "skipped";
+  host: string;
+  port: number;
+  connected: boolean;
+  localAddress?: string;
+  localPort?: number;
+  remoteAddress?: string;
+  remotePort?: number;
+  elapsedMs: number;
+  code?: string;
+  error?: string;
+}
+
+export interface NetworkContextDiagnostics {
+  runtime: ConnectionRuntimeContext;
+  target: { host: string; port: number; type: DatabaseType };
+  routeProbe: NetworkRouteProbe;
+  tcpProbe: NetworkTcpProbe;
+  elapsedMs: number;
+}
+
+export interface NetworkContextComparison {
+  divergent: boolean;
+  sameUser: boolean | null;
+  sameNamespace: boolean | null;
+  sameExecutable: boolean | null;
+  differences: string[];
+}
+
+export function compareNetworkContexts(left: ConnectionRuntimeContext, right: ConnectionRuntimeContext): NetworkContextComparison {
+  const differences: string[] = [];
+  const sameUser = left.effectiveUser.username && right.effectiveUser.username
+    ? left.effectiveUser.username === right.effectiveUser.username && (left.effectiveUser.uid === null || right.effectiveUser.uid === null || left.effectiveUser.uid === right.effectiveUser.uid)
+    : null;
+  const sameNamespace = left.networkNamespaceId && right.networkNamespaceId
+    ? left.networkNamespaceId === right.networkNamespaceId
+    : null;
+  const sameExecutable = left.processExecutable && right.processExecutable
+    ? left.processExecutable === right.processExecutable
+    : null;
+
+  if (sameUser === false) differences.push("usuário efetivo diferente");
+  if (sameNamespace === false) differences.push("namespace de rede diferente");
+  if (sameExecutable === false) differences.push("executável Node diferente");
+  if (left.containerized !== right.containerized) differences.push("sinal de containerização diferente");
+
+  return {
+    divergent: differences.length > 0,
+    sameUser,
+    sameNamespace,
+    sameExecutable,
+    differences,
+  };
+}
+
+export interface DatabaseConnectionDiagnostics {
+  correlationId: string;
+  runtime: ConnectionRuntimeContext;
+  target: { host: string; port: number; type: DatabaseType };
+  stages: ConnectionStageResult[];
+  stageTimings: ConnectionStageTiming[];
+  error?: ConnectionErrorDetails;
+  serverInfo?: DatabaseServerInfo;
+}
+
+export interface TcpProbeResult {
+  connected: boolean;
+  elapsedMs: number;
+  localAddress?: string;
+  localPort?: number;
+  remoteAddress?: string;
+  remotePort?: number;
+  code?: string;
+  error?: string;
+}
+
+export type TcpProbe = (host: string, port: number, timeoutMs: number) => Promise<TcpProbeResult>;
+
+export type RouteProbe = (host: string) => Promise<NetworkRouteProbe>;
+
+export interface DatabaseConnectionDependencies {
+  tcpProbe?: TcpProbe;
+  dnsLookup?: (host: string) => Promise<void>;
+  routeProbe?: RouteProbe;
+}
+
+export const defaultTcpProbe: TcpProbe = (host, port, timeoutMs) => new Promise((resolve) => {
+  const startedAt = Date.now();
+  const socket = new net.Socket();
+  let settled = false;
+  const finish = (result: Omit<TcpProbeResult, "elapsedMs">) => {
+    if (settled) return;
+    settled = true;
+    socket.destroy();
+    resolve({ ...result, elapsedMs: Date.now() - startedAt });
+  };
+
+  socket.setTimeout(timeoutMs);
+  socket.once("connect", () => {
+    const local = socket.address();
+    const localInfo = typeof local === "object" && local !== null && "address" in local
+      ? local as net.AddressInfo
+      : null;
+    finish({
+      connected: true,
+      localAddress: localInfo?.address,
+      localPort: localInfo?.port,
+      remoteAddress: socket.remoteAddress,
+      remotePort: socket.remotePort,
+    });
+  });
+  socket.once("timeout", () => finish({ connected: false, error: "TCP timeout" }));
+  socket.once("error", (error: NodeJS.ErrnoException) => finish({
+    connected: false,
+    code: error.code,
+    error: error.message,
+  }));
+  socket.connect(port, host);
+});
+
+function detectContainer(): string[] {
+  const evidence: string[] = [];
+  if (fs.existsSync("/.dockerenv")) evidence.push("/.dockerenv");
+  try {
+    const cgroup = fs.readFileSync("/proc/1/cgroup", "utf8");
+    if (/docker|containerd|kubepods/i.test(cgroup)) evidence.push("/proc/1/cgroup");
+  } catch {
+    // /proc is not available in every host runtime.
+  }
+  return evidence;
+}
+
+function getNetworkNamespaceId(): string | null {
+  try {
+    const namespace = fs.readlinkSync("/proc/self/ns/net");
+    return namespace.match(/\[(\d+)\]/)?.[1] || null;
+  } catch {
+    return null;
+  }
+}
+
+function getNetworkInterfaces(): NetworkInterfaceSnapshot[] {
+  try {
+    return Object.entries(os.networkInterfaces()).flatMap(([name, entries]) =>
+      (entries || []).map((entry) => ({
+        name,
+        address: entry.address,
+        family: String(entry.family),
+        netmask: entry.netmask,
+        cidr: entry.cidr,
+        internal: entry.internal,
+      }))
+    );
+  } catch {
+    return [];
+  }
+}
+
+function getEffectiveUser(): { uid: number | null; username: string } {
+  const uid = typeof process.geteuid === "function" ? process.geteuid() : null;
+  try {
+    return { uid, username: os.userInfo().username };
+  } catch {
+    return { uid, username: process.env.USER || process.env.USERNAME || "unknown" };
+  }
+}
+
+function getProxyEnvironmentVariables(): string[] {
+  return ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"]
+    .filter((name) => Boolean(process.env[name]));
+}
+
+function getIsolationSignals(containerEvidence: string[]): string[] {
+  const signals = [...containerEvidence];
+  if (process.env.SNAP) signals.push("snap");
+  if (process.env.FLATPAK_ID) signals.push("flatpak");
+  if (process.env.CI) signals.push("ci");
+  return signals;
+}
+
+function parseRouteOutput(output: string): Pick<NetworkRouteProbe, "interfaceName" | "gateway" | "localAddress"> {
+  return {
+    interfaceName: output.match(/\bdev\s+(\S+)/)?.[1],
+    gateway: output.match(/\bvia\s+(\S+)/)?.[1],
+    localAddress: output.match(/\bsrc\s+(\S+)/)?.[1],
+  };
+}
+
+export const defaultRouteProbe: RouteProbe = async (host) => {
+  let resolvedAddress: string;
+  let family: number;
+  try {
+    const resolved = await dns.lookup(host);
+    resolvedAddress = resolved.address;
+    family = resolved.family;
+  } catch (error: any) {
+    return {
+      status: "failed",
+      host,
+      error: error?.message || "Falha na resolução do host.",
+      code: error?.code || "DNS_ERROR",
+    };
+  }
+
+  const command = process.platform === "win32" ? "route" : "ip";
+  const args = process.platform === "win32"
+    ? ["print", resolvedAddress]
+    : ["route", "get", resolvedAddress];
+  try {
+    const result = await execFileAsync(command, args, { timeout: 2500, maxBuffer: 16 * 1024 });
+    const output = String(result.stdout || "").trim();
+    return {
+      status: output ? "passed" : "unavailable",
+      host,
+      resolvedAddress,
+      family,
+      command: [command, ...args].join(" "),
+      ...parseRouteOutput(output),
+      error: output ? undefined : "Comando de rota não retornou dados.",
+    };
+  } catch (error: any) {
+    const unavailable = error?.code === "ENOENT";
+    return {
+      status: unavailable ? "unavailable" : "failed",
+      host,
+      resolvedAddress,
+      family,
+      command: [command, ...args].join(" "),
+      code: error?.code || "ROUTE_ERROR",
+      error: error?.message || "Falha ao consultar a tabela de rotas.",
+    };
+  }
+};
+
+function configuredTarget(config: any): { host: string; port: number } {
+  let host = config.host || "localhost";
+  let port = Number(config.port);
+  if (config.connectionString) {
+    try {
+      const parsed = new URL(config.connectionString);
+      host = parsed.hostname || host;
+      port = Number(parsed.port || (config.type === "mysql" ? 3306 : config.type === "postgres" ? 5432 : port));
+    } catch {
+      // Driver-specific connection strings are handled by the driver itself.
+    }
+  }
+  return { host, port };
+}
+
+function createCorrelationId(): string {
+  return `db-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function sanitizeDiagnosticText(value: unknown, config: any): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  let text = String(value);
+  for (const secret of [config?.password, config?.sshPassword, config?.sshPrivateKey, config?.connectionString]) {
+    if (secret) text = text.split(String(secret)).join("[REDACTED]");
+  }
+  return text;
+}
+
+function toConnectionError(error: any, config: any): ConnectionErrorDetails {
+  return {
+    message: sanitizeDiagnosticText(error?.message || String(error), config) || "Erro desconhecido.",
+    code: error?.code || error?.errno,
+    stack: sanitizeDiagnosticText(error?.stack, config),
+  };
+}
+
+function recordStageTiming(context: ConnectionTestContext, stage: ConnectionStage, startedAt: number): void {
+  context.stageTimings.push({ stage, elapsedMs: Date.now() - startedAt });
+}
+
+interface ConnectionTestContext {
+  correlationId: string;
+  stageTimings: ConnectionStageTiming[];
+}
+
 export interface DatabaseConnectionResult {
   success: boolean;
   stage: ConnectionStage;
   message: string;
+  correlationId?: string;
   technicalDetails?: string;
   tables?: string[];
   schemas?: string[];
+  stageTimings?: ConnectionStageTiming[];
+  error?: ConnectionErrorDetails;
+  serverInfo?: DatabaseServerInfo;
+  diagnostics?: DatabaseConnectionDiagnostics;
 }
 
 export class DatabaseConnectionManager {
   private static instance: DatabaseConnectionManager;
 
-  private constructor() {}
+  private constructor(private readonly dependencies: DatabaseConnectionDependencies = {}) {}
 
   public static getInstance(): DatabaseConnectionManager {
     if (!DatabaseConnectionManager.instance) {
       DatabaseConnectionManager.instance = new DatabaseConnectionManager();
     }
     return DatabaseConnectionManager.instance;
+  }
+
+  public static createForTesting(dependencies: DatabaseConnectionDependencies): DatabaseConnectionManager {
+    return new DatabaseConnectionManager(dependencies);
+  }
+
+  public getRuntimeContext(): ConnectionRuntimeContext {
+    const containerEvidence = detectContainer();
+    return {
+      process: "node",
+      pid: process.pid,
+      startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(),
+      hostname: os.hostname(),
+      containerized: containerEvidence.length > 0,
+      containerEvidence,
+      effectiveUser: getEffectiveUser(),
+      processExecutable: process.execPath,
+      networkNamespaceId: getNetworkNamespaceId(),
+      interfaces: getNetworkInterfaces(),
+      proxyEnvironmentVariables: getProxyEnvironmentVariables(),
+      isolationSignals: getIsolationSignals(containerEvidence),
+    };
+  }
+
+  public async diagnoseNetworkContext(
+    host: string,
+    port: number,
+    type: DatabaseType = "mysql"
+  ): Promise<NetworkContextDiagnostics> {
+    const startedAt = Date.now();
+    const routeProbe = await (this.dependencies.routeProbe || defaultRouteProbe)(host);
+    let tcpProbe: NetworkTcpProbe;
+
+    if (routeProbe.status === "failed" && !routeProbe.resolvedAddress) {
+      tcpProbe = {
+        status: "skipped",
+        host,
+        port,
+        connected: false,
+        elapsedMs: 0,
+        error: "TCP não executado porque o host não foi resolvido.",
+      };
+    } else {
+      const probe = await (this.dependencies.tcpProbe || defaultTcpProbe)(host, port, 4000);
+      tcpProbe = {
+        status: probe.connected ? "passed" : "failed",
+        host,
+        port,
+        connected: probe.connected,
+        localAddress: probe.localAddress,
+        localPort: probe.localPort,
+        remoteAddress: probe.remoteAddress,
+        remotePort: probe.remotePort,
+        elapsedMs: probe.elapsedMs,
+        code: probe.code,
+        error: probe.error,
+      };
+    }
+
+    return {
+      runtime: this.getRuntimeContext(),
+      target: { host, port, type },
+      routeProbe,
+      tcpProbe,
+      elapsedMs: Date.now() - startedAt,
+    };
   }
 
   /**
@@ -115,14 +541,14 @@ export class DatabaseConnectionManager {
 
     return new Promise((resolve, reject) => {
       const { sshHost, sshPort, sshUser, sshPassword, sshPrivateKey, host, port } = config;
-      
+
       const sshBtn = new SshClient();
       const server = net.createServer((socket) => {
         sshBtn.forwardOut(
-          "127.0.0.1", 
-          socket.remotePort || 0, 
-          host || "127.0.0.1", 
-          Number(port || 5432), 
+          "127.0.0.1",
+          socket.remotePort || 0,
+          host || "127.0.0.1",
+          Number(port || 5432),
           (err, stream) => {
             if (err) {
               platformLogger.warn("[SSH Tunnel Info] Encaminhamento de trafego finalizado:", String(err?.message || err));
@@ -140,7 +566,7 @@ export class DatabaseConnectionManager {
         server.listen(0, "127.0.0.1", () => {
           const address = server.address() as any;
           const localPort = address.port;
-          
+
           resolve({
             localHost: "127.0.0.1",
             localPort,
@@ -187,52 +613,154 @@ export class DatabaseConnectionManager {
    * Test connection in detailed stages.
    */
   public async testConnection(config: any): Promise<DatabaseConnectionResult> {
-    const type = config.type as DatabaseType;
-    let activeHost = config.host || "localhost";
-    let activePort = Number(config.port);
-    let sshTunnel: any = null;
+    const context: ConnectionTestContext = { correlationId: createCorrelationId(), stageTimings: [] };
+    const result = await this.runConnectionTest(config, context);
+    const enrichedResult = {
+      ...result,
+      correlationId: result.correlationId || context.correlationId,
+      stageTimings: result.stageTimings || context.stageTimings,
+    };
+    return {
+      ...enrichedResult,
+      diagnostics: this.buildDiagnostics(config, enrichedResult),
+    };
+  }
+
+  private buildDiagnostics(config: any, result: DatabaseConnectionResult): DatabaseConnectionDiagnostics {
+    const failedStage = result.success ? null : result.stage;
+    const stages: ConnectionStageResult[] = [];
+    const add = (stage: ConnectionStage, status: ConnectionStageStatus, message: string) => stages.push({ stage, status, message });
+
+    const stopAtFailure = (stage: ConnectionStage, message: string) => {
+      add(stage, "failed", message);
+    };
 
     if (config.useSshTunnel) {
-      try {
-        sshTunnel = await this.setupSshTunnel({
-          sshHost: config.sshHost,
-          sshPort: config.sshPort,
-          sshUser: config.sshUser,
-          sshPassword: config.sshPassword,
-          sshPrivateKey: config.sshPrivateKey,
-          host: activeHost,
-          port: activePort
-        });
-        activeHost = sshTunnel.localHost;
-        activePort = sshTunnel.localPort;
-      } catch (err: any) {
-        return {
-          success: false,
-          stage: "host",
-          message: `Falha ao abrir túnel SSH/VPN: ${err.message}`,
-          technicalDetails: err.message
-        };
+      if (failedStage === "vpn") {
+        stopAtFailure("vpn", result.message);
+        return this.diagnosticsFor(config, result, stages);
       }
+      add("vpn", "passed", "Túnel SSH estabelecido pelo processo Node.");
     }
 
-    try {
-      const type = config.type as DatabaseType;
-      // ... continue with test logic using activeHost and activePort
-      // ...
-    } finally {
-      if (sshTunnel) {
-        await sshTunnel.close().catch(() => {});
-      }
+    if (failedStage === "configuration") {
+      stopAtFailure("configuration", result.message);
+      return this.diagnosticsFor(config, result, stages);
     }
-    
-    // Continue with test logic using activeHost and activePort
-    const host = activeHost;
-    const port = activePort;
+    add("configuration", "passed", "Configuração MySQL mínima validada.");
+
+    if (failedStage === "host") {
+      stopAtFailure("host", result.message);
+      return this.diagnosticsFor(config, result, stages);
+    }
+    if (failedStage === "port") {
+      add("route", "failed", "O processo Node não conseguiu alcançar o destino pela rota atual.");
+      add("host", "passed", "Host resolvido pelo processo Node.");
+      stopAtFailure("port", result.message);
+      return this.diagnosticsFor(config, result, stages);
+    }
+    add("route", "passed", "A rota do processo Node alcançou o destino TCP.");
+    add("host", "passed", "Host resolvido pelo processo Node.");
+    add("port", "passed", "Socket TCP aberto pelo processo Node.");
+
+    const driverStages: ConnectionStage[] = ["handshake", "auth", "database", "schema", "query", "readonly"];
+    const failedDriverIndex = failedStage ? driverStages.indexOf(failedStage) : -1;
+    driverStages.forEach((stage, index) => {
+      if (failedDriverIndex >= 0 && index > failedDriverIndex) return;
+      if (failedStage === stage) {
+        stopAtFailure(stage, result.message);
+        return;
+      }
+      add(stage, "passed", stage === "handshake" ? "Handshake do mysql2 concluído." : "Etapa concluída.");
+    });
+
+    if (failedStage && failedDriverIndex < 0) {
+      stopAtFailure("handshake", result.message);
+    }
+
+    return this.diagnosticsFor(config, result, stages);
+  }
+
+  private diagnosticsFor(config: any, result: DatabaseConnectionResult, stages: ConnectionStageResult[]): DatabaseConnectionDiagnostics {
+    return {
+      correlationId: result.correlationId || "unknown",
+      runtime: this.getRuntimeContext(),
+      target: {
+        ...configuredTarget(config),
+        type: config.type as DatabaseType,
+      },
+      stages,
+      stageTimings: result.stageTimings || [],
+      error: result.error,
+      serverInfo: result.serverInfo,
+    };
+  }
+
+  private async runConnectionTest(config: any, context: ConnectionTestContext): Promise<DatabaseConnectionResult> {
+    const type = config.type as DatabaseType;
+    const initialTarget = configuredTarget(config);
+    let activeHost = initialTarget.host;
+    let activePort = initialTarget.port;
+    let sshTunnel: any = null;
+
+    try {
+      if (config.useSshTunnel) {
+        try {
+          sshTunnel = await this.setupSshTunnel({
+            sshHost: config.sshHost,
+            sshPort: config.sshPort,
+            sshUser: config.sshUser,
+            sshPassword: config.sshPassword,
+            sshPrivateKey: config.sshPrivateKey,
+            host: activeHost,
+            port: activePort
+          });
+          activeHost = sshTunnel.localHost;
+          activePort = sshTunnel.localPort;
+        } catch (err: any) {
+          return {
+            success: false,
+            stage: "vpn",
+            message: `Falha ao abrir túnel SSH/VPN: ${err.message}`,
+            technicalDetails: sanitizeDiagnosticText(err.message, config),
+            error: toConnectionError(err, config),
+          };
+        }
+      }
+
+      const host = activeHost;
+      const port = activePort;
+
+      if (type === "mysql" && !config.connectionString) {
+        const configurationStartedAt = Date.now();
+        if (!String(config.database || "").trim()) {
+          const result = {
+            success: false,
+            stage: "configuration" as const,
+            message: "Database obrigatório.",
+          };
+          recordStageTiming(context, "configuration", configurationStartedAt);
+          return result;
+        }
+        if (!String(config.password || "")) {
+          const result = {
+            success: false,
+            stage: "configuration" as const,
+            message: "Senha do MySQL obrigatória para testar a autenticação.",
+          };
+          recordStageTiming(context, "configuration", configurationStartedAt);
+          return result;
+        }
+        recordStageTiming(context, "configuration", configurationStartedAt);
+      }
 
     // 1. DNS STAGE
+    const hostStartedAt = Date.now();
     try {
-      const dns = await import("dns").then(m => m.promises);
-      await dns.lookup(host);
+      const lookup = this.dependencies.dnsLookup || (async (value: string) => {
+        await dns.lookup(value);
+      });
+      await lookup(host);
     } catch (err: any) {
       const hint = this.getDockerConnectionHint(host);
       const message = `Host '${host}' não pôde ser resolvido via DNS.${hint}`;
@@ -247,45 +775,26 @@ export class DatabaseConnectionManager {
         success: false,
         stage: "host",
         message,
-        technicalDetails: err.message
+        technicalDetails: sanitizeDiagnosticText(err.message, config),
+        error: toConnectionError(err, config),
       };
+    } finally {
+      recordStageTiming(context, "host", hostStartedAt);
     }
 
     // 2. TCP PORT CONNECTIVITY STAGE
+    const portStartedAt = Date.now();
     try {
-      const net = await import("net");
-      const isPortOpen = await new Promise<boolean>((resolve) => {
-        const socket = new net.default.Socket();
-        let resolved = false;
-        socket.setTimeout(2500);
-        socket.connect(port, host, () => {
-          resolved = true;
-          socket.destroy();
-          resolve(true);
-        });
-        socket.on("error", () => {
-          if (!resolved) {
-            resolved = true;
-            socket.destroy();
-            resolve(false);
-          }
-        });
-        socket.on("timeout", () => {
-          if (!resolved) {
-            resolved = true;
-            socket.destroy();
-            resolve(false);
-          }
-        });
-      });
+      const probe = this.dependencies.tcpProbe || defaultTcpProbe;
+      const probeResult = await probe(host, port, 4000);
 
-      if (!isPortOpen) {
+      if (!probeResult.connected) {
         const hint = this.getDockerConnectionHint(host);
-        const message = `Porta ${port} no host '${host}' está fechada ou inacessível.${hint}`;
+        const message = `O processo Node não conseguiu abrir o socket TCP para ${host}:${port}.${hint} Isso não prova que a porta esteja fechada em outro ambiente.`;
         await this.logAudit(
           "DB_CONNECTION_TEST_WARNING",
           "Info",
-          `Porta fechada ou inacessível em ${host}:${port}`,
+          `Socket TCP não aberto pelo processo Node em ${host}:${port}`,
           config.user || "lmarcanjo16@gmail.com",
           { type, host, database: config.database, stage: "port" }
         );
@@ -293,7 +802,8 @@ export class DatabaseConnectionManager {
           success: false,
           stage: "port",
           message,
-          technicalDetails: "TCP connection timeout/refused. Verifique as configurações de firewall e se o banco está ouvindo na porta informada."
+          technicalDetails: `TCP não abriu no processo Node (${probeResult.code || "sem código"}): ${probeResult.error || "timeout/refused"}. Verifique a rota deste ambiente, não apenas a porta no host.`,
+          error: toConnectionError({ message: probeResult.error || "timeout/refused", code: probeResult.code }, config),
         };
       }
     } catch (err: any) {
@@ -301,8 +811,11 @@ export class DatabaseConnectionManager {
         success: false,
         stage: "port",
         message: "Erro ao testar a porta TCP.",
-        technicalDetails: err.message
+        technicalDetails: sanitizeDiagnosticText(err.message, config),
+        error: toConnectionError(err, config),
       };
+    } finally {
+      recordStageTiming(context, "port", portStartedAt);
     }
 
     // 3. DATABASE DRIVER AUTH / CONNECTION / QUERY STAGES
@@ -379,9 +892,9 @@ export class DatabaseConnectionManager {
         let tables: string[] = [];
         try {
           const tablesResult = await client.query(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' 
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
             ORDER BY table_name
             LIMIT 50;
           `);
@@ -429,25 +942,75 @@ export class DatabaseConnectionManager {
         };
       }
     } else if (type === "mysql") {
+      let connection: any = null;
+      let transactionActive = false;
+      let readonlyStartedAt: number | null = null;
+      let connectionClosed = false;
+      const closeConnection = async () => {
+        if (!connection || connectionClosed) return;
+        connectionClosed = true;
+        try {
+          await connection.end();
+        } catch {
+          // Cleanup must not replace the result of the certification pipeline.
+        }
+      };
+      const rollback = async () => {
+        if (!transactionActive || !connection) return;
+        try {
+          await connection.query("ROLLBACK");
+        } finally {
+          // The rollback was attempted. Do not issue a second command while closing.
+          transactionActive = false;
+        }
+      };
+      const finishReadonlyTiming = () => {
+        if (readonlyStartedAt !== null) {
+          recordStageTiming(context, "readonly", readonlyStartedAt);
+          readonlyStartedAt = null;
+        }
+      };
+      const auditFailure = async (stage: ConnectionStage, message: string, error: any, elapsedMs?: number) => {
+        const details = toConnectionError(error, config);
+        await this.logAudit(
+          "DB_CONNECTION_TEST_WARNING",
+          "Info",
+          `Falha na conexão MySQL: ${message}`,
+          config.user || "lmarcanjo16@gmail.com",
+          {
+            type,
+            host,
+            database: config.database,
+            stage,
+            correlationId: context.correlationId,
+            elapsedMs,
+            mysqlCode: details.code,
+            originalError: details.message,
+            stack: details.stack,
+          }
+        );
+        return details;
+      };
+
       try {
         const mysql = await import("mysql2/promise");
         const clientConfig: any = config.connectionString
           ? config.connectionString
           : { host, port, user: config.user, password: config.password, database: config.database };
 
-        if (config.ssl) {
+        if (config.ssl && typeof clientConfig === "object") {
           clientConfig.ssl = { rejectUnauthorized: false };
         }
 
-        let connection;
+        const driverStartedAt = Date.now();
         try {
           connection = await mysql.default.createConnection(clientConfig);
         } catch (err: any) {
-          const errMsg = err.message || "";
-          const errCode = String(err.code || err.errno || "");
-
-          let stage: ConnectionStage = "unknown";
-          let message = "Erro desconhecido na tentativa de conexão MySQL.";
+          const details = toConnectionError(err, config);
+          const errMsg = details.message;
+          const errCode = String(details.code || "");
+          let stage: ConnectionStage = "handshake";
+          let message = "Falha no handshake do driver MySQL.";
 
           if (errCode.includes("ACCESS_DENIED") || errMsg.includes("Access denied for user")) {
             stage = "auth";
@@ -455,92 +1018,172 @@ export class DatabaseConnectionManager {
           } else if (errMsg.includes("Unknown database") || errCode === "ER_BAD_DB_ERROR") {
             stage = "database";
             message = `Banco de dados '${config.database}' não foi encontrado.`;
-          } else if (errMsg.includes("SSL") || errCode === "HANDSHAKE_FAILED") {
-            stage = "ssl";
-            message = "Erro de handshake SSL/TLS ou permissão de criptografia requerida.";
+          } else if (errMsg.includes("SSL") || errCode === "HANDSHAKE_FAILED" || errCode.includes("HANDSHAKE")) {
+            stage = "handshake";
+            message = "Falha no handshake MySQL/SSL.";
           }
 
-          await this.logAudit(
-            "DB_CONNECTION_TEST_WARNING",
-            "Info",
-            `Falha na conexão MySQL: ${message}`,
-            config.user || "lmarcanjo16@gmail.com",
-            { type, host, database: config.database, stage, error: errMsg }
-          );
-
+          recordStageTiming(context, "handshake", driverStartedAt);
+          if (stage !== "handshake") recordStageTiming(context, "auth", driverStartedAt);
+          if (stage === "database") recordStageTiming(context, "database", driverStartedAt);
+          await auditFailure(stage, message, err, Date.now() - driverStartedAt);
           return {
             success: false,
             stage,
             message,
-            technicalDetails: errMsg
+            technicalDetails: `${errCode || "MYSQL_ERROR"}: ${errMsg}`,
+            error: details,
           };
         }
+        recordStageTiming(context, "handshake", driverStartedAt);
+        recordStageTiming(context, "auth", driverStartedAt);
 
-        // Test SELECT 1
+        const databaseStartedAt = Date.now();
+        let serverInfo: DatabaseServerInfo = {};
         try {
-          await connection.query("SELECT 1;");
+          const [rows]: any = await connection.query("SELECT VERSION() AS version, CURRENT_USER() AS current_user_value, DATABASE() AS database_name");
+          const row = rows?.[0] || {};
+          const selectedDatabase = row.database_name ?? row["DATABASE()"] ?? null;
+          serverInfo = {
+            version: String(row.version ?? row["VERSION()"] ?? ""),
+            currentUser: String(row.current_user_value ?? row["CURRENT_USER()"] ?? ""),
+            database: selectedDatabase === null ? null : String(selectedDatabase),
+          };
+          if (!serverInfo.database || serverInfo.database !== String(config.database).trim()) {
+            const error = new Error(`Database selecionado não corresponde ao solicitado: ${serverInfo.database || "vazio"}.`);
+            (error as any).code = "ER_DATABASE_SELECTION";
+            const details = await auditFailure("database", error.message, error, Date.now() - databaseStartedAt);
+            return {
+              success: false,
+              stage: "database",
+              message: `Database '${config.database}' não foi selecionado pelo MySQL.`,
+              technicalDetails: details.message,
+              error: details,
+              serverInfo,
+            };
+          }
         } catch (err: any) {
-          await connection.end().catch(() => {});
-          await this.logAudit(
-            "DB_CONNECTION_TEST_WARNING",
-            "Info",
-            `Erro ao executar SELECT 1 no MySQL: ${err.message}`,
-            config.user || "lmarcanjo16@gmail.com",
-            { type, host, database: config.database, stage: "query", error: err.message }
-          );
+          const details = await auditFailure("database", "Falha ao validar o database selecionado.", err, Date.now() - databaseStartedAt);
           return {
             success: false,
-            stage: "query",
-            message: "Conectado com sucesso, mas falhou ao executar SELECT 1 (sem permissão de leitura).",
-            technicalDetails: err.message
+            stage: "database",
+            message: "Falha ao validar o database selecionado.",
+            technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+            error: details,
+          };
+        } finally {
+          recordStageTiming(context, "database", databaseStartedAt);
+        }
+
+        readonlyStartedAt = Date.now();
+        try {
+          await connection.query("START TRANSACTION READ ONLY");
+          transactionActive = true;
+        } catch (err: any) {
+          finishReadonlyTiming();
+          const details = await auditFailure("readonly", "Falha ao configurar transação somente leitura.", err);
+          return {
+            success: false,
+            stage: "readonly",
+            message: "Falha ao configurar a conexão como somente leitura.",
+            technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+            error: details,
+            serverInfo,
           };
         }
 
-        // List tables
+        const schemaStartedAt = Date.now();
         let tables: string[] = [];
         try {
           const [rows]: any = await connection.query("SHOW TABLES");
-          tables = rows.map((r: any) => Object.values(r)[0]);
+          tables = (rows || []).map((row: any) => Object.values(row)[0]).filter(Boolean).map(String);
         } catch (err: any) {
-          await connection.end().catch(() => {});
-          await this.logAudit(
-            "DB_CONNECTION_TEST_WARNING",
-            "Info",
-            `Erro ao ler tabelas no MySQL: ${err.message}`,
-            config.user || "lmarcanjo16@gmail.com",
-            { type, host, database: config.database, stage: "schema", error: err.message }
-          );
+          finishReadonlyTiming();
+          const details = await auditFailure("schema", "Erro ao ler o schema MySQL.", err, Date.now() - schemaStartedAt);
           return {
             success: false,
             stage: "schema",
-            message: "Erro ao carregar lista de tabelas.",
-            technicalDetails: err.message
+            message: "Schema inexistente ou sem permissão para listar tabelas.",
+            technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+            error: details,
+            serverInfo,
           };
+        } finally {
+          recordStageTiming(context, "schema", schemaStartedAt);
         }
 
-        await connection.end().catch(() => {});
+        const queryStartedAt = Date.now();
+        try {
+          await connection.query("SELECT 1");
+        } catch (err: any) {
+          finishReadonlyTiming();
+          const details = await auditFailure("query", "Falha ao executar SELECT 1.", err, Date.now() - queryStartedAt);
+          return {
+            success: false,
+            stage: "query",
+            message: "A conexão foi autenticada, mas SELECT 1 falhou.",
+            technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+            error: details,
+            serverInfo,
+          };
+        } finally {
+          recordStageTiming(context, "query", queryStartedAt);
+        }
+
+        try {
+          await rollback();
+          finishReadonlyTiming();
+        } catch (err: any) {
+          const details = await auditFailure("readonly", "Falha ao encerrar a transação somente leitura.", err);
+          return {
+            success: false,
+            stage: "readonly",
+            message: "A transação somente leitura não pôde ser encerrada com segurança.",
+            technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+            error: details,
+            serverInfo,
+          };
+        }
 
         await this.logAudit(
           "DB_CONNECTION_TEST_SUCCESS",
           "Sucesso",
-          `Conectado com sucesso ao MySQL! Encontradas ${tables.length} tabelas no modo somente-leitura.`,
+          "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
           config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage: "readonly" }
+          {
+            type,
+            host,
+            database: config.database,
+            stage: "readonly",
+            correlationId: context.correlationId,
+            stageTimings: context.stageTimings,
+          }
         );
 
         return {
           success: true,
           stage: "readonly",
-          message: "Conectado com sucesso ao MySQL! Acesso restrito de leitura (Read-Only) assegurado.",
-          tables
+          message: "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+          tables,
+          serverInfo,
         };
       } catch (err: any) {
+        finishReadonlyTiming();
+        const details = await auditFailure("handshake", "Erro interno no fluxo do driver MySQL.", err);
         return {
           success: false,
-          stage: "unknown",
-          message: "Erro interno no driver do MySQL.",
-          technicalDetails: err.message
+          stage: "handshake",
+          message: "Erro interno no fluxo do driver MySQL.",
+          technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+          error: details,
         };
+      } finally {
+        try {
+          await rollback();
+        } catch {
+          // Preserve the original pipeline result; the rollback attempt is recorded by its caller.
+        }
+        await closeConnection();
       }
     } else if (type === "mssql") {
       try {
@@ -561,9 +1204,9 @@ export class DatabaseConnectionManager {
         const pool = await mssql.default.connect(clientConfig);
         await pool.request().query("SELECT 1;");
         const tablesResult = await pool.request().query(`
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_type = 'BASE TABLE' 
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_type = 'BASE TABLE'
           ORDER BY table_name;
         `);
         const tables = tablesResult.recordset.map(row => row.table_name || row.TABLE_NAME || "");
@@ -696,10 +1339,51 @@ export class DatabaseConnectionManager {
       }
     }
 
+      return {
+        success: false,
+        stage: "unknown",
+        message: "Tipo de banco de dados não suportado."
+      };
+    } finally {
+      if (sshTunnel) {
+        await sshTunnel.close().catch(() => {});
+      }
+    }
+  }
+
+  public async testNetworkPath(host: string, port: number, type: DatabaseType = "mysql"): Promise<DatabaseConnectionResult> {
+    const context = await this.diagnoseNetworkContext(host, port, type);
+    const stages: ConnectionStageResult[] = [];
+    if (context.routeProbe.resolvedAddress) {
+      stages.push({ stage: "route", status: context.routeProbe.status === "failed" ? "failed" : "passed", message: context.routeProbe.error || "Rota consultada pelo processo Node." });
+      stages.push({ stage: "host", status: "passed", message: "Host resolvido pelo processo Node." });
+    }
+    if (!context.tcpProbe.connected) {
+      if (!context.routeProbe.resolvedAddress) {
+        stages.push({ stage: "host", status: "failed", message: "Host não resolvido pelo processo Node." });
+      }
+      stages.push({ stage: "port", status: "failed", message: context.tcpProbe.error || `Socket TCP não abriu em ${host}:${port}.` });
+      return {
+        success: false,
+        stage: context.tcpProbe.status === "skipped"
+          ? "host"
+          : "port",
+        message: context.tcpProbe.status === "skipped"
+          ? `Host '${host}' não pôde ser resolvido pelo processo Node.`
+          : `Não foi possível abrir o socket TCP para ${host}:${port} neste processo Node.`,
+        technicalDetails: `${context.tcpProbe.code || context.routeProbe.code || "sem código"}: ${context.tcpProbe.error || context.routeProbe.error || "timeout/refused"}`,
+        diagnostics: { correlationId: createCorrelationId(), runtime: context.runtime, target: context.target, stages, stageTimings: [] },
+      };
+    }
+
+    stages.push(
+      { stage: "port", status: "passed", message: "Socket TCP aberto; autenticação ainda não foi testada." },
+    );
     return {
-      success: false,
-      stage: "unknown",
-      message: "Tipo de banco de dados não suportado."
+      success: true,
+      stage: "port",
+      message: `Socket TCP aberto em ${host}:${port}. Isso prova alcance de rede, não autenticação nem VPN.`,
+      diagnostics: { correlationId: createCorrelationId(), runtime: context.runtime, target: context.target, stages, stageTimings: [] },
     };
   }
 
@@ -765,10 +1449,10 @@ export class DatabaseConnectionManager {
 
       if (type === "postgres") {
         const pg = await import("pg");
-        const config: any = activeConnectionString 
-          ? { connectionString: activeConnectionString } 
+        const config: any = activeConnectionString
+          ? { connectionString: activeConnectionString }
           : { host: activeHost, port: Number(activePort || 5432), user, password, database };
-        
+
         if (ssl) {
           config.ssl = { rejectUnauthorized: false };
         }
@@ -777,9 +1461,9 @@ export class DatabaseConnectionManager {
         await client.connect();
 
         const tablesResult = await client.query(`
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_schema = 'public' 
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
           ORDER BY table_name;
         `);
         tables = tablesResult.rows.map(row => row.table_name);
@@ -803,7 +1487,7 @@ export class DatabaseConnectionManager {
 
         try {
           const estResult = await client.query(`
-            SELECT relname AS table_name, n_live_tup AS row_count 
+            SELECT relname AS table_name, n_live_tup AS row_count
             FROM pg_stat_user_tables;
           `);
           estResult.rows.forEach(r => {
@@ -832,7 +1516,7 @@ export class DatabaseConnectionManager {
         }
 
         const connection = await mysql.default.createConnection(config);
-        
+
         const [tablesRows]: any = await connection.query("SHOW TABLES");
         tables = tablesRows.map((row: any) => Object.values(row)[0]);
 
@@ -884,18 +1568,18 @@ export class DatabaseConnectionManager {
             };
 
         const pool = await mssql.default.connect(config);
-        
+
         const tablesResult = await pool.request().query(`
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_type = 'BASE TABLE' 
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_type = 'BASE TABLE'
           ORDER BY table_name;
         `);
         tables = tablesResult.recordset.map(row => row.table_name || row.TABLE_NAME || "");
 
         const columnsResult = await pool.request().query(`
-          SELECT table_name, column_name, data_type 
-          FROM information_schema.columns 
+          SELECT table_name, column_name, data_type
+          FROM information_schema.columns
           ORDER BY table_name, ordinal_position;
         `);
 
@@ -927,9 +1611,9 @@ export class DatabaseConnectionManager {
           password,
           connectString: activeConnectionString || `${activeHost}:${activePort || 1521}/${database}`
         };
-        
+
         const connection = await oracledb.default.getConnection(connectionOptions);
-        
+
         const tablesResult: any = await connection.execute(
           `SELECT table_name FROM user_tables ORDER BY table_name`
         );
@@ -1013,10 +1697,12 @@ export class DatabaseConnectionManager {
    * Fetches, filters, maps, and validates database tables/queries into LancamentoFinanceiro format.
    */
   public async executeFetchAndMap(configPayload: any): Promise<any[]> {
-    const { 
+    const normalized = normalizeDatabaseConfig(configPayload);
+    if ("message" in normalized) throw new Error(normalized.message);
+    const {
       type, host, port, user, password, database, connectionString, ssl, tableName, query, mappings,
       useSshTunnel
-    } = configPayload;
+    } = { ...configPayload, type: normalized.config.type, tableName: normalized.config.table || configPayload.tableName };
 
     if (query && query.trim() !== "") {
       try {
@@ -1086,10 +1772,10 @@ export class DatabaseConnectionManager {
 
       if (type === "postgres") {
         const pg = await import("pg");
-        const config: any = activeConnectionString 
-          ? { connectionString: activeConnectionString } 
+        const config: any = activeConnectionString
+          ? { connectionString: activeConnectionString }
           : { host: activeHost, port: Number(activePort || 5432), user, password, database };
-        
+
         if (ssl) {
           config.ssl = { rejectUnauthorized: false };
         }
@@ -1100,9 +1786,9 @@ export class DatabaseConnectionManager {
         let tablesToQuery: string[] = [];
         if (tableName === "__ALL_TABLES__") {
           const tablesResult = await client.query(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' 
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
             ORDER BY table_name;
           `);
           tablesToQuery = tablesResult.rows.map(row => row.table_name);
@@ -1203,9 +1889,9 @@ export class DatabaseConnectionManager {
           rawRows = result.recordset;
         } else if (tableName === "__ALL_TABLES__") {
           const tablesResult = await pool.request().query(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_type = 'BASE TABLE' 
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_type = 'BASE TABLE'
             ORDER BY table_name;
           `);
           const tables = tablesResult.recordset.map(row => row.table_name || row.TABLE_NAME || "");
@@ -1238,7 +1924,7 @@ export class DatabaseConnectionManager {
           password,
           connectString: activeConnectionString || `${activeHost}:${activePort || 1521}/${database}`
         };
-        
+
         const connection = await oracledb.default.getConnection(connectionOptions);
 
         if (query && query.trim() !== "") {
@@ -1325,47 +2011,38 @@ export class DatabaseConnectionManager {
       }
     }
 
-    // Map rows to LancamentoFinanceiro format
-    const mappedRows = rawRows.map((row) => {
-      const getValue = (field: string) => {
-        const dbColumn = mappings ? mappings[field] : undefined;
-        return dbColumn ? row[dbColumn] : undefined;
-      };
-
-      const receita = Number(getValue("Receita")) || 0;
-      const custo = Number(getValue("Custo")) || 0;
-      const despesa = Number(getValue("Despesa")) || 0;
-      
-      let lucro = 0;
-      if (mappings && mappings["Lucro"]) {
-        lucro = Number(getValue("Lucro")) || 0;
-      } else {
-        lucro = receita - custo - despesa;
-      }
-
-      let margem = 0;
-      if (mappings && mappings["Margem"]) {
-        margem = Number(getValue("Margem")) || 0;
-      } else {
-        margem = receita > 0 ? (lucro / receita) * 100 : 0;
-      }
-
-      return {
+    // Preserve the physical source when no semantic mapping was selected.
+    // The consultant may interpret these columns later; do not fabricate
+    // business fields or derived metrics at ingestion time.
+    const selectedMappings: Array<[string, string]> = Object.entries(mappings || {})
+      .filter(([, column]) => typeof column === "string" && column.trim().length > 0)
+      .map(([field, column]) => [field, column as string]);
+    if (selectedMappings.length === 0) {
+      return rawRows.map((row) => ({
+        ...row,
         id: String(row.id || row.ID || row._id || row.uuid || crypto.randomUUID()),
-        Grupo: getValue("Grupo") !== undefined ? String(getValue("Grupo")) : "",
-        CNPJ: getValue("CNPJ") !== undefined ? String(getValue("CNPJ")) : "",
-        Marca: getValue("Marca") !== undefined ? String(getValue("Marca")) : "",
-        Empresa: getValue("Empresa") !== undefined ? String(getValue("Empresa")) : (getValue("Grupo") !== undefined ? String(getValue("Grupo")) : ""),
-        Filial: getValue("Filial") !== undefined ? String(getValue("Filial")) : "",
-        Mês: getValue("Mês") !== undefined ? String(getValue("Mês")) : "",
-        Razão: getValue("Razão") !== undefined ? String(getValue("Razão")) : "",
-        Categoria: getValue("Categoria") !== undefined ? String(getValue("Categoria")) : "",
-        Receita: receita,
-        Custo: custo,
-        Despesa: despesa,
-        Lucro: lucro,
-        Margem: margem
+      }));
+    }
+
+    // Preserve physical columns alongside only the aliases explicitly mapped.
+    // Partial mappings remain valid and do not receive empty or derived data.
+    const numericMappedFields = new Set(["Receita", "Custo", "Despesa", "Lucro", "Margem"]);
+    const mappedRows = rawRows.map((row) => {
+      const mappedRow: Record<string, any> = {
+        ...row,
+        id: String(row.id || row.ID || row._id || row.uuid || crypto.randomUUID()),
       };
+
+      selectedMappings.forEach(([field, column]) => {
+        if (!Object.prototype.hasOwnProperty.call(row, column)) return;
+        const rawValue = row[column];
+        const numericValue = Number(rawValue);
+        mappedRow[field] = numericMappedFields.has(field) && !Number.isNaN(numericValue)
+          ? numericValue
+          : rawValue;
+      });
+
+      return mappedRow;
     });
 
     return mappedRows;

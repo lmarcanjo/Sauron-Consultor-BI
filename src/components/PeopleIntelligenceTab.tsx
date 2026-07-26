@@ -39,7 +39,7 @@ import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { buildPeopleView, PeopleBusinessView } from "../core/data/businessViews";
 import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
 import { buildModuleDashboard, ExecutiveDashboard } from "../core/dashboard-engine";
-import { ModuleFieldMappingPanel } from "./ModuleFieldMappingPanel";
+import { ReviewSourceAnalysisAction } from "./ReviewSourceAnalysisAction";
 import { buildSellerStatement, SellerStatement } from "../core/data/sellerStatement";
 import { CommissionClosingPanel } from "./CommissionClosingPanel";
 import { DashboardBlocksRenderer } from "./DashboardBlocksRenderer";
@@ -60,7 +60,7 @@ import { SauronInput } from "../sauron-sdk/ui/SauronInput";
 import { SauronSelect } from "../sauron-sdk/ui/SauronSelect";
 
 // Services and Engine
-import { CollaboratorDossier } from "../core/compensation/ExecutivePeopleService";
+import type { CollaboratorDossier } from "../core/data/peopleTypes";
 
 interface PeopleIntelligenceTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -94,6 +94,7 @@ interface PeopleIntelligenceTabProps {
   userRole?: string;
   peopleView?: any[];
   activeDataset?: any;
+  onOpenSourceAnalysis?: () => void;
 }
 
 const SellerStatementPreview: React.FC<{
@@ -216,6 +217,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
   const isRealSpreadsheet = !!activeDataset;
   const [peopleBusinessView, setPeopleBusinessView] = useState<PeopleBusinessView | null>(null);
   const [peopleDashboard, setPeopleDashboard] = useState<ExecutiveDashboard | null>(null);
+  const [hasPeopleMapping, setHasPeopleMapping] = useState(false);
   const [mappingRevision, setMappingRevision] = useState(0);
 
   React.useEffect(() => {
@@ -237,6 +239,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
 
     const projectId = getDefaultProjectId(activeDataset);
     const moduleMappings = listModuleMappings(activeDataset.datasetId, projectId);
+    setHasPeopleMapping(moduleMappings.some(mapping => mapping.moduleName === "Pessoas"));
 
     Promise.all([
       buildPeopleView(),
@@ -254,7 +257,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
     ]).then(([view, dashboard]) => {
       if (!isMounted) return;
       setPeopleBusinessView(view);
-      setPeopleDashboard(dashboard);
+      setPeopleDashboard(moduleMappings.some(mapping => mapping.moduleName === "Pessoas") ? dashboard : null);
     });
 
     return () => {
@@ -393,18 +396,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
           Abas disponíveis: {peopleBusinessView.availableSheets.slice(0, 8).join(", ") || "Nenhuma aba disponível."}
         </p>
-        <div className="w-full max-w-2xl">
-          <ModuleFieldMappingPanel
-            moduleName="Pessoas"
-            activeDataset={activeDataset}
-            onSaved={() => setMappingRevision(revision => revision + 1)}
-          />
-        </div>
-        {peopleDashboard && (
-          <div className="w-full max-w-5xl">
-            <DashboardBlocksRenderer blocks={peopleDashboard.blocks} />
-          </div>
-        )}
+        <ReviewSourceAnalysisAction onOpen={props.onOpenSourceAnalysis} />
       </div>
     );
   }
@@ -554,17 +546,12 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
         </div>
       </div>
 
-      <ModuleFieldMappingPanel
-        moduleName="Pessoas"
-        activeDataset={activeDataset}
-        onSaved={() => setMappingRevision(revision => revision + 1)}
-      />
-
-      {peopleDashboard ? (
+      {peopleDashboard && hasPeopleMapping ? (
         <DashboardBlocksRenderer blocks={peopleDashboard.blocks} />
       ) : (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
-          <p className="text-xs font-bold text-slate-500">Preparando blocos de Pessoas...</p>
+          <p className="text-xs font-bold text-amber-700 dark:text-amber-300">Esta análise precisa de uma informação ainda não confirmada.</p>
+          <div className="mt-3"><ReviewSourceAnalysisAction onOpen={props.onOpenSourceAnalysis} /></div>
         </div>
       )}
 
@@ -695,11 +682,6 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
         {/* TAB 3: COMISSÕES E REGRAS */}
         {activeTab === "comissoes" && (
           <div className="space-y-4">
-            <ModuleFieldMappingPanel
-              moduleName="Comissão"
-              activeDataset={activeDataset}
-              onSaved={() => setMappingRevision(revision => revision + 1)}
-            />
             <ComissoesTab 
               metrics={props.metrics}
               formatCurrency={props.formatCurrency}
@@ -734,6 +716,7 @@ export const PeopleIntelligenceTab: React.FC<PeopleIntelligenceTabProps> = (prop
             activeDataset={activeDataset}
             formatCurrency={props.formatCurrency}
             onMappingSaved={() => setMappingRevision(revision => revision + 1)}
+            onOpenSourceAnalysis={props.onOpenSourceAnalysis}
           />
         )}
 

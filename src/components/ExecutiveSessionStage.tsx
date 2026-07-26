@@ -139,7 +139,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
           )}
 
           {currentChapter.chapterKey === 'receita' && (
-            !hasRevenueData ? renderPendingConfig("Fonte real ativa sem colunas financeiras suficientes para apresentar receita na sessão.") :
+            !hasRevenueData ? renderPendingConfig("A fonte ativa não possui colunas financeiras suficientes para apresentar receita na sessão.") :
             <div className="space-y-6 w-full max-w-4xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-slate-900/60 border border-slate-850 rounded-xl p-4 flex items-center gap-4">
@@ -189,7 +189,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
           )}
 
           {currentChapter.chapterKey === 'margem' && (
-            !hasRevenueData || !hasCostData ? renderPendingConfig("Configure colunas de receita, custo e despesa para apresentar margem real na sessão.") :
+            !hasRevenueData || !hasCostData ? renderPendingConfig("Configure colunas de receita, custo e despesa para apresentar a margem na sessão.") :
             <div className="space-y-6 w-full max-w-4xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-900/40 border border-slate-900 p-5 rounded-2xl flex flex-col justify-center space-y-4">
@@ -223,7 +223,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
                       <ShieldAlert size={14} /> Alerta de Alavanca de Margem
                     </h4>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                      A sessão está usando a fonte real ativa. Configure colunas adicionais de desconto, meta e linha comercial para detalhar as alavancas de margem.
+                      A sessão está usando a fonte ativa. Configure colunas adicionais de desconto, meta e linha comercial para detalhar as alavancas de margem.
                     </p>
                   </div>
 
@@ -257,7 +257,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
           )}
 
           {currentChapter.chapterKey === 'custos' && (
-            !hasCostData ? renderPendingConfig("Configure colunas de custo e despesa para apresentar a composição estrutural real.") :
+            !hasCostData ? renderPendingConfig("Configure colunas de custo e despesa para apresentar a composição estrutural.") :
             <div className="space-y-6 w-full max-w-4xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-5 h-72 flex flex-col justify-between">
@@ -297,7 +297,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
           )}
 
           {currentChapter.chapterKey === 'comercial' && (
-            renderPendingConfig("Configure colunas de vendedor, cliente, produto e valor para apresentar ranking comercial real.")
+            renderPendingConfig("Configure colunas de vendedor, cliente, produto e valor para apresentar o ranking comercial.")
           )}
 
           {currentChapter.chapterKey === 'pessoas' && (

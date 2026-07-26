@@ -25,7 +25,6 @@ describe("legacy compatibility boundary", () => {
       .filter(({ relative, source }) => {
         if (relative.startsWith("src/core/compatibility/")) return false;
         if (relative.startsWith("src/core/quality/")) return false;
-        if (relative.endsWith("DataSourceManager.ts") || relative.endsWith("WorkspaceDNAEngine.ts")) return false;
         return LEGACY_MODULE_PATTERNS.some(pattern => pattern.test(source)) && !LEGACY_IMPORT_ALLOWLIST[relative];
       })
       .map(({ relative }) => relative);
@@ -33,8 +32,7 @@ describe("legacy compatibility boundary", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps compatibility policy explicit", () => {
-    expect(LEGACY_IMPORT_ALLOWLIST["src/App.tsx"]).toBeTruthy();
-    expect(LEGACY_IMPORT_ALLOWLIST["src/hooks/useDataSourceManager.ts"]).toBeTruthy();
+  it("keeps the removed compatibility family out of production", () => {
+    expect(LEGACY_IMPORT_ALLOWLIST).toEqual({});
   });
 });

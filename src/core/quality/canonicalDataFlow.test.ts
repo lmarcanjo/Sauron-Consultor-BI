@@ -7,9 +7,7 @@ const canonicalBoundaryConsumers = new Set([
   "src/components/CentralDadosTab.tsx",
   "src/components/EnterpriseCenter.tsx",
   "src/components/EnterpriseDigitalTwinTab.tsx",
-  "src/components/WorkbookLibraryTab.tsx",
   "src/components/spreadsheet/SimpleSpreadsheetImporter.tsx",
-  "src/components/spreadsheet/SpreadsheetFieldSelectionPanel.tsx",
 ]);
 const forbiddenPatterns = [
   /IndexedSpreadsheetStorage(?:Adapter)?/,

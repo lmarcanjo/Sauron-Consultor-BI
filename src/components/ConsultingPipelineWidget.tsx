@@ -86,7 +86,7 @@ function computePipelineSteps(
       icon: FileSpreadsheet,
       status: hasData ? "done" : !hasEnterprise ? "locked" : "pending",
       actionLabel: hasData ? undefined : "Importar",
-      actionTab: "importacao",
+      actionTab: "central_dados",
       weight: 15
     },
     {
@@ -96,7 +96,7 @@ function computePipelineSteps(
       icon: CheckSquare,
       status: hasMapping ? "done" : !hasData ? "locked" : "pending",
       actionLabel: hasMapping ? undefined : "Configurar",
-      actionTab: "perfis",
+      actionTab: "analise_estrutura",
       weight: 15
     },
     {

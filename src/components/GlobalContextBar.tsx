@@ -15,7 +15,7 @@ import { getEnterpriseContext, setEnterpriseContext, subscribeEnterpriseContext,
 import { identityEngine } from "../core/identity/IdentityEngine";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/WorkspaceIntelligenceEngine";
 import { Workspace } from "../core/workspace-intelligence/WorkspaceIntelligenceTypes";
-import { useDataSourceManager } from "../hooks/useDataSourceManager";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { timelineRepository } from "../core/persistence/TimelineRepository";
 import { showToast } from "./Toast";
 import { PLATFORM_EVENTS, subscribePlatformEvent } from "../core/events/PlatformEvents";
@@ -23,7 +23,8 @@ import { getDomainDisplayOptions, getDomainDisplayLabel } from "../core/business
 import { consultingModelRepository, setActiveConsultingModelConfigSync } from "../core/business-intelligence/ConsultingModelRepository";
 
 export const GlobalContextBar: React.FC = () => {
-  const { activeRecords, activeDataset } = useDataSourceManager();
+  const [activeDataset, setActiveDataset] = useState(activeDatasetStore.getActiveDataset());
+  const [previewRows, setPreviewRows] = useState<any[]>(() => activeDatasetStore.getActiveRows());
 
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [context, setContext] = useState(getEnterpriseContext());
@@ -68,12 +69,16 @@ export const GlobalContextBar: React.FC = () => {
     }
 
     const uniquePeriods = Array.from(
-      new Set(activeRecords.map(r => r.Mês || r["mês"] || r["Mes"] || "").filter(Boolean))
+      new Set(previewRows.map(r => r.Mês || r["mês"] || r["Mes"] || "").filter(Boolean))
     ).sort();
     setPeriods(uniquePeriods);
-  }, [activeRecords]);
+  }, [previewRows]);
 
   useEffect(() => {
+    const unsubscribeDataset = activeDatasetStore.subscribe(() => {
+      setActiveDataset(activeDatasetStore.getActiveDataset());
+      setPreviewRows(activeDatasetStore.getActiveRows());
+    });
     loadData();
 
     const unsubscribe = subscribeEnterpriseContext(setContext);
@@ -84,6 +89,7 @@ export const GlobalContextBar: React.FC = () => {
 
     return () => {
       unsubscribe();
+      unsubscribeDataset();
       window.removeEventListener("sauron:dictionary-updated", handleUpdate);
       unsubscribePlatform();
     };
@@ -269,7 +275,7 @@ export const GlobalContextBar: React.FC = () => {
   const numFontes = activeDataset
     ? activeDataset.sourceWorkbookIds?.length || activeDataset.sourceDatasetIds?.length || 1
     : 0;
-  const numRegistros = activeRecords.length;
+  const numRegistros = activeDataset?.rowCount || 0;
 
   // Filter companies/units down by current parent hierarchy
   const availableCompanies = context.groupId 

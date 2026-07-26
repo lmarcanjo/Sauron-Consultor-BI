@@ -1,0 +1,32 @@
+{
+  "type": "mysql",
+  "dbType": "mysql",
+  "host": "10.12.22.14",
+  "port": "3306",
+  "user": "consultoria",
+  "database": "consultoria",
+  "ssl": false,
+  "useConnectionString": false,
+  "mappings": {
+    "Grupo": "id",
+    "CNPJ": "",
+    "Marca": "Linha",
+    "Empresa": "Empresa",
+    "Filial": "Revenda",
+    "Mês": "Mes",
+    "Razão": "",
+    "Receita": "",
+    "Custo": "",
+    "Despesa": ""
+  },
+  "selectedTable": "__ALL_TABLES__",
+  "customQuery": "",
+  "useCustomQuery": false,
+  "useSshTunnel": false,
+  "sshHost": "",
+  "sshPort": "22",
+  "sshUser": "",
+  "sourceId": "sql_source_6adee07b",
+  "tableName": "__ALL_TABLES__",
+  "query": ""
+}

@@ -13,7 +13,7 @@ describe("legacy adapter boundary", () => {
     });
   });
 
-  it("does not leave WorkspaceDNAEngine as a UI consumer", () => {
+  it("does not leave removed legacy engines in production code", () => {
     const sourceRoot = path.resolve(root, "src");
     const files: string[] = [];
     const visit = (directory: string) => {
@@ -26,10 +26,9 @@ describe("legacy adapter boundary", () => {
     visit(sourceRoot);
 
     const consumers = files
-      .filter(filePath => !filePath.endsWith("WorkspaceDNAEngine.ts"))
       .filter(filePath => !filePath.includes(`${path.sep}compatibility${path.sep}`))
       .filter(filePath => !filePath.includes(`${path.sep}quality${path.sep}`))
-      .filter(filePath => fs.readFileSync(filePath, "utf8").includes("WorkspaceDNAEngine"));
+      .filter(filePath => /WorkspaceDNAEngine|CompensationEngine|SpreadsheetWorkspaceManager/.test(fs.readFileSync(filePath, "utf8")));
 
     expect(consumers).toEqual([]);
   });

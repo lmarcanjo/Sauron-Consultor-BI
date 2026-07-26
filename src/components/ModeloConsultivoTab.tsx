@@ -21,6 +21,21 @@ import {
 import { showToast } from "./Toast";
 import { SauronArchitectPanel } from "./SauronArchitectPanel";
 import { PREDEFINED_QUESTIONS } from "../core/business-intelligence/ProjectDNA";
+import {
+  archiveArea,
+  restoreArea,
+  moveAreaToTrash,
+  permanentlyDeleteArea,
+  getImpactReport,
+  getArchivedAreas,
+  getTrashedAreas,
+} from "../core/business-intelligence/BusinessAreaLifecycleService";
+import { TrashItem } from "../core/persistence/TrashRepository";
+import { identityEngine } from "../core/identity/IdentityEngine";
+import { userManager } from "../core/identity/UserManager";
+import { accessControlEngine } from "../core/identity/AccessControlEngine";
+import { areaPermissionRepository, AreaAction } from "../core/identity/AreaPermissionRepository";
+import { AlertTriangle, RotateCcw, Archive as ArchiveIcon } from "lucide-react";
 
 interface ModeloConsultivoTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -55,6 +70,41 @@ export const ModeloConsultivoTab: React.FC<ModeloConsultivoTabProps> = ({
   // Edit fields label state
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [tempLabel, setTempLabel] = useState("");
+
+  // Business Area lifecycle state (F20.3 Final Closure)
+  const [archiveTarget, setArchiveTarget] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [archivedAreas, setArchivedAreas] = useState<TrashItem[]>([]);
+  const [trashedAreas, setTrashedAreas] = useState<TrashItem[]>([]);
+  const [permissionUserId, setPermissionUserId] = useState("");
+  const [permissionActions, setPermissionActions] = useState<AreaAction[]>(["VIEW"]);
+
+  const identityUser = identityEngine.getCurrentUser();
+  const permissionUsers = Array.from(new Map([
+    ...userManager.getUsers(),
+    ...(identityUser ? [identityUser] : []),
+  ].map(user => [user.id, user])).values());
+  const performedBy = identityUser?.profile.fullName || "Operador";
+
+  const refreshLixeira = async () => {
+    const [arch, trash] = await Promise.all([
+      getArchivedAreas(workspaceId, companyId),
+      getTrashedAreas(workspaceId, companyId),
+    ]);
+    setArchivedAreas(arch);
+    setTrashedAreas(trash);
+  };
+
+  useEffect(() => {
+    refreshLixeira();
+  }, [workspaceId, companyId]);
+
+  useEffect(() => {
+    setActiveSubTab("wizard");
+    setNewAreaFields([]);
+    setNewMetricField("");
+  }, [workspaceId, companyId]);
 
   // Load configuration
   useEffect(() => {
@@ -220,13 +270,89 @@ export const ModeloConsultivoTab: React.FC<ModeloConsultivoTabProps> = ({
     showToast("success", `Área "${newAreaName}" criada!`);
   };
 
-  const handleRemoveArea = (areaId: string) => {
+  const handleRemoveArea = async (areaId: string) => {
     if (!config) return;
-    saveConfig({
-      ...config,
-      businessAreas: config.businessAreas.filter(a => a.id !== areaId)
+    if (!accessControlEngine.canArchiveArea(identityUser, areaId, { groupId: config.groupId, companyId: config.companyId })) {
+      showToast("error", "Você não pode arquivar esta área.");
+      setArchiveTarget(null);
+      return;
+    }
+    try {
+      const nextConfig = await archiveArea(config, areaId, performedBy);
+      setConfig(nextConfig);
+      await refreshLixeira();
+      showToast("info", "Esta área deixará de aparecer nas novas análises. As configurações e o histórico serão preservados.");
+    } catch (e) {
+      showToast("error", (e as Error).message);
+    } finally {
+      setArchiveTarget(null);
+    }
+  };
+
+  const handleRestoreArea = async (areaId: string) => {
+    if (!config) return;
+    if (!accessControlEngine.canConfigureArea(identityUser, areaId, { groupId: config.groupId, companyId: config.companyId })) {
+      showToast("error", "Você não pode restaurar esta área.");
+      return;
+    }
+    try {
+      const nextConfig = await restoreArea(config, areaId, performedBy);
+      setConfig(nextConfig);
+      await refreshLixeira();
+      showToast("success", "Área restaurada com a configuração e o nome originais.");
+    } catch (e) {
+      showToast("error", (e as Error).message);
+    }
+  };
+
+  const handleMoveAreaToTrash = async (areaId: string) => {
+    if (!config) return;
+    if (!accessControlEngine.canArchiveArea(identityUser, areaId, { groupId: config.groupId, companyId: config.companyId })) {
+      showToast("error", "Você não pode mover esta área para a Lixeira.");
+      return;
+    }
+    try {
+      await moveAreaToTrash(config, areaId, performedBy);
+      await refreshLixeira();
+      showToast("info", "Área enviada para a Lixeira.");
+    } catch (e) {
+      showToast("error", (e as Error).message);
+    }
+  };
+
+  const handlePermanentlyDeleteArea = async (areaId: string) => {
+    if (!config) return;
+    if (!accessControlEngine.canDeleteArea(identityUser, areaId, { groupId: config.groupId, companyId: config.companyId })) {
+      showToast("error", "Você não pode excluir esta área.");
+      setDeleteTarget(null);
+      return;
+    }
+    try {
+      await permanentlyDeleteArea(config, areaId, deleteConfirmText, performedBy);
+      await refreshLixeira();
+      showToast("success", "Área excluída definitivamente. Apresentações e reuniões históricas com snapshot continuam preservadas.");
+    } catch (e) {
+      showToast("error", (e as Error).message);
+    } finally {
+      setDeleteTarget(null);
+      setDeleteConfirmText("");
+    }
+  };
+
+  const handleGrantAreaPermission = (areaId: string) => {
+    if (!config || !permissionUserId) {
+      showToast("warning", "Escolha uma pessoa antes de salvar o acesso.");
+      return;
+    }
+    if (!accessControlEngine.canConfigureArea(identityUser, areaId, { groupId: config.groupId, companyId: config.companyId })) {
+      showToast("error", "Você não pode configurar o acesso desta área.");
+      return;
+    }
+    areaPermissionRepository.set(permissionUserId, areaId, permissionActions, {
+      groupId: config.groupId,
+      companyId: config.companyId,
     });
-    showToast("info", "Área removida.");
+    showToast("success", "Acesso da área atualizado.");
   };
 
   // 6. Add Custom Metric / Indicator
@@ -302,6 +428,15 @@ export const ModeloConsultivoTab: React.FC<ModeloConsultivoTabProps> = ({
 
     return { recognized, needsConfirmation, available };
   }, [config]);
+
+  const availableFieldNames = useMemo(() => {
+    const configuredNames = Object.keys(config?.selectedFields || {});
+    const datasetNames = (activeDataset?.columnProfiles || [])
+      .map(profile => profile.originalName || profile.name)
+      .filter(Boolean);
+    const previewNames = dataOrigem.flatMap(row => Object.keys(row as Record<string, unknown>));
+    return Array.from(new Set([...configuredNames, ...datasetNames, ...previewNames]));
+  }, [config, activeDataset, dataOrigem]);
 
   const overallConfidenceText = useMemo(() => {
     if (!config || Object.keys(config.selectedFields).length === 0) return "Sem dados";
@@ -592,7 +727,7 @@ export const ModeloConsultivoTab: React.FC<ModeloConsultivoTabProps> = ({
               <div>
                 <label className="text-[9px] font-bold text-slate-400 uppercase block mb-2">Colunas Associadas</label>
                 <div className="flex flex-wrap gap-2">
-                  {Object.keys(config.selectedFields).map(fName => {
+                  {availableFieldNames.map(fName => {
                     const isSelected = newAreaFields.includes(fName);
                     return (
                       <button
@@ -641,19 +776,151 @@ export const ModeloConsultivoTab: React.FC<ModeloConsultivoTabProps> = ({
                           <strong>Colunas:</strong> <span className="font-mono">{area.relatedFields.join(", ")}</span>
                         </div>
                       )}
+                      {accessControlEngine.canConfigureArea(identityUser, area.id, { groupId: config.groupId, companyId: config.companyId }) && permissionUsers.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                          <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block">Acesso desta área</span>
+                          <select
+                            aria-label={`Pessoa com acesso a ${area.name}`}
+                            value={permissionUserId}
+                            onChange={event => setPermissionUserId(event.target.value)}
+                            className="w-full bg-white dark:bg-slate-800 border px-2 py-1 rounded text-[10px]"
+                          >
+                            <option value="">Escolha uma pessoa</option>
+                            {permissionUsers.map(user => (
+                              <option key={user.id} value={user.id}>{user.profile.fullName}</option>
+                            ))}
+                          </select>
+                          <div className="flex flex-wrap gap-2">
+                            {(["VIEW", "EDIT", "CONFIGURE", "ARCHIVE", "DELETE", "EXPORT"] as AreaAction[]).map(action => (
+                              <label key={action} className="inline-flex items-center gap-1 text-[9px] text-slate-500">
+                                <input
+                                  type="checkbox"
+                                  checked={permissionActions.includes(action)}
+                                  onChange={() => setPermissionActions(current => current.includes(action)
+                                    ? current.filter(item => item !== action)
+                                    : [...current, action])}
+                                />
+                                {action === "VIEW" ? "Ver" : action === "EDIT" ? "Editar" : action === "CONFIGURE" ? "Configurar" : action === "ARCHIVE" ? "Arquivar" : action === "DELETE" ? "Excluir" : "Exportar"}
+                              </label>
+                            ))}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleGrantAreaPermission(area.id)}
+                            className="px-2.5 py-1 rounded bg-slate-800 text-white text-[9px] font-black uppercase cursor-pointer"
+                          >
+                            Salvar acesso
+                          </button>
+                        </div>
+                      )}
                     </div>
                     {!["financeiro", "comercial", "pessoas"].includes(area.id) && (
-                      <button 
-                        onClick={() => handleRemoveArea(area.id)}
+                      <button
+                        onClick={() => setArchiveTarget(area.id)}
                         className="text-slate-400 hover:text-red-500 transition cursor-pointer p-1"
+                        aria-label={`Arquivar área ${area.name}`}
                       >
-                        <Trash size={14} />
+                        <ArchiveIcon size={14} />
                       </button>
                     )}
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Impact preview + confirmation modal for archiving (Bloco 2) */}
+            {archiveTarget && config && (() => {
+              const impact = getImpactReport(config, archiveTarget);
+              if (!impact) return null;
+              return (
+                <div role="dialog" aria-modal="true" aria-labelledby="archive-modal-title" className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-4">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <ArchiveIcon size={18} className="text-amber-500" />
+                      <h4 id="archive-modal-title" className="text-sm font-black uppercase text-slate-800 dark:text-white">Arquivar "{impact.areaName}"?</h4>
+                    </div>
+                    <p className="text-xs text-slate-500">Esta área deixará de aparecer nas novas análises. As configurações e o histórico serão preservados.</p>
+                    {impact.linkedMetricNames.length > 0 && (
+                      <div className="text-[11px] text-slate-500 bg-slate-50 dark:bg-slate-950/40 rounded-lg p-2">
+                        <strong>Indicadores vinculados:</strong> {impact.linkedMetricNames.join(", ")}
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button onClick={() => setArchiveTarget(null)} className="px-3 py-1.5 text-[11px] font-black uppercase text-slate-500 hover:text-slate-700 cursor-pointer">Cancelar</button>
+                      <button onClick={() => handleRemoveArea(archiveTarget)} className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-black uppercase cursor-pointer">Arquivar</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Delete confirmation modal (Bloco 2 — only reachable from the Lixeira) */}
+            {deleteTarget && (
+              <div role="dialog" aria-modal="true" aria-labelledby="delete-modal-title" className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-4">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={18} className="text-red-500" />
+                    <h4 id="delete-modal-title" className="text-sm font-black uppercase text-slate-800 dark:text-white">Excluir permanentemente?</h4>
+                  </div>
+                  <p className="text-xs text-slate-500">Esta ação removerá a configuração desta área. Apresentações e reuniões históricas continuarão preservadas quando possuírem snapshot.</p>
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Digite o nome da área para confirmar</label>
+                    <input
+                      type="text"
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-800 border px-3 py-1.5 rounded-lg text-xs"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button onClick={() => { setDeleteTarget(null); setDeleteConfirmText(""); }} className="px-3 py-1.5 text-[11px] font-black uppercase text-slate-500 hover:text-slate-700 cursor-pointer">Cancelar</button>
+                    <button onClick={() => handlePermanentlyDeleteArea(deleteTarget)} className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-black uppercase cursor-pointer">Excluir definitivamente</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Lixeira de Áreas (Bloco 1/3/4) */}
+            {(archivedAreas.length > 0 || trashedAreas.length > 0) && (
+              <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800" id="lixeira-areas">
+                <span className="text-[10px] font-black uppercase text-slate-455 tracking-wider block">Lixeira de Áreas</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {archivedAreas.map(item => (
+                    <div key={item.id} className="p-3 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/10 flex justify-between items-center">
+                      <div>
+                        <span className="text-xs font-extrabold uppercase">{item.entityName}</span>
+                        <span className="block text-[9px] text-amber-700 dark:text-amber-400 uppercase font-bold">Arquivada</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleRestoreArea(item.entityId.split("::").pop()!)} className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 inline-flex items-center gap-1 cursor-pointer">
+                          <RotateCcw size={12} /> Restaurar
+                        </button>
+                        <button onClick={() => handleMoveAreaToTrash(item.entityId.split("::").pop()!)} className="text-[10px] font-black uppercase text-slate-500 hover:text-red-500 cursor-pointer">
+                          Enviar à Lixeira
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {trashedAreas.map(item => (
+                    <div key={item.id} className="p-3 rounded-xl border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/10 flex justify-between items-center">
+                      <div>
+                        <span className="text-xs font-extrabold uppercase">{item.entityName}</span>
+                        <span className="block text-[9px] text-red-700 dark:text-red-400 uppercase font-bold">Na Lixeira</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleRestoreArea(item.entityId.split("::").pop()!)} className="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 inline-flex items-center gap-1 cursor-pointer">
+                          <RotateCcw size={12} /> Restaurar
+                        </button>
+                        <button onClick={() => setDeleteTarget(item.entityId.split("::").pop()!)} className="text-[10px] font-black uppercase text-red-600 hover:text-red-700 cursor-pointer">
+                          Excluir definitivamente
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -730,7 +997,7 @@ export const ModeloConsultivoTab: React.FC<ModeloConsultivoTabProps> = ({
                     required
                   >
                     <option value="">Selecione...</option>
-                    {Object.keys(config.selectedFields).map(fName => (
+                    {availableFieldNames.map(fName => (
                       <option key={fName} value={fName}>{fName}</option>
                     ))}
                   </select>

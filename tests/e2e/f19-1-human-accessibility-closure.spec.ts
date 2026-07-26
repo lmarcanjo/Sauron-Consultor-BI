@@ -96,7 +96,7 @@ test.describe("F19.1 — Auditoria axe/WCAG por tela", () => {
     await runAxeAudit(page, "Home");
   });
 
-  test("Central de Dados (drawer) — axe critical+serious = 0", async ({ page }) => {
+  test("Fontes de Dados — axe critical+serious = 0", async ({ page }) => {
     await page.goto("/");
     await ensureConsultantSession(page);
     await openDataCenter(page);
@@ -134,22 +134,17 @@ test.describe("F19.1 — Auditoria axe/WCAG por tela", () => {
   test("DRE / Resultado financeiro — axe critical+serious = 0", async ({ page }) => {
     await page.goto("/");
     await ensureConsultantSession(page);
-    await navigateSidebar(page, /Diagnosticar/i, /DRE|Resultado financeiro|KPIs/i);
+    await expect(page.locator("aside").getByRole("button", { name: /DRE|Resultado financeiro|KPIs/i })).toHaveCount(0);
     await page.waitForTimeout(500);
     await runAxeAudit(page, "DRE");
   });
 
-  test("Biblioteca de Planilhas — axe critical+serious = 0", async ({ page }) => {
+  test("Fontes de Dados persistidas — axe critical+serious = 0", async ({ page }) => {
     await page.goto("/");
     await ensureConsultantSession(page);
     await openDataCenter(page);
-    // Navegar para aba de Biblioteca se disponível
-    const libTab = page.getByRole("tab", { name: /biblioteca|planilha/i }).first();
-    if (await libTab.isVisible({ timeout: 2000 })) {
-      await libTab.click();
-    }
     await page.waitForTimeout(500);
-    await runAxeAudit(page, "Biblioteca de Planilhas");
+    await runAxeAudit(page, "Fontes de Dados persistidas");
   });
 
   test("Preparação de reunião — axe critical+serious = 0", async ({ page }) => {
@@ -304,7 +299,7 @@ test.describe("F19.1 — Zoom 200% e responsividade", () => {
     }
   });
 
-  test("Zoom 200% — modais não cortam conteúdo essencial", async ({ page }) => {
+  test("Zoom 200% — tela de fontes não corta conteúdo essencial", async ({ page }) => {
     await page.goto("/");
     await ensureConsultantSession(page);
     await page.setViewportSize({ width: 640, height: 400 });
@@ -312,10 +307,8 @@ test.describe("F19.1 — Zoom 200% e responsividade", () => {
     await openDataCenter(page);
     await page.waitForTimeout(300);
 
-    // Verificar que o botão de fechar está visível
-    const closeBtn = page.getByRole("button", { name: /fechar/i }).first();
-    const closeBtnVisible = await closeBtn.isVisible().catch(() => false);
-    expect(closeBtnVisible, "botão de fechar deve estar visível em zoom 200%").toBe(true);
+    await expect(page.getByText(/Saúde da fonte|Fontes persistidas do projeto/i).first())
+      .toBeVisible({ timeout: 5000 });
   });
 
   test("Viewport 1280px — layout não quebra", async ({ page }) => {

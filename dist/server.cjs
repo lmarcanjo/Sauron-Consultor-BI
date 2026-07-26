@@ -28,6 +28,7 @@ var import_dotenv = __toESM(require("dotenv"), 1);
 var import_genai = require("@google/genai");
 var import_vite = require("vite");
 var import_fs = __toESM(require("fs"), 1);
+var import_node_os = __toESM(require("node:os"), 1);
 
 // src/utils/calculations.ts
 function isQueryReadOnly(query) {
@@ -115,6 +116,45 @@ var SecurityEngine = class _SecurityEngine {
 };
 var securityEngine = SecurityEngine.getInstance();
 
+// src/core/connections/DatabaseConfig.ts
+var SUPPORTED_TYPES = /* @__PURE__ */ new Set(["postgres", "mysql", "mssql", "oracle", "mongodb"]);
+function normalizeType(value) {
+  const type = String(value || "").trim().toLowerCase();
+  return SUPPORTED_TYPES.has(type) ? type : null;
+}
+function normalizeDatabaseConfig(input = {}) {
+  const typeValue = input.type == null ? null : normalizeType(input.type);
+  const dbTypeValue = input.dbType == null ? null : normalizeType(input.dbType);
+  if (input.type != null && !typeValue) {
+    return { success: false, stage: "configuration", message: "Tipo de banco de dados n\xE3o suportado." };
+  }
+  if (input.dbType != null && !dbTypeValue) {
+    return { success: false, stage: "configuration", message: "Tipo de banco de dados n\xE3o suportado." };
+  }
+  if (typeValue && dbTypeValue && typeValue !== dbTypeValue) {
+    return { success: false, stage: "configuration", message: "A configura\xE7\xE3o informa tipos de banco conflitantes." };
+  }
+  const type = typeValue || dbTypeValue;
+  if (!type) {
+    return { success: false, stage: "configuration", message: "Tipo de banco de dados obrigat\xF3rio." };
+  }
+  const portValue = Number(input.port || 0);
+  return {
+    success: true,
+    config: {
+      type,
+      host: String(input.host || "").trim(),
+      port: Number.isInteger(portValue) && portValue > 0 ? portValue : 0,
+      user: String(input.user || "").trim(),
+      database: String(input.database || "").trim(),
+      ssl: Boolean(input.ssl),
+      table: String(input.table ?? input.tableName ?? input.selectedTable ?? "").trim(),
+      query: String(input.query || "").trim(),
+      mappings: input.mappings && typeof input.mappings === "object" ? { ...input.mappings } : {}
+    }
+  };
+}
+
 // src/core/platform/PlatformLogger.ts
 function debugEnabled() {
   if (typeof window === "undefined") return false;
@@ -143,14 +183,244 @@ var platformLogger = {
 };
 
 // src/core/connections/DatabaseConnectionManager.ts
+var fs = __toESM(require("node:fs"), 1);
+var net = __toESM(require("node:net"), 1);
+var os = __toESM(require("node:os"), 1);
+var import_node_dns = require("node:dns");
+var import_node_child_process = require("node:child_process");
+var import_node_util = require("node:util");
+var execFileAsync = (0, import_node_util.promisify)(import_node_child_process.execFile);
+var defaultTcpProbe = (host, port, timeoutMs) => new Promise((resolve) => {
+  const startedAt = Date.now();
+  const socket = new net.Socket();
+  let settled = false;
+  const finish = (result) => {
+    if (settled) return;
+    settled = true;
+    socket.destroy();
+    resolve({ ...result, elapsedMs: Date.now() - startedAt });
+  };
+  socket.setTimeout(timeoutMs);
+  socket.once("connect", () => {
+    const local = socket.address();
+    const localInfo = typeof local === "object" && local !== null && "address" in local ? local : null;
+    finish({
+      connected: true,
+      localAddress: localInfo?.address,
+      localPort: localInfo?.port,
+      remoteAddress: socket.remoteAddress,
+      remotePort: socket.remotePort
+    });
+  });
+  socket.once("timeout", () => finish({ connected: false, error: "TCP timeout" }));
+  socket.once("error", (error) => finish({
+    connected: false,
+    code: error.code,
+    error: error.message
+  }));
+  socket.connect(port, host);
+});
+function detectContainer() {
+  const evidence = [];
+  if (fs.existsSync("/.dockerenv")) evidence.push("/.dockerenv");
+  try {
+    const cgroup = fs.readFileSync("/proc/1/cgroup", "utf8");
+    if (/docker|containerd|kubepods/i.test(cgroup)) evidence.push("/proc/1/cgroup");
+  } catch {
+  }
+  return evidence;
+}
+function getNetworkNamespaceId() {
+  try {
+    const namespace = fs.readlinkSync("/proc/self/ns/net");
+    return namespace.match(/\[(\d+)\]/)?.[1] || null;
+  } catch {
+    return null;
+  }
+}
+function getNetworkInterfaces() {
+  try {
+    return Object.entries(os.networkInterfaces()).flatMap(
+      ([name, entries]) => (entries || []).map((entry) => ({
+        name,
+        address: entry.address,
+        family: String(entry.family),
+        netmask: entry.netmask,
+        cidr: entry.cidr,
+        internal: entry.internal
+      }))
+    );
+  } catch {
+    return [];
+  }
+}
+function getEffectiveUser() {
+  const uid = typeof process.geteuid === "function" ? process.geteuid() : null;
+  try {
+    return { uid, username: os.userInfo().username };
+  } catch {
+    return { uid, username: process.env.USER || process.env.USERNAME || "unknown" };
+  }
+}
+function getProxyEnvironmentVariables() {
+  return ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy"].filter((name) => Boolean(process.env[name]));
+}
+function getIsolationSignals(containerEvidence) {
+  const signals = [...containerEvidence];
+  if (process.env.SNAP) signals.push("snap");
+  if (process.env.FLATPAK_ID) signals.push("flatpak");
+  if (process.env.CI) signals.push("ci");
+  return signals;
+}
+function parseRouteOutput(output) {
+  return {
+    interfaceName: output.match(/\bdev\s+(\S+)/)?.[1],
+    gateway: output.match(/\bvia\s+(\S+)/)?.[1],
+    localAddress: output.match(/\bsrc\s+(\S+)/)?.[1]
+  };
+}
+var defaultRouteProbe = async (host) => {
+  let resolvedAddress;
+  let family;
+  try {
+    const resolved = await import_node_dns.promises.lookup(host);
+    resolvedAddress = resolved.address;
+    family = resolved.family;
+  } catch (error) {
+    return {
+      status: "failed",
+      host,
+      error: error?.message || "Falha na resolu\xE7\xE3o do host.",
+      code: error?.code || "DNS_ERROR"
+    };
+  }
+  const command = process.platform === "win32" ? "route" : "ip";
+  const args = process.platform === "win32" ? ["print", resolvedAddress] : ["route", "get", resolvedAddress];
+  try {
+    const result = await execFileAsync(command, args, { timeout: 2500, maxBuffer: 16 * 1024 });
+    const output = String(result.stdout || "").trim();
+    return {
+      status: output ? "passed" : "unavailable",
+      host,
+      resolvedAddress,
+      family,
+      command: [command, ...args].join(" "),
+      ...parseRouteOutput(output),
+      error: output ? void 0 : "Comando de rota n\xE3o retornou dados."
+    };
+  } catch (error) {
+    const unavailable = error?.code === "ENOENT";
+    return {
+      status: unavailable ? "unavailable" : "failed",
+      host,
+      resolvedAddress,
+      family,
+      command: [command, ...args].join(" "),
+      code: error?.code || "ROUTE_ERROR",
+      error: error?.message || "Falha ao consultar a tabela de rotas."
+    };
+  }
+};
+function configuredTarget(config) {
+  let host = config.host || "localhost";
+  let port = Number(config.port);
+  if (config.connectionString) {
+    try {
+      const parsed = new URL(config.connectionString);
+      host = parsed.hostname || host;
+      port = Number(parsed.port || (config.type === "mysql" ? 3306 : config.type === "postgres" ? 5432 : port));
+    } catch {
+    }
+  }
+  return { host, port };
+}
+function createCorrelationId() {
+  return `db-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+}
+function sanitizeDiagnosticText(value, config) {
+  if (value === void 0 || value === null) return void 0;
+  let text = String(value);
+  for (const secret of [config?.password, config?.sshPassword, config?.sshPrivateKey, config?.connectionString]) {
+    if (secret) text = text.split(String(secret)).join("[REDACTED]");
+  }
+  return text;
+}
+function toConnectionError(error, config) {
+  return {
+    message: sanitizeDiagnosticText(error?.message || String(error), config) || "Erro desconhecido.",
+    code: error?.code || error?.errno,
+    stack: sanitizeDiagnosticText(error?.stack, config)
+  };
+}
+function recordStageTiming(context, stage, startedAt) {
+  context.stageTimings.push({ stage, elapsedMs: Date.now() - startedAt });
+}
 var DatabaseConnectionManager = class _DatabaseConnectionManager {
-  constructor() {
+  constructor(dependencies = {}) {
+    this.dependencies = dependencies;
   }
   static getInstance() {
     if (!_DatabaseConnectionManager.instance) {
       _DatabaseConnectionManager.instance = new _DatabaseConnectionManager();
     }
     return _DatabaseConnectionManager.instance;
+  }
+  static createForTesting(dependencies) {
+    return new _DatabaseConnectionManager(dependencies);
+  }
+  getRuntimeContext() {
+    const containerEvidence = detectContainer();
+    return {
+      process: "node",
+      pid: process.pid,
+      startedAt: new Date(Date.now() - process.uptime() * 1e3).toISOString(),
+      hostname: os.hostname(),
+      containerized: containerEvidence.length > 0,
+      containerEvidence,
+      effectiveUser: getEffectiveUser(),
+      processExecutable: process.execPath,
+      networkNamespaceId: getNetworkNamespaceId(),
+      interfaces: getNetworkInterfaces(),
+      proxyEnvironmentVariables: getProxyEnvironmentVariables(),
+      isolationSignals: getIsolationSignals(containerEvidence)
+    };
+  }
+  async diagnoseNetworkContext(host, port, type = "mysql") {
+    const startedAt = Date.now();
+    const routeProbe = await (this.dependencies.routeProbe || defaultRouteProbe)(host);
+    let tcpProbe;
+    if (routeProbe.status === "failed" && !routeProbe.resolvedAddress) {
+      tcpProbe = {
+        status: "skipped",
+        host,
+        port,
+        connected: false,
+        elapsedMs: 0,
+        error: "TCP n\xE3o executado porque o host n\xE3o foi resolvido."
+      };
+    } else {
+      const probe = await (this.dependencies.tcpProbe || defaultTcpProbe)(host, port, 4e3);
+      tcpProbe = {
+        status: probe.connected ? "passed" : "failed",
+        host,
+        port,
+        connected: probe.connected,
+        localAddress: probe.localAddress,
+        localPort: probe.localPort,
+        remoteAddress: probe.remoteAddress,
+        remotePort: probe.remotePort,
+        elapsedMs: probe.elapsedMs,
+        code: probe.code,
+        error: probe.error
+      };
+    }
+    return {
+      runtime: this.getRuntimeContext(),
+      target: { host, port, type },
+      routeProbe,
+      tcpProbe,
+      elapsedMs: Date.now() - startedAt
+    };
   }
   /**
    * Generates a helpful tip for Docker container network isolation.
@@ -172,12 +442,12 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
    */
   async logAudit(eventType, status, description, user = "lmarcanjo16@gmail.com", metadata = {}) {
     try {
-      const fs2 = await import("fs");
+      const fs3 = await import("fs");
       const path2 = await import("path");
       const SYSTEM_DB_FILE2 = path2.join(process.cwd(), "system_db.json");
       let sysDb = {};
-      if (fs2.existsSync(SYSTEM_DB_FILE2)) {
-        sysDb = JSON.parse(fs2.readFileSync(SYSTEM_DB_FILE2, "utf-8"));
+      if (fs3.existsSync(SYSTEM_DB_FILE2)) {
+        sysDb = JSON.parse(fs3.readFileSync(SYSTEM_DB_FILE2, "utf-8"));
       }
       if (!sysDb.auditLogs) {
         sysDb.auditLogs = [];
@@ -192,7 +462,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
         ...metadata
       };
       sysDb.auditLogs.unshift(logEntry);
-      fs2.writeFileSync(SYSTEM_DB_FILE2, JSON.stringify(sysDb, null, 2), "utf-8");
+      fs3.writeFileSync(SYSTEM_DB_FILE2, JSON.stringify(sysDb, null, 2), "utf-8");
       platformLogger.info(`[AUDIT LOG] ${eventType} - ${status} - ${description}`);
     } catch (e) {
       platformLogger.warn("Erro ao salvar log de auditoria no ConnectionManager:", e.message);
@@ -203,11 +473,11 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
    */
   async setupSshTunnel(config) {
     const { Client: SshClient } = await import("ssh2");
-    const net = await import("net");
+    const net2 = await import("net");
     return new Promise((resolve, reject) => {
       const { sshHost, sshPort, sshUser, sshPassword, sshPrivateKey, host, port } = config;
       const sshBtn = new SshClient();
-      const server = net.createServer((socket) => {
+      const server = net2.createServer((socket) => {
         sshBtn.forwardOut(
           "127.0.0.1",
           socket.remotePort || 0,
@@ -269,252 +539,582 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
    * Test connection in detailed stages.
    */
   async testConnection(config) {
-    const type = config.type;
-    let activeHost = config.host || "localhost";
-    let activePort = Number(config.port);
-    let sshTunnel = null;
+    const context = { correlationId: createCorrelationId(), stageTimings: [] };
+    const result = await this.runConnectionTest(config, context);
+    const enrichedResult = {
+      ...result,
+      correlationId: result.correlationId || context.correlationId,
+      stageTimings: result.stageTimings || context.stageTimings
+    };
+    return {
+      ...enrichedResult,
+      diagnostics: this.buildDiagnostics(config, enrichedResult)
+    };
+  }
+  buildDiagnostics(config, result) {
+    const failedStage = result.success ? null : result.stage;
+    const stages = [];
+    const add = (stage, status, message) => stages.push({ stage, status, message });
+    const stopAtFailure = (stage, message) => {
+      add(stage, "failed", message);
+    };
     if (config.useSshTunnel) {
+      if (failedStage === "vpn") {
+        stopAtFailure("vpn", result.message);
+        return this.diagnosticsFor(config, result, stages);
+      }
+      add("vpn", "passed", "T\xFAnel SSH estabelecido pelo processo Node.");
+    }
+    if (failedStage === "configuration") {
+      stopAtFailure("configuration", result.message);
+      return this.diagnosticsFor(config, result, stages);
+    }
+    add("configuration", "passed", "Configura\xE7\xE3o MySQL m\xEDnima validada.");
+    if (failedStage === "host") {
+      stopAtFailure("host", result.message);
+      return this.diagnosticsFor(config, result, stages);
+    }
+    if (failedStage === "port") {
+      add("route", "failed", "O processo Node n\xE3o conseguiu alcan\xE7ar o destino pela rota atual.");
+      add("host", "passed", "Host resolvido pelo processo Node.");
+      stopAtFailure("port", result.message);
+      return this.diagnosticsFor(config, result, stages);
+    }
+    add("route", "passed", "A rota do processo Node alcan\xE7ou o destino TCP.");
+    add("host", "passed", "Host resolvido pelo processo Node.");
+    add("port", "passed", "Socket TCP aberto pelo processo Node.");
+    const driverStages = ["handshake", "auth", "database", "schema", "query", "readonly"];
+    const failedDriverIndex = failedStage ? driverStages.indexOf(failedStage) : -1;
+    driverStages.forEach((stage, index) => {
+      if (failedDriverIndex >= 0 && index > failedDriverIndex) return;
+      if (failedStage === stage) {
+        stopAtFailure(stage, result.message);
+        return;
+      }
+      add(stage, "passed", stage === "handshake" ? "Handshake do mysql2 conclu\xEDdo." : "Etapa conclu\xEDda.");
+    });
+    if (failedStage && failedDriverIndex < 0) {
+      stopAtFailure("handshake", result.message);
+    }
+    return this.diagnosticsFor(config, result, stages);
+  }
+  diagnosticsFor(config, result, stages) {
+    return {
+      correlationId: result.correlationId || "unknown",
+      runtime: this.getRuntimeContext(),
+      target: {
+        ...configuredTarget(config),
+        type: config.type
+      },
+      stages,
+      stageTimings: result.stageTimings || [],
+      error: result.error,
+      serverInfo: result.serverInfo
+    };
+  }
+  async runConnectionTest(config, context) {
+    const type = config.type;
+    const initialTarget = configuredTarget(config);
+    let activeHost = initialTarget.host;
+    let activePort = initialTarget.port;
+    let sshTunnel = null;
+    try {
+      if (config.useSshTunnel) {
+        try {
+          sshTunnel = await this.setupSshTunnel({
+            sshHost: config.sshHost,
+            sshPort: config.sshPort,
+            sshUser: config.sshUser,
+            sshPassword: config.sshPassword,
+            sshPrivateKey: config.sshPrivateKey,
+            host: activeHost,
+            port: activePort
+          });
+          activeHost = sshTunnel.localHost;
+          activePort = sshTunnel.localPort;
+        } catch (err) {
+          return {
+            success: false,
+            stage: "vpn",
+            message: `Falha ao abrir t\xFAnel SSH/VPN: ${err.message}`,
+            technicalDetails: sanitizeDiagnosticText(err.message, config),
+            error: toConnectionError(err, config)
+          };
+        }
+      }
+      const host = activeHost;
+      const port = activePort;
+      if (type === "mysql" && !config.connectionString) {
+        const configurationStartedAt = Date.now();
+        if (!String(config.database || "").trim()) {
+          const result = {
+            success: false,
+            stage: "configuration",
+            message: "Database obrigat\xF3rio."
+          };
+          recordStageTiming(context, "configuration", configurationStartedAt);
+          return result;
+        }
+        if (!String(config.password || "")) {
+          const result = {
+            success: false,
+            stage: "configuration",
+            message: "Senha do MySQL obrigat\xF3ria para testar a autentica\xE7\xE3o."
+          };
+          recordStageTiming(context, "configuration", configurationStartedAt);
+          return result;
+        }
+        recordStageTiming(context, "configuration", configurationStartedAt);
+      }
+      const hostStartedAt = Date.now();
       try {
-        sshTunnel = await this.setupSshTunnel({
-          sshHost: config.sshHost,
-          sshPort: config.sshPort,
-          sshUser: config.sshUser,
-          sshPassword: config.sshPassword,
-          sshPrivateKey: config.sshPrivateKey,
-          host: activeHost,
-          port: activePort
+        const lookup = this.dependencies.dnsLookup || (async (value) => {
+          await import_node_dns.promises.lookup(value);
         });
-        activeHost = sshTunnel.localHost;
-        activePort = sshTunnel.localPort;
+        await lookup(host);
       } catch (err) {
-        return {
-          success: false,
-          stage: "host",
-          message: `Falha ao abrir t\xFAnel SSH/VPN: ${err.message}`,
-          technicalDetails: err.message
-        };
-      }
-    }
-    try {
-      const type2 = config.type;
-    } finally {
-      if (sshTunnel) {
-        await sshTunnel.close().catch(() => {
-        });
-      }
-    }
-    const host = activeHost;
-    const port = activePort;
-    try {
-      const dns = await import("dns").then((m) => m.promises);
-      await dns.lookup(host);
-    } catch (err) {
-      const hint = this.getDockerConnectionHint(host);
-      const message = `Host '${host}' n\xE3o p\xF4de ser resolvido via DNS.${hint}`;
-      await this.logAudit(
-        "DB_CONNECTION_TEST_WARNING",
-        "Info",
-        `Host '${host}' n\xE3o encontrado (DNS lookup failed).`,
-        config.user || "lmarcanjo16@gmail.com",
-        { type, host, database: config.database, stage: "host", error: err.message }
-      );
-      return {
-        success: false,
-        stage: "host",
-        message,
-        technicalDetails: err.message
-      };
-    }
-    try {
-      const net = await import("net");
-      const isPortOpen = await new Promise((resolve) => {
-        const socket = new net.default.Socket();
-        let resolved = false;
-        socket.setTimeout(2500);
-        socket.connect(port, host, () => {
-          resolved = true;
-          socket.destroy();
-          resolve(true);
-        });
-        socket.on("error", () => {
-          if (!resolved) {
-            resolved = true;
-            socket.destroy();
-            resolve(false);
-          }
-        });
-        socket.on("timeout", () => {
-          if (!resolved) {
-            resolved = true;
-            socket.destroy();
-            resolve(false);
-          }
-        });
-      });
-      if (!isPortOpen) {
         const hint = this.getDockerConnectionHint(host);
-        const message = `Porta ${port} no host '${host}' est\xE1 fechada ou inacess\xEDvel.${hint}`;
+        const message = `Host '${host}' n\xE3o p\xF4de ser resolvido via DNS.${hint}`;
         await this.logAudit(
           "DB_CONNECTION_TEST_WARNING",
           "Info",
-          `Porta fechada ou inacess\xEDvel em ${host}:${port}`,
+          `Host '${host}' n\xE3o encontrado (DNS lookup failed).`,
           config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage: "port" }
+          { type, host, database: config.database, stage: "host", error: err.message }
         );
         return {
           success: false,
-          stage: "port",
+          stage: "host",
           message,
-          technicalDetails: "TCP connection timeout/refused. Verifique as configura\xE7\xF5es de firewall e se o banco est\xE1 ouvindo na porta informada."
+          technicalDetails: sanitizeDiagnosticText(err.message, config),
+          error: toConnectionError(err, config)
         };
+      } finally {
+        recordStageTiming(context, "host", hostStartedAt);
       }
-    } catch (err) {
-      return {
-        success: false,
-        stage: "port",
-        message: "Erro ao testar a porta TCP.",
-        technicalDetails: err.message
-      };
-    }
-    if (type === "postgres") {
+      const portStartedAt = Date.now();
       try {
-        const pg = await import("pg");
-        const clientConfig = config.connectionString ? { connectionString: config.connectionString } : { host, port, user: config.user, password: config.password, database: config.database };
-        if (config.ssl) {
-          clientConfig.ssl = { rejectUnauthorized: false };
-        }
-        const client = new pg.default.Client(clientConfig);
-        try {
-          await client.connect();
-        } catch (err) {
-          await client.end().catch(() => {
-          });
-          const errMsg = err.message || "";
-          const errCode = err.code || "";
-          let stage = "unknown";
-          let message = "Erro desconhecido na tentativa de conex\xE3o Postgres.";
-          if (errCode === "28P01" || errMsg.includes("password authentication") || errMsg.includes("authentication failed")) {
-            stage = "auth";
-            message = "Falha de autentica\xE7\xE3o. Usu\xE1rio ou senha incorretos para o banco de dados.";
-          } else if (errCode === "3D000" || errMsg.includes("database") && errMsg.includes("does not exist")) {
-            stage = "database";
-            message = `Banco de dados '${config.database}' n\xE3o existe no servidor postgres.`;
-          } else if (errMsg.includes("SSL") || errMsg.includes("no pg_hba.conf entry") || errMsg.includes("negotiation failed")) {
-            stage = "ssl";
-            message = "Erro de handshake SSL/TLS ou permiss\xE3o pg_hba.conf de criptografia requerida.";
-          }
+        const probe = this.dependencies.tcpProbe || defaultTcpProbe;
+        const probeResult = await probe(host, port, 4e3);
+        if (!probeResult.connected) {
+          const hint = this.getDockerConnectionHint(host);
+          const message = `O processo Node n\xE3o conseguiu abrir o socket TCP para ${host}:${port}.${hint} Isso n\xE3o prova que a porta esteja fechada em outro ambiente.`;
           await this.logAudit(
             "DB_CONNECTION_TEST_WARNING",
             "Info",
-            `Falha na autentica\xE7\xE3o ou sele\xE7\xE3o do banco Postgres: ${message}`,
+            `Socket TCP n\xE3o aberto pelo processo Node em ${host}:${port}`,
             config.user || "lmarcanjo16@gmail.com",
-            { type, host, database: config.database, stage, error: errMsg }
+            { type, host, database: config.database, stage: "port" }
           );
           return {
             success: false,
-            stage,
+            stage: "port",
             message,
-            technicalDetails: `Postgres Code: ${errCode}. ${errMsg}`
+            technicalDetails: `TCP n\xE3o abriu no processo Node (${probeResult.code || "sem c\xF3digo"}): ${probeResult.error || "timeout/refused"}. Verifique a rota deste ambiente, n\xE3o apenas a porta no host.`,
+            error: toConnectionError({ message: probeResult.error || "timeout/refused", code: probeResult.code }, config)
           };
         }
-        try {
-          await client.query("SELECT 1;");
-        } catch (err) {
-          await client.end().catch(() => {
-          });
-          await this.logAudit(
-            "DB_CONNECTION_TEST_WARNING",
-            "Info",
-            `Erro de permiss\xE3o ou consulta no Postgres: ${err.message}`,
-            config.user || "lmarcanjo16@gmail.com",
-            { type, host, database: config.database, stage: "query", error: err.message }
-          );
-          return {
-            success: false,
-            stage: "query",
-            message: "Conectado com sucesso, mas falhou ao executar SELECT 1 (sem permiss\xE3o de leitura).",
-            technicalDetails: err.message
-          };
-        }
-        let tables = [];
-        try {
-          const tablesResult = await client.query(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            ORDER BY table_name
-            LIMIT 50;
-          `);
-          tables = tablesResult.rows.map((r) => r.table_name);
-        } catch (err) {
-          await client.end().catch(() => {
-          });
-          await this.logAudit(
-            "DB_CONNECTION_TEST_WARNING",
-            "Info",
-            `Erro ao ler schema Postgres: ${err.message}`,
-            config.user || "lmarcanjo16@gmail.com",
-            { type, host, database: config.database, stage: "schema", error: err.message }
-          );
-          return {
-            success: false,
-            stage: "schema",
-            message: "Schema n\xE3o encontrado ou sem permiss\xE3o para listar tabelas p\xFAblicas.",
-            technicalDetails: err.message
-          };
-        }
-        await client.end().catch(() => {
-        });
-        await this.logAudit(
-          "DB_CONNECTION_TEST_SUCCESS",
-          "Sucesso",
-          `Conectado com sucesso ao Postgres! Encontradas ${tables.length} tabelas no modo somente-leitura.`,
-          config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage: "readonly" }
-        );
-        return {
-          success: true,
-          stage: "readonly",
-          message: `Conectado com sucesso ao Postgres! Encontradas ${tables.length} tabelas p\xFAblicas. Banco de dados configurado no modo somente-leitura.`,
-          tables
-        };
       } catch (err) {
         return {
           success: false,
-          stage: "unknown",
-          message: "Erro desconhecido na tentativa de conex\xE3o Postgres.",
-          technicalDetails: err.message
+          stage: "port",
+          message: "Erro ao testar a porta TCP.",
+          technicalDetails: sanitizeDiagnosticText(err.message, config),
+          error: toConnectionError(err, config)
         };
+      } finally {
+        recordStageTiming(context, "port", portStartedAt);
       }
-    } else if (type === "mysql") {
-      try {
-        const mysql = await import("mysql2/promise");
-        const clientConfig = config.connectionString ? config.connectionString : { host, port, user: config.user, password: config.password, database: config.database };
-        if (config.ssl) {
-          clientConfig.ssl = { rejectUnauthorized: false };
-        }
-        let connection;
+      if (type === "postgres") {
         try {
-          connection = await mysql.default.createConnection(clientConfig);
-        } catch (err) {
-          const errMsg = err.message || "";
-          const errCode = String(err.code || err.errno || "");
-          let stage = "unknown";
-          let message = "Erro desconhecido na tentativa de conex\xE3o MySQL.";
-          if (errCode.includes("ACCESS_DENIED") || errMsg.includes("Access denied for user")) {
-            stage = "auth";
-            message = "Credenciais inv\xE1lidas. Acesso negado para o usu\xE1rio informado.";
-          } else if (errMsg.includes("Unknown database") || errCode === "ER_BAD_DB_ERROR") {
-            stage = "database";
-            message = `Banco de dados '${config.database}' n\xE3o foi encontrado.`;
-          } else if (errMsg.includes("SSL") || errCode === "HANDSHAKE_FAILED") {
-            stage = "ssl";
-            message = "Erro de handshake SSL/TLS ou permiss\xE3o de criptografia requerida.";
+          const pg = await import("pg");
+          const clientConfig = config.connectionString ? { connectionString: config.connectionString } : { host, port, user: config.user, password: config.password, database: config.database };
+          if (config.ssl) {
+            clientConfig.ssl = { rejectUnauthorized: false };
           }
+          const client = new pg.default.Client(clientConfig);
+          try {
+            await client.connect();
+          } catch (err) {
+            await client.end().catch(() => {
+            });
+            const errMsg = err.message || "";
+            const errCode = err.code || "";
+            let stage = "unknown";
+            let message = "Erro desconhecido na tentativa de conex\xE3o Postgres.";
+            if (errCode === "28P01" || errMsg.includes("password authentication") || errMsg.includes("authentication failed")) {
+              stage = "auth";
+              message = "Falha de autentica\xE7\xE3o. Usu\xE1rio ou senha incorretos para o banco de dados.";
+            } else if (errCode === "3D000" || errMsg.includes("database") && errMsg.includes("does not exist")) {
+              stage = "database";
+              message = `Banco de dados '${config.database}' n\xE3o existe no servidor postgres.`;
+            } else if (errMsg.includes("SSL") || errMsg.includes("no pg_hba.conf entry") || errMsg.includes("negotiation failed")) {
+              stage = "ssl";
+              message = "Erro de handshake SSL/TLS ou permiss\xE3o pg_hba.conf de criptografia requerida.";
+            }
+            await this.logAudit(
+              "DB_CONNECTION_TEST_WARNING",
+              "Info",
+              `Falha na autentica\xE7\xE3o ou sele\xE7\xE3o do banco Postgres: ${message}`,
+              config.user || "lmarcanjo16@gmail.com",
+              { type, host, database: config.database, stage, error: errMsg }
+            );
+            return {
+              success: false,
+              stage,
+              message,
+              technicalDetails: `Postgres Code: ${errCode}. ${errMsg}`
+            };
+          }
+          try {
+            await client.query("SELECT 1;");
+          } catch (err) {
+            await client.end().catch(() => {
+            });
+            await this.logAudit(
+              "DB_CONNECTION_TEST_WARNING",
+              "Info",
+              `Erro de permiss\xE3o ou consulta no Postgres: ${err.message}`,
+              config.user || "lmarcanjo16@gmail.com",
+              { type, host, database: config.database, stage: "query", error: err.message }
+            );
+            return {
+              success: false,
+              stage: "query",
+              message: "Conectado com sucesso, mas falhou ao executar SELECT 1 (sem permiss\xE3o de leitura).",
+              technicalDetails: err.message
+            };
+          }
+          let tables = [];
+          try {
+            const tablesResult = await client.query(`
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            ORDER BY table_name
+            LIMIT 50;
+          `);
+            tables = tablesResult.rows.map((r) => r.table_name);
+          } catch (err) {
+            await client.end().catch(() => {
+            });
+            await this.logAudit(
+              "DB_CONNECTION_TEST_WARNING",
+              "Info",
+              `Erro ao ler schema Postgres: ${err.message}`,
+              config.user || "lmarcanjo16@gmail.com",
+              { type, host, database: config.database, stage: "schema", error: err.message }
+            );
+            return {
+              success: false,
+              stage: "schema",
+              message: "Schema n\xE3o encontrado ou sem permiss\xE3o para listar tabelas p\xFAblicas.",
+              technicalDetails: err.message
+            };
+          }
+          await client.end().catch(() => {
+          });
+          await this.logAudit(
+            "DB_CONNECTION_TEST_SUCCESS",
+            "Sucesso",
+            `Conectado com sucesso ao Postgres! Encontradas ${tables.length} tabelas no modo somente-leitura.`,
+            config.user || "lmarcanjo16@gmail.com",
+            { type, host, database: config.database, stage: "readonly" }
+          );
+          return {
+            success: true,
+            stage: "readonly",
+            message: `Conectado com sucesso ao Postgres! Encontradas ${tables.length} tabelas p\xFAblicas. Banco de dados configurado no modo somente-leitura.`,
+            tables
+          };
+        } catch (err) {
+          return {
+            success: false,
+            stage: "unknown",
+            message: "Erro desconhecido na tentativa de conex\xE3o Postgres.",
+            technicalDetails: err.message
+          };
+        }
+      } else if (type === "mysql") {
+        let connection = null;
+        let transactionActive = false;
+        let readonlyStartedAt = null;
+        let connectionClosed = false;
+        const closeConnection = async () => {
+          if (!connection || connectionClosed) return;
+          connectionClosed = true;
+          try {
+            await connection.end();
+          } catch {
+          }
+        };
+        const rollback = async () => {
+          if (!transactionActive || !connection) return;
+          try {
+            await connection.query("ROLLBACK");
+          } finally {
+            transactionActive = false;
+          }
+        };
+        const finishReadonlyTiming = () => {
+          if (readonlyStartedAt !== null) {
+            recordStageTiming(context, "readonly", readonlyStartedAt);
+            readonlyStartedAt = null;
+          }
+        };
+        const auditFailure = async (stage, message, error, elapsedMs) => {
+          const details = toConnectionError(error, config);
           await this.logAudit(
             "DB_CONNECTION_TEST_WARNING",
             "Info",
             `Falha na conex\xE3o MySQL: ${message}`,
+            config.user || "lmarcanjo16@gmail.com",
+            {
+              type,
+              host,
+              database: config.database,
+              stage,
+              correlationId: context.correlationId,
+              elapsedMs,
+              mysqlCode: details.code,
+              originalError: details.message,
+              stack: details.stack
+            }
+          );
+          return details;
+        };
+        try {
+          const mysql = await import("mysql2/promise");
+          const clientConfig = config.connectionString ? config.connectionString : { host, port, user: config.user, password: config.password, database: config.database };
+          if (config.ssl && typeof clientConfig === "object") {
+            clientConfig.ssl = { rejectUnauthorized: false };
+          }
+          const driverStartedAt = Date.now();
+          try {
+            connection = await mysql.default.createConnection(clientConfig);
+          } catch (err) {
+            const details = toConnectionError(err, config);
+            const errMsg = details.message;
+            const errCode = String(details.code || "");
+            let stage = "handshake";
+            let message = "Falha no handshake do driver MySQL.";
+            if (errCode.includes("ACCESS_DENIED") || errMsg.includes("Access denied for user")) {
+              stage = "auth";
+              message = "Credenciais inv\xE1lidas. Acesso negado para o usu\xE1rio informado.";
+            } else if (errMsg.includes("Unknown database") || errCode === "ER_BAD_DB_ERROR") {
+              stage = "database";
+              message = `Banco de dados '${config.database}' n\xE3o foi encontrado.`;
+            } else if (errMsg.includes("SSL") || errCode === "HANDSHAKE_FAILED" || errCode.includes("HANDSHAKE")) {
+              stage = "handshake";
+              message = "Falha no handshake MySQL/SSL.";
+            }
+            recordStageTiming(context, "handshake", driverStartedAt);
+            if (stage !== "handshake") recordStageTiming(context, "auth", driverStartedAt);
+            if (stage === "database") recordStageTiming(context, "database", driverStartedAt);
+            await auditFailure(stage, message, err, Date.now() - driverStartedAt);
+            return {
+              success: false,
+              stage,
+              message,
+              technicalDetails: `${errCode || "MYSQL_ERROR"}: ${errMsg}`,
+              error: details
+            };
+          }
+          recordStageTiming(context, "handshake", driverStartedAt);
+          recordStageTiming(context, "auth", driverStartedAt);
+          const databaseStartedAt = Date.now();
+          let serverInfo = {};
+          try {
+            const [rows] = await connection.query("SELECT VERSION() AS version, CURRENT_USER() AS current_user_value, DATABASE() AS database_name");
+            const row = rows?.[0] || {};
+            const selectedDatabase = row.database_name ?? row["DATABASE()"] ?? null;
+            serverInfo = {
+              version: String(row.version ?? row["VERSION()"] ?? ""),
+              currentUser: String(row.current_user_value ?? row["CURRENT_USER()"] ?? ""),
+              database: selectedDatabase === null ? null : String(selectedDatabase)
+            };
+            if (!serverInfo.database || serverInfo.database !== String(config.database).trim()) {
+              const error = new Error(`Database selecionado n\xE3o corresponde ao solicitado: ${serverInfo.database || "vazio"}.`);
+              error.code = "ER_DATABASE_SELECTION";
+              const details = await auditFailure("database", error.message, error, Date.now() - databaseStartedAt);
+              return {
+                success: false,
+                stage: "database",
+                message: `Database '${config.database}' n\xE3o foi selecionado pelo MySQL.`,
+                technicalDetails: details.message,
+                error: details,
+                serverInfo
+              };
+            }
+          } catch (err) {
+            const details = await auditFailure("database", "Falha ao validar o database selecionado.", err, Date.now() - databaseStartedAt);
+            return {
+              success: false,
+              stage: "database",
+              message: "Falha ao validar o database selecionado.",
+              technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+              error: details
+            };
+          } finally {
+            recordStageTiming(context, "database", databaseStartedAt);
+          }
+          readonlyStartedAt = Date.now();
+          try {
+            await connection.query("START TRANSACTION READ ONLY");
+            transactionActive = true;
+          } catch (err) {
+            finishReadonlyTiming();
+            const details = await auditFailure("readonly", "Falha ao configurar transa\xE7\xE3o somente leitura.", err);
+            return {
+              success: false,
+              stage: "readonly",
+              message: "Falha ao configurar a conex\xE3o como somente leitura.",
+              technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+              error: details,
+              serverInfo
+            };
+          }
+          const schemaStartedAt = Date.now();
+          let tables = [];
+          try {
+            const [rows] = await connection.query("SHOW TABLES");
+            tables = (rows || []).map((row) => Object.values(row)[0]).filter(Boolean).map(String);
+          } catch (err) {
+            finishReadonlyTiming();
+            const details = await auditFailure("schema", "Erro ao ler o schema MySQL.", err, Date.now() - schemaStartedAt);
+            return {
+              success: false,
+              stage: "schema",
+              message: "Schema inexistente ou sem permiss\xE3o para listar tabelas.",
+              technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+              error: details,
+              serverInfo
+            };
+          } finally {
+            recordStageTiming(context, "schema", schemaStartedAt);
+          }
+          const queryStartedAt = Date.now();
+          try {
+            await connection.query("SELECT 1");
+          } catch (err) {
+            finishReadonlyTiming();
+            const details = await auditFailure("query", "Falha ao executar SELECT 1.", err, Date.now() - queryStartedAt);
+            return {
+              success: false,
+              stage: "query",
+              message: "A conex\xE3o foi autenticada, mas SELECT 1 falhou.",
+              technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+              error: details,
+              serverInfo
+            };
+          } finally {
+            recordStageTiming(context, "query", queryStartedAt);
+          }
+          try {
+            await rollback();
+            finishReadonlyTiming();
+          } catch (err) {
+            const details = await auditFailure("readonly", "Falha ao encerrar a transa\xE7\xE3o somente leitura.", err);
+            return {
+              success: false,
+              stage: "readonly",
+              message: "A transa\xE7\xE3o somente leitura n\xE3o p\xF4de ser encerrada com seguran\xE7a.",
+              technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+              error: details,
+              serverInfo
+            };
+          }
+          await this.logAudit(
+            "DB_CONNECTION_TEST_SUCCESS",
+            "Sucesso",
+            "Conex\xE3o MySQL validada; consultas de certifica\xE7\xE3o executadas em transa\xE7\xE3o somente leitura.",
+            config.user || "lmarcanjo16@gmail.com",
+            {
+              type,
+              host,
+              database: config.database,
+              stage: "readonly",
+              correlationId: context.correlationId,
+              stageTimings: context.stageTimings
+            }
+          );
+          return {
+            success: true,
+            stage: "readonly",
+            message: "Conex\xE3o MySQL validada; consultas de certifica\xE7\xE3o executadas em transa\xE7\xE3o somente leitura.",
+            tables,
+            serverInfo
+          };
+        } catch (err) {
+          finishReadonlyTiming();
+          const details = await auditFailure("handshake", "Erro interno no fluxo do driver MySQL.", err);
+          return {
+            success: false,
+            stage: "handshake",
+            message: "Erro interno no fluxo do driver MySQL.",
+            technicalDetails: `${details.code || "MYSQL_ERROR"}: ${details.message}`,
+            error: details
+          };
+        } finally {
+          try {
+            await rollback();
+          } catch {
+          }
+          await closeConnection();
+        }
+      } else if (type === "mssql") {
+        try {
+          const mssql = await import("mssql");
+          const clientConfig = config.connectionString ? config.connectionString : {
+            server: host,
+            port,
+            user: config.user,
+            password: config.password,
+            database: config.database,
+            options: {
+              encrypt: config.ssl,
+              trustServerCertificate: true
+            }
+          };
+          const pool = await mssql.default.connect(clientConfig);
+          await pool.request().query("SELECT 1;");
+          const tablesResult = await pool.request().query(`
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_type = 'BASE TABLE'
+          ORDER BY table_name;
+        `);
+          const tables = tablesResult.recordset.map((row) => row.table_name || row.TABLE_NAME || "");
+          await pool.close().catch(() => {
+          });
+          await this.logAudit(
+            "DB_CONNECTION_TEST_SUCCESS",
+            "Sucesso",
+            `Conectado com sucesso ao MSSQL! Encontradas ${tables.length} tabelas no modo somente-leitura.`,
+            config.user || "lmarcanjo16@gmail.com",
+            { type, host, database: config.database, stage: "readonly" }
+          );
+          return {
+            success: true,
+            stage: "readonly",
+            message: "Conex\xE3o estabelecida com sucesso! Modo somente leitura ativado.",
+            tables
+          };
+        } catch (err) {
+          const errMsg = err.message || "";
+          let stage = "unknown";
+          let message = `Erro na conex\xE3o MSSQL: ${errMsg}`;
+          if (errMsg.includes("login") || errMsg.includes("Login failed") || errMsg.includes("credentials")) {
+            stage = "auth";
+            message = "Usu\xE1rio ou senha inv\xE1lidos. Falha de autentica\xE7\xE3o.";
+          } else if (errMsg.includes("database") || errMsg.includes("Database") || errMsg.includes("catalog")) {
+            stage = "database";
+            message = `Banco de dados '${config.database}' n\xE3o foi encontrado.`;
+          }
+          await this.logAudit(
+            "DB_CONNECTION_TEST_WARNING",
+            "Info",
+            `Falha na conex\xE3o MSSQL: ${message}`,
             config.user || "lmarcanjo16@gmail.com",
             { type, host, database: config.database, stage, error: errMsg }
           );
@@ -525,218 +1125,128 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
             technicalDetails: errMsg
           };
         }
+      } else if (type === "oracle") {
         try {
-          await connection.query("SELECT 1;");
-        } catch (err) {
-          await connection.end().catch(() => {
+          const oracledb = await import("oracledb");
+          const connectionOptions = {
+            user: config.user,
+            password: config.password,
+            connectString: config.connectionString || `${host}:${port}/${config.database}`
+          };
+          const connection = await oracledb.default.getConnection(connectionOptions);
+          await connection.execute("SELECT 1 FROM dual");
+          const tablesResult = await connection.execute(
+            `SELECT table_name FROM user_tables ORDER BY table_name`
+          );
+          const tables = tablesResult.rows ? tablesResult.rows.map((row) => row[0]) : [];
+          await connection.close().catch(() => {
           });
+          await this.logAudit(
+            "DB_CONNECTION_TEST_SUCCESS",
+            "Sucesso",
+            `Conectado com sucesso ao Oracle! Encontradas ${tables.length} tabelas no modo somente-leitura.`,
+            config.user || "lmarcanjo16@gmail.com",
+            { type, host, database: config.database, stage: "readonly" }
+          );
+          return {
+            success: true,
+            stage: "readonly",
+            message: "Conex\xE3o Oracle estabelecida com sucesso!",
+            tables
+          };
+        } catch (err) {
           await this.logAudit(
             "DB_CONNECTION_TEST_WARNING",
             "Info",
-            `Erro ao executar SELECT 1 no MySQL: ${err.message}`,
+            `Falha na conex\xE3o Oracle: ${err.message}`,
             config.user || "lmarcanjo16@gmail.com",
-            { type, host, database: config.database, stage: "query", error: err.message }
+            { type, host, database: config.database, stage: "unknown", error: err.message }
           );
           return {
             success: false,
-            stage: "query",
-            message: "Conectado com sucesso, mas falhou ao executar SELECT 1 (sem permiss\xE3o de leitura).",
-            technicalDetails: err.message
+            stage: "unknown",
+            message: `Erro na conex\xE3o Oracle: ${err.message}`
           };
         }
-        let tables = [];
+      } else if (type === "mongodb") {
         try {
-          const [rows] = await connection.query("SHOW TABLES");
-          tables = rows.map((r) => Object.values(r)[0]);
-        } catch (err) {
-          await connection.end().catch(() => {
+          const mongodb = await import("mongodb");
+          const uri = config.connectionString || `mongodb://${config.user ? `${encodeURIComponent(config.user)}:${encodeURIComponent(config.password)}@` : ""}${host}:${port}/${config.database}`;
+          const client = new mongodb.default.MongoClient(uri);
+          await client.connect();
+          const db = client.db(config.database || void 0);
+          const collections = await db.listCollections().toArray();
+          const tables = collections.map((c) => c.name);
+          await client.close().catch(() => {
           });
+          await this.logAudit(
+            "DB_CONNECTION_TEST_SUCCESS",
+            "Sucesso",
+            `Conectado com sucesso ao MongoDB! Encontradas ${tables.length} cole\xE7\xF5es.`,
+            config.user || "lmarcanjo16@gmail.com",
+            { type, host, database: config.database, stage: "readonly" }
+          );
+          return {
+            success: true,
+            stage: "readonly",
+            message: "Conex\xE3o MongoDB estabelecida com sucesso!",
+            tables
+          };
+        } catch (err) {
           await this.logAudit(
             "DB_CONNECTION_TEST_WARNING",
             "Info",
-            `Erro ao ler tabelas no MySQL: ${err.message}`,
+            `Falha na conex\xE3o MongoDB: ${err.message}`,
             config.user || "lmarcanjo16@gmail.com",
-            { type, host, database: config.database, stage: "schema", error: err.message }
+            { type, host, database: config.database, stage: "unknown", error: err.message }
           );
           return {
             success: false,
-            stage: "schema",
-            message: "Erro ao carregar lista de tabelas.",
-            technicalDetails: err.message
+            stage: "unknown",
+            message: `Erro na conex\xE3o MongoDB: ${err.message}`
           };
         }
-        await connection.end().catch(() => {
-        });
-        await this.logAudit(
-          "DB_CONNECTION_TEST_SUCCESS",
-          "Sucesso",
-          `Conectado com sucesso ao MySQL! Encontradas ${tables.length} tabelas no modo somente-leitura.`,
-          config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage: "readonly" }
-        );
-        return {
-          success: true,
-          stage: "readonly",
-          message: "Conectado com sucesso ao MySQL! Acesso restrito de leitura (Read-Only) assegurado.",
-          tables
-        };
-      } catch (err) {
-        return {
-          success: false,
-          stage: "unknown",
-          message: "Erro interno no driver do MySQL.",
-          technicalDetails: err.message
-        };
       }
-    } else if (type === "mssql") {
-      try {
-        const mssql = await import("mssql");
-        const clientConfig = config.connectionString ? config.connectionString : {
-          server: host,
-          port,
-          user: config.user,
-          password: config.password,
-          database: config.database,
-          options: {
-            encrypt: config.ssl,
-            trustServerCertificate: true
-          }
-        };
-        const pool = await mssql.default.connect(clientConfig);
-        await pool.request().query("SELECT 1;");
-        const tablesResult = await pool.request().query(`
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_type = 'BASE TABLE' 
-          ORDER BY table_name;
-        `);
-        const tables = tablesResult.recordset.map((row) => row.table_name || row.TABLE_NAME || "");
-        await pool.close().catch(() => {
+      return {
+        success: false,
+        stage: "unknown",
+        message: "Tipo de banco de dados n\xE3o suportado."
+      };
+    } finally {
+      if (sshTunnel) {
+        await sshTunnel.close().catch(() => {
         });
-        await this.logAudit(
-          "DB_CONNECTION_TEST_SUCCESS",
-          "Sucesso",
-          `Conectado com sucesso ao MSSQL! Encontradas ${tables.length} tabelas no modo somente-leitura.`,
-          config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage: "readonly" }
-        );
-        return {
-          success: true,
-          stage: "readonly",
-          message: "Conex\xE3o estabelecida com sucesso! Modo somente leitura ativado.",
-          tables
-        };
-      } catch (err) {
-        const errMsg = err.message || "";
-        let stage = "unknown";
-        let message = `Erro na conex\xE3o MSSQL: ${errMsg}`;
-        if (errMsg.includes("login") || errMsg.includes("Login failed") || errMsg.includes("credentials")) {
-          stage = "auth";
-          message = "Usu\xE1rio ou senha inv\xE1lidos. Falha de autentica\xE7\xE3o.";
-        } else if (errMsg.includes("database") || errMsg.includes("Database") || errMsg.includes("catalog")) {
-          stage = "database";
-          message = `Banco de dados '${config.database}' n\xE3o foi encontrado.`;
-        }
-        await this.logAudit(
-          "DB_CONNECTION_TEST_WARNING",
-          "Info",
-          `Falha na conex\xE3o MSSQL: ${message}`,
-          config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage, error: errMsg }
-        );
-        return {
-          success: false,
-          stage,
-          message,
-          technicalDetails: errMsg
-        };
-      }
-    } else if (type === "oracle") {
-      try {
-        const oracledb = await import("oracledb");
-        const connectionOptions = {
-          user: config.user,
-          password: config.password,
-          connectString: config.connectionString || `${host}:${port}/${config.database}`
-        };
-        const connection = await oracledb.default.getConnection(connectionOptions);
-        await connection.execute("SELECT 1 FROM dual");
-        const tablesResult = await connection.execute(
-          `SELECT table_name FROM user_tables ORDER BY table_name`
-        );
-        const tables = tablesResult.rows ? tablesResult.rows.map((row) => row[0]) : [];
-        await connection.close().catch(() => {
-        });
-        await this.logAudit(
-          "DB_CONNECTION_TEST_SUCCESS",
-          "Sucesso",
-          `Conectado com sucesso ao Oracle! Encontradas ${tables.length} tabelas no modo somente-leitura.`,
-          config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage: "readonly" }
-        );
-        return {
-          success: true,
-          stage: "readonly",
-          message: "Conex\xE3o Oracle estabelecida com sucesso!",
-          tables
-        };
-      } catch (err) {
-        await this.logAudit(
-          "DB_CONNECTION_TEST_WARNING",
-          "Info",
-          `Falha na conex\xE3o Oracle: ${err.message}`,
-          config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage: "unknown", error: err.message }
-        );
-        return {
-          success: false,
-          stage: "unknown",
-          message: `Erro na conex\xE3o Oracle: ${err.message}`
-        };
-      }
-    } else if (type === "mongodb") {
-      try {
-        const mongodb = await import("mongodb");
-        const uri = config.connectionString || `mongodb://${config.user ? `${encodeURIComponent(config.user)}:${encodeURIComponent(config.password)}@` : ""}${host}:${port}/${config.database}`;
-        const client = new mongodb.default.MongoClient(uri);
-        await client.connect();
-        const db = client.db(config.database || void 0);
-        const collections = await db.listCollections().toArray();
-        const tables = collections.map((c) => c.name);
-        await client.close().catch(() => {
-        });
-        await this.logAudit(
-          "DB_CONNECTION_TEST_SUCCESS",
-          "Sucesso",
-          `Conectado com sucesso ao MongoDB! Encontradas ${tables.length} cole\xE7\xF5es.`,
-          config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage: "readonly" }
-        );
-        return {
-          success: true,
-          stage: "readonly",
-          message: "Conex\xE3o MongoDB estabelecida com sucesso!",
-          tables
-        };
-      } catch (err) {
-        await this.logAudit(
-          "DB_CONNECTION_TEST_WARNING",
-          "Info",
-          `Falha na conex\xE3o MongoDB: ${err.message}`,
-          config.user || "lmarcanjo16@gmail.com",
-          { type, host, database: config.database, stage: "unknown", error: err.message }
-        );
-        return {
-          success: false,
-          stage: "unknown",
-          message: `Erro na conex\xE3o MongoDB: ${err.message}`
-        };
       }
     }
+  }
+  async testNetworkPath(host, port, type = "mysql") {
+    const context = await this.diagnoseNetworkContext(host, port, type);
+    const stages = [];
+    if (context.routeProbe.resolvedAddress) {
+      stages.push({ stage: "route", status: context.routeProbe.status === "failed" ? "failed" : "passed", message: context.routeProbe.error || "Rota consultada pelo processo Node." });
+      stages.push({ stage: "host", status: "passed", message: "Host resolvido pelo processo Node." });
+    }
+    if (!context.tcpProbe.connected) {
+      if (!context.routeProbe.resolvedAddress) {
+        stages.push({ stage: "host", status: "failed", message: "Host n\xE3o resolvido pelo processo Node." });
+      }
+      stages.push({ stage: "port", status: "failed", message: context.tcpProbe.error || `Socket TCP n\xE3o abriu em ${host}:${port}.` });
+      return {
+        success: false,
+        stage: context.tcpProbe.status === "skipped" ? "host" : "port",
+        message: context.tcpProbe.status === "skipped" ? `Host '${host}' n\xE3o p\xF4de ser resolvido pelo processo Node.` : `N\xE3o foi poss\xEDvel abrir o socket TCP para ${host}:${port} neste processo Node.`,
+        technicalDetails: `${context.tcpProbe.code || context.routeProbe.code || "sem c\xF3digo"}: ${context.tcpProbe.error || context.routeProbe.error || "timeout/refused"}`,
+        diagnostics: { correlationId: createCorrelationId(), runtime: context.runtime, target: context.target, stages, stageTimings: [] }
+      };
+    }
+    stages.push(
+      { stage: "port", status: "passed", message: "Socket TCP aberto; autentica\xE7\xE3o ainda n\xE3o foi testada." }
+    );
     return {
-      success: false,
-      stage: "unknown",
-      message: "Tipo de banco de dados n\xE3o suportado."
+      success: true,
+      stage: "port",
+      message: `Socket TCP aberto em ${host}:${port}. Isso prova alcance de rede, n\xE3o autentica\xE7\xE3o nem VPN.`,
+      diagnostics: { correlationId: createCorrelationId(), runtime: context.runtime, target: context.target, stages, stageTimings: [] }
     };
   }
   /**
@@ -801,9 +1311,9 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
         const client = new pg.default.Client(config);
         await client.connect();
         const tablesResult = await client.query(`
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_schema = 'public' 
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
           ORDER BY table_name;
         `);
         tables = tablesResult.rows.map((row) => row.table_name);
@@ -824,7 +1334,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
         });
         try {
           const estResult = await client.query(`
-            SELECT relname AS table_name, n_live_tup AS row_count 
+            SELECT relname AS table_name, n_live_tup AS row_count
             FROM pg_stat_user_tables;
           `);
           estResult.rows.forEach((r) => {
@@ -892,15 +1402,15 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
         };
         const pool = await mssql.default.connect(config);
         const tablesResult = await pool.request().query(`
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_type = 'BASE TABLE' 
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_type = 'BASE TABLE'
           ORDER BY table_name;
         `);
         tables = tablesResult.recordset.map((row) => row.table_name || row.TABLE_NAME || "");
         const columnsResult = await pool.request().query(`
-          SELECT table_name, column_name, data_type 
-          FROM information_schema.columns 
+          SELECT table_name, column_name, data_type
+          FROM information_schema.columns
           ORDER BY table_name, ordinal_position;
         `);
         columnsResult.recordset.forEach((col) => {
@@ -1002,6 +1512,8 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
    * Fetches, filters, maps, and validates database tables/queries into LancamentoFinanceiro format.
    */
   async executeFetchAndMap(configPayload) {
+    const normalized = normalizeDatabaseConfig(configPayload);
+    if ("message" in normalized) throw new Error(normalized.message);
     const {
       type,
       host,
@@ -1015,7 +1527,7 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
       query,
       mappings,
       useSshTunnel
-    } = configPayload;
+    } = { ...configPayload, type: normalized.config.type, tableName: normalized.config.table || configPayload.tableName };
     if (query && query.trim() !== "") {
       try {
         this.assertReadOnlyQuery(query);
@@ -1087,9 +1599,9 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
         let tablesToQuery = [];
         if (tableName === "__ALL_TABLES__") {
           const tablesResult = await client.query(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public' 
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
             ORDER BY table_name;
           `);
           tablesToQuery = tablesResult.rows.map((row) => row.table_name);
@@ -1179,9 +1691,9 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
           rawRows = result.recordset;
         } else if (tableName === "__ALL_TABLES__") {
           const tablesResult = await pool.request().query(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_type = 'BASE TABLE' 
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_type = 'BASE TABLE'
             ORDER BY table_name;
           `);
           const tables = tablesResult.recordset.map((row) => row.table_name || row.TABLE_NAME || "");
@@ -1298,42 +1810,26 @@ var DatabaseConnectionManager = class _DatabaseConnectionManager {
         });
       }
     }
+    const selectedMappings = Object.entries(mappings || {}).filter(([, column]) => typeof column === "string" && column.trim().length > 0).map(([field, column]) => [field, column]);
+    if (selectedMappings.length === 0) {
+      return rawRows.map((row) => ({
+        ...row,
+        id: String(row.id || row.ID || row._id || row.uuid || crypto.randomUUID())
+      }));
+    }
+    const numericMappedFields = /* @__PURE__ */ new Set(["Receita", "Custo", "Despesa", "Lucro", "Margem"]);
     const mappedRows = rawRows.map((row) => {
-      const getValue = (field) => {
-        const dbColumn = mappings ? mappings[field] : void 0;
-        return dbColumn ? row[dbColumn] : void 0;
+      const mappedRow = {
+        ...row,
+        id: String(row.id || row.ID || row._id || row.uuid || crypto.randomUUID())
       };
-      const receita = Number(getValue("Receita")) || 0;
-      const custo = Number(getValue("Custo")) || 0;
-      const despesa = Number(getValue("Despesa")) || 0;
-      let lucro = 0;
-      if (mappings && mappings["Lucro"]) {
-        lucro = Number(getValue("Lucro")) || 0;
-      } else {
-        lucro = receita - custo - despesa;
-      }
-      let margem = 0;
-      if (mappings && mappings["Margem"]) {
-        margem = Number(getValue("Margem")) || 0;
-      } else {
-        margem = receita > 0 ? lucro / receita * 100 : 0;
-      }
-      return {
-        id: String(row.id || row.ID || row._id || row.uuid || crypto.randomUUID()),
-        Grupo: getValue("Grupo") !== void 0 ? String(getValue("Grupo")) : "",
-        CNPJ: getValue("CNPJ") !== void 0 ? String(getValue("CNPJ")) : "",
-        Marca: getValue("Marca") !== void 0 ? String(getValue("Marca")) : "",
-        Empresa: getValue("Empresa") !== void 0 ? String(getValue("Empresa")) : getValue("Grupo") !== void 0 ? String(getValue("Grupo")) : "",
-        Filial: getValue("Filial") !== void 0 ? String(getValue("Filial")) : "",
-        M\u00EAs: getValue("M\xEAs") !== void 0 ? String(getValue("M\xEAs")) : "",
-        Raz\u00E3o: getValue("Raz\xE3o") !== void 0 ? String(getValue("Raz\xE3o")) : "",
-        Categoria: getValue("Categoria") !== void 0 ? String(getValue("Categoria")) : "",
-        Receita: receita,
-        Custo: custo,
-        Despesa: despesa,
-        Lucro: lucro,
-        Margem: margem
-      };
+      selectedMappings.forEach(([field, column]) => {
+        if (!Object.prototype.hasOwnProperty.call(row, column)) return;
+        const rawValue = row[column];
+        const numericValue = Number(rawValue);
+        mappedRow[field] = numericMappedFields.has(field) && !Number.isNaN(numericValue) ? numericValue : rawValue;
+      });
+      return mappedRow;
     });
     return mappedRows;
   }
@@ -1343,8 +1839,90 @@ var databaseConnectionManager = DatabaseConnectionManager.getInstance();
 // server.ts
 import_dotenv.default.config();
 var app = (0, import_express.default)();
-var PORT = 3e3;
+var PORT = Number(process.env.PORT || 3e3);
+var SERVER_LOCK_FILE = import_path.default.join(import_node_os.default.tmpdir(), `sauron-api-${PORT}.lock`);
+var serverLockOwned = false;
+function processIsAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === "EPERM";
+  }
+}
+function acquireServerLock() {
+  const payload = JSON.stringify({ pid: process.pid, hostname: import_node_os.default.hostname(), port: PORT, startedAt: (/* @__PURE__ */ new Date()).toISOString() });
+  try {
+    import_fs.default.writeFileSync(SERVER_LOCK_FILE, payload, { encoding: "utf-8", flag: "wx" });
+    serverLockOwned = true;
+    return;
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+  let existing = null;
+  try {
+    existing = JSON.parse(import_fs.default.readFileSync(SERVER_LOCK_FILE, "utf-8"));
+  } catch {
+  }
+  if (existing?.pid && processIsAlive(Number(existing.pid))) {
+    throw new Error(`J\xE1 existe uma API Sauron ativa na porta ${PORT} (PID ${existing.pid}). Encerre o processo antigo antes de iniciar outro.`);
+  }
+  import_fs.default.rmSync(SERVER_LOCK_FILE, { force: true });
+  import_fs.default.writeFileSync(SERVER_LOCK_FILE, payload, { encoding: "utf-8", flag: "wx" });
+  serverLockOwned = true;
+}
+function releaseServerLock() {
+  if (!serverLockOwned) return;
+  serverLockOwned = false;
+  import_fs.default.rmSync(SERVER_LOCK_FILE, { force: true });
+}
+process.once("exit", releaseServerLock);
+process.once("SIGINT", () => {
+  releaseServerLock();
+  process.exit(130);
+});
+process.once("SIGTERM", () => {
+  releaseServerLock();
+  process.exit(143);
+});
 app.use(import_express.default.json({ limit: "50mb" }));
+function sourceFlowCorrelationId(req) {
+  const header = req.header("x-correlation-id");
+  return header && header.length <= 100 ? header : `source-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+}
+function sourceFlowPayload(input) {
+  const payload = input || {};
+  const normalized = normalizeDatabaseConfig(payload);
+  return {
+    type: normalized.success ? normalized.config.type : null,
+    host: payload.host || null,
+    port: payload.port || null,
+    user: payload.user || payload.dbUser || null,
+    database: payload.database || null,
+    tableName: payload.tableName || payload.selectedTable || null,
+    selectedTable: payload.selectedTable || null,
+    groupId: payload.groupId || null,
+    companyId: payload.companyId || null,
+    unitId: payload.unitId || null,
+    workspaceId: payload.workspaceId || null,
+    sourceId: payload.sourceId || null,
+    datasetId: payload.datasetId || null
+  };
+}
+function logSourceFlow(stage, correlationId, startedAt, details, originalPayload) {
+  let serialized = JSON.stringify({
+    stage,
+    correlationId,
+    elapsedMs: Date.now() - startedAt,
+    ...details
+  });
+  for (const field of ["password", "sshPassword", "sshPrivateKey", "connectionString", "vpnPass", "ovpnContent"]) {
+    const secret = originalPayload?.[field];
+    if (secret) serialized = serialized.split(String(secret)).join("[REDACTED]");
+  }
+  console.info(`[SOURCE_FLOW] ${serialized}`);
+}
 var ai = null;
 try {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -1365,18 +1943,90 @@ try {
   console.log(`[GoogleGenAI Engine Config] Inicializando motor consultivo analitico: ${safeMsg}`);
 }
 app.post("/api/db/test-connection", async (req, res) => {
+  const correlationId = sourceFlowCorrelationId(req);
+  const startedAt = Date.now();
+  const payload = sourceFlowPayload(req.body);
+  logSourceFlow("test-connection.started", correlationId, startedAt, { endpoint: "/api/db/test-connection", payload }, req.body);
   try {
-    const result = await databaseConnectionManager.testConnection(req.body);
+    const normalized = normalizeDatabaseConfig(req.body || {});
+    if (!normalized.success) return res.status(400).json(normalized);
+    const result = await databaseConnectionManager.testConnection({ ...req.body, type: normalized.config.type });
+    logSourceFlow("test-connection.completed", correlationId, startedAt, {
+      endpoint: "/api/db/test-connection",
+      payload,
+      success: result.success,
+      stage: result.stage,
+      sourceId: null,
+      persisted: false,
+      activated: false,
+      driverCorrelationId: result.correlationId || null,
+      error: result.error || null
+    }, req.body);
+    res.setHeader("Cache-Control", "no-store");
     return res.json(result);
   } catch (error) {
+    logSourceFlow("test-connection.failed", correlationId, startedAt, {
+      endpoint: "/api/db/test-connection",
+      payload,
+      success: false,
+      stage: "unknown",
+      error: { message: error?.message || String(error), code: error?.code || null, stack: error?.stack || null }
+    }, req.body);
     return res.status(500).json({ error: error.message || "Erro de conex\xE3o com o banco de dados." });
   }
 });
+function parseNetworkTarget(input) {
+  const host = String(input?.host || "").trim();
+  const port = Number(input?.port);
+  const type = String(input?.type || "mysql").toLowerCase();
+  if (!host || host.length > 253) return { error: "Informe um host v\xE1lido para o diagn\xF3stico." };
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return { error: "Informe uma porta entre 1 e 65535." };
+  if (!["mysql", "postgres", "mssql", "oracle", "mongodb"].includes(type)) return { error: "Tipo de banco n\xE3o suportado para o diagn\xF3stico." };
+  return { host, port, type };
+}
+app.get("/api/db/network-context", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const host = typeof req.query.host === "string" ? req.query.host : "";
+  const server = { bindAddress: "0.0.0.0", port: PORT };
+  if (!host) return res.json({ success: true, runtime: databaseConnectionManager.getRuntimeContext(), server });
+  const target = parseNetworkTarget({ host, port: req.query.port, type: req.query.type });
+  if ("error" in target) return res.status(400).json({ success: false, error: target.error });
+  const diagnostics = await databaseConnectionManager.diagnoseNetworkContext(target.host, target.port, target.type);
+  return res.json({ success: true, ...diagnostics, server });
+});
+app.post("/api/db/network-context/diagnose", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const target = parseNetworkTarget(req.body || {});
+  if ("error" in target) return res.status(400).json({ success: false, error: target.error });
+  const diagnostics = await databaseConnectionManager.diagnoseNetworkContext(target.host, target.port, target.type);
+  return res.json({ success: true, ...diagnostics, server: { bindAddress: "0.0.0.0", port: PORT } });
+});
 app.post("/api/db/test", async (req, res) => {
+  const correlationId = sourceFlowCorrelationId(req);
+  const startedAt = Date.now();
+  const payload = sourceFlowPayload(req.body);
+  logSourceFlow("table-discovery.started", correlationId, startedAt, { endpoint: "/api/db/test", payload }, req.body);
   try {
-    const result = await databaseConnectionManager.getTablesAndColumns(req.body);
+    const normalized = normalizeDatabaseConfig(req.body || {});
+    if (!normalized.success) return res.status(400).json(normalized);
+    const result = await databaseConnectionManager.getTablesAndColumns({ ...req.body, type: normalized.config.type });
+    logSourceFlow("table-discovery.completed", correlationId, startedAt, {
+      endpoint: "/api/db/test",
+      payload,
+      success: true,
+      tableCount: result.tables.length,
+      sourceId: null,
+      persisted: false,
+      activated: false
+    }, req.body);
     return res.json({ success: true, tables: result.tables, tableColumns: result.tableColumns, estimatedRows: result.estimatedRows });
   } catch (error) {
+    logSourceFlow("table-discovery.failed", correlationId, startedAt, {
+      endpoint: "/api/db/test",
+      payload,
+      success: false,
+      error: { message: error?.message || String(error), code: error?.code || null, stack: error?.stack || null }
+    }, req.body);
     return res.status(500).json({ error: error.message || "Erro ao testar e obter tabelas/colunas." });
   }
 });
@@ -1397,16 +2047,83 @@ app.post("/api/db/list-columns", async (req, res) => {
   }
 });
 app.post("/api/db/fetch", async (req, res) => {
+  const correlationId = sourceFlowCorrelationId(req);
+  const startedAt = Date.now();
+  const payload = sourceFlowPayload(req.body);
+  logSourceFlow("fetch.started", correlationId, startedAt, { endpoint: "/api/db/fetch", payload }, req.body);
   try {
-    const data = await databaseConnectionManager.executeFetchAndMap(req.body);
+    const normalized = normalizeDatabaseConfig(req.body || {});
+    if (!normalized.success) return res.status(400).json(normalized);
+    const data = await databaseConnectionManager.executeFetchAndMap({
+      ...req.body,
+      type: normalized.config.type,
+      tableName: normalized.config.table,
+      query: normalized.config.query,
+      mappings: normalized.config.mappings
+    });
+    logSourceFlow("fetch.completed", correlationId, startedAt, {
+      endpoint: "/api/db/fetch",
+      payload,
+      success: true,
+      rowCount: data.length,
+      sourceId: null,
+      persisted: false,
+      activated: false,
+      note: "O endpoint devolve linhas; a persist\xEAncia/ativa\xE7\xE3o ocorre no callback do frontend."
+    }, req.body);
     return res.json({ success: true, count: data.length, data });
   } catch (error) {
+    logSourceFlow("fetch.failed", correlationId, startedAt, {
+      endpoint: "/api/db/fetch",
+      payload,
+      success: false,
+      error: { message: error?.message || String(error), code: error?.code || null, stack: error?.stack || null }
+    }, req.body);
     return res.status(500).json({ error: error.message || "Erro ao carregar dados do banco de dados." });
   }
 });
 var DB_CONFIG_FILE = import_path.default.join(process.cwd(), "db_config.json");
 var REPORTS_HISTORY_FILE = import_path.default.join(process.cwd(), "reports_history.json");
 var SYSTEM_DB_FILE = import_path.default.join(process.cwd(), "system_db.json");
+var runtimeDbSecrets = {};
+var DB_SECRET_FIELDS = ["password", "sshPassword", "sshPrivateKey", "connectionString"];
+function splitDatabaseConfig(input) {
+  const safe = { ...input };
+  const secrets = {};
+  DB_SECRET_FIELDS.forEach((field) => {
+    if (input[field]) secrets[field] = input[field];
+    delete safe[field];
+  });
+  return { safe, secrets };
+}
+function readDatabaseConfig() {
+  try {
+    if (!import_fs.default.existsSync(DB_CONFIG_FILE)) return null;
+    const parsed = JSON.parse(import_fs.default.readFileSync(DB_CONFIG_FILE, "utf-8"));
+    const { safe } = splitDatabaseConfig(parsed);
+    if (JSON.stringify(parsed) !== JSON.stringify(safe)) {
+      import_fs.default.writeFileSync(DB_CONFIG_FILE, JSON.stringify(safe, null, 2), "utf-8");
+    }
+    return safe;
+  } catch {
+    return null;
+  }
+}
+function currentDatabaseConfig() {
+  const persisted = readDatabaseConfig();
+  return persisted ? { ...persisted, ...runtimeDbSecrets } : null;
+}
+function normalizedPersistedDatabaseConfig(input) {
+  const normalized = normalizeDatabaseConfig(input);
+  if ("message" in normalized) return { error: normalized.message };
+  return {
+    ...input,
+    type: normalized.config.type,
+    tableName: normalized.config.table,
+    query: normalized.config.query,
+    mappings: normalized.config.mappings
+  };
+}
 function readSystemDb() {
   try {
     if (import_fs.default.existsSync(SYSTEM_DB_FILE)) {
@@ -1480,19 +2197,27 @@ function writeReportsHistory(history) {
 }
 app.get("/api/db/config", (req, res) => {
   try {
-    if (import_fs.default.existsSync(DB_CONFIG_FILE)) {
-      const data = import_fs.default.readFileSync(DB_CONFIG_FILE, "utf-8");
-      return res.json({ success: true, config: JSON.parse(data) });
-    }
-    return res.json({ success: true, config: null });
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ success: true, config: readDatabaseConfig() });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
 app.post("/api/db/config", (req, res) => {
   try {
-    import_fs.default.writeFileSync(DB_CONFIG_FILE, JSON.stringify(req.body, null, 2), "utf-8");
-    return res.json({ success: true, message: "Configura\xE7\xE3o do banco de dados salva com sucesso no servidor." });
+    const normalized = normalizeDatabaseConfig(req.body || {});
+    if (!normalized.success) return res.status(400).json(normalized);
+    const { safe, secrets } = splitDatabaseConfig({
+      ...req.body || {},
+      type: normalized.config.type,
+      tableName: normalized.config.table,
+      query: normalized.config.query,
+      mappings: normalized.config.mappings
+    });
+    runtimeDbSecrets = secrets;
+    import_fs.default.writeFileSync(DB_CONFIG_FILE, JSON.stringify(safe, null, 2), "utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ success: true, config: safe, message: "Metadados do banco salvos; segredos permanecem somente em mem\xF3ria." });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -1513,13 +2238,55 @@ app.post("/api/system/db", (req, res) => {
   }
 });
 app.post("/api/db/sync", async (req, res) => {
+  const correlationId = sourceFlowCorrelationId(req);
+  const startedAt = Date.now();
+  const requestPayload = sourceFlowPayload(req.body);
+  logSourceFlow("sync.started", correlationId, startedAt, { endpoint: "/api/db/sync", payload: requestPayload }, req.body);
   try {
+    const requestedSourceId = typeof req.body?.sourceId === "string" ? req.body.sourceId.trim() : "";
+    if (!requestedSourceId) {
+      return res.status(400).json({ success: false, stage: "configuration", error: "sourceId obrigat\xF3rio para atualizar uma fonte SQL existente." });
+    }
     await databaseConnectionManager.logAudit("DB_SYNC_STARTED", "Tentativa", "Iniciando processo de sincroniza\xE7\xE3o e importa\xE7\xE3o estruturada do banco do cliente.", "lmarcanjo16@gmail.com");
-    if (!import_fs.default.existsSync(DB_CONFIG_FILE)) {
+    if (!readDatabaseConfig()) {
+      logSourceFlow("sync.configuration-missing", correlationId, startedAt, {
+        endpoint: "/api/db/sync",
+        payload: requestPayload,
+        success: false,
+        sourceId: requestedSourceId,
+        persisted: false,
+        activated: false
+      });
       await databaseConnectionManager.logAudit("DB_SYNC_SKIPPED", "Info", "Sincroniza\xE7\xE3o abortada: Banco de dados do cliente n\xE3o parametrizado.");
       return res.status(404).json({ error: "Banco de dados n\xE3o configurado. Por favor, conecte o banco no Modo Administrador e salve a configura\xE7\xE3o." });
     }
-    const config = JSON.parse(import_fs.default.readFileSync(DB_CONFIG_FILE, "utf-8"));
+    const persistedConfig = readDatabaseConfig();
+    if (!persistedConfig?.sourceId || persistedConfig.sourceId !== requestedSourceId) {
+      return res.status(409).json({ success: false, stage: "configuration", error: "A fonte SQL selecionada n\xE3o est\xE1 registrada neste servidor. Conecte e selecione a tabela novamente." });
+    }
+    const rawConfig = currentDatabaseConfig();
+    const normalizedConfig = rawConfig ? normalizedPersistedDatabaseConfig(rawConfig) : { error: "Banco de dados n\xE3o configurado." };
+    if ("error" in normalizedConfig) return res.status(400).json({ success: false, stage: "configuration", error: normalizedConfig.error });
+    const config = { ...normalizedConfig, sourceId: requestedSourceId };
+    if (!config) {
+      logSourceFlow("sync.configuration-unavailable", correlationId, startedAt, {
+        endpoint: "/api/db/sync",
+        payload: requestPayload,
+        success: false,
+        sourceId: requestedSourceId,
+        persisted: false,
+        activated: false
+      }, config || void 0);
+      return res.status(404).json({ error: "Banco de dados n\xE3o configurado. Por favor, conecte o banco no Modo Administrador e salve a configura\xE7\xE3o." });
+    }
+    logSourceFlow("sync.configuration-loaded", correlationId, startedAt, {
+      endpoint: "/api/db/sync",
+      payload: sourceFlowPayload(config),
+      success: true,
+      sourceId: requestedSourceId,
+      persisted: false,
+      activated: false
+    }, config);
     const data = await databaseConnectionManager.executeFetchAndMap(config);
     const history = readReportsHistory();
     const sumMetrics = data.reduce((acc, curr) => {
@@ -1548,16 +2315,36 @@ app.post("/api/db/sync", async (req, res) => {
     history.push(newSnapshot);
     writeReportsHistory(history);
     await databaseConnectionManager.logAudit("DB_SYNC_SUCCESS", "Sucesso", `Sincroniza\xE7\xE3o e mapeamento conclu\xEDdos para o cliente. Importados ${data.length} registros de tabelas remotas.`);
+    logSourceFlow("sync.completed", correlationId, startedAt, {
+      endpoint: "/api/db/sync",
+      payload: sourceFlowPayload(config),
+      success: true,
+      rowCount: data.length,
+      sourceId: requestedSourceId,
+      persisted: "reports_history.json",
+      activated: false,
+      note: "O sync atualiza a fonte SQL existente; a publica\xE7\xE3o do ActiveDataset ocorre no cliente ap\xF3s a resposta."
+    }, config);
     return res.json({
       success: true,
       count: data.length,
       data,
       sourceName,
-      snapshotId: newSnapshot.id
+      snapshotId: newSnapshot.id,
+      sourceId: requestedSourceId
     });
   } catch (error) {
     const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
     console.log(`[Aviso Sync] Sincronizacao automatica: ${safeMsg}`);
+    logSourceFlow("sync.failed", correlationId, startedAt, {
+      endpoint: "/api/db/sync",
+      payload: requestPayload,
+      success: false,
+      sourceId: null,
+      persisted: false,
+      activated: false,
+      error: { message: error?.message || String(error), code: error?.code || null, stack: error?.stack || null }
+    }, currentDatabaseConfig() || void 0);
     await databaseConnectionManager.logAudit("DB_SYNC_FAILED", "Info", `Falha na sincroniza\xE7\xE3o peri\xF3dica do banco: ${error.message || "Erro de rede"}`);
     return res.status(500).json({ error: error.message || "Erro durante a sincroniza\xE7\xE3o de dados." });
   }
@@ -1934,14 +2721,28 @@ Acesse a aba **Diagn\xF3stico de Obst\xE1culos** para ver os desvios cont\xE1bei
   return res.json({ response });
 });
 var VPN_DB_FILE = import_path.default.join(process.cwd(), "vpn_configs.json");
+function sanitizeVpnConfig(config) {
+  const { ovpnContent: _ovpnContent, vpnPass: _vpnPass, password: _password, sshPassword: _sshPassword, sshPrivateKey: _sshPrivateKey, ...safe } = config;
+  const legacySimulatedState = config.status === "connected" && !config.networkVerifiedAt;
+  return {
+    ...safe,
+    status: legacySimulatedState ? "disconnected" : safe.status,
+    containerId: legacySimulatedState ? "" : safe.containerId,
+    logs: legacySimulatedState ? ["Estado anterior invalidado; execute Testar alcance para obter evid\xEAncia do processo Node."] : safe.logs,
+    ovpnConfigured: Boolean(config.ovpnContent || config.ovpnConfigured)
+  };
+}
 function getVpnConfigs() {
   if (import_fs.default.existsSync(VPN_DB_FILE)) {
-    return JSON.parse(import_fs.default.readFileSync(VPN_DB_FILE, "utf-8"));
+    const raw = JSON.parse(import_fs.default.readFileSync(VPN_DB_FILE, "utf-8"));
+    const safe = Array.isArray(raw) ? raw.map(sanitizeVpnConfig) : [];
+    if (JSON.stringify(raw) !== JSON.stringify(safe)) saveVpnConfigs(safe);
+    return safe;
   }
   return [];
 }
 function saveVpnConfigs(data) {
-  import_fs.default.writeFileSync(VPN_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+  import_fs.default.writeFileSync(VPN_DB_FILE, JSON.stringify(data.map(sanitizeVpnConfig), null, 2), "utf-8");
 }
 app.get("/api/vpn/list", (req, res) => {
   res.json({ success: true, configs: getVpnConfigs() });
@@ -1950,10 +2751,16 @@ app.post("/api/vpn/add", (req, res) => {
   const configs = getVpnConfigs();
   const newConfig = {
     id: crypto.randomUUID().substring(0, 8),
-    ...req.body,
+    clientName: req.body.clientName,
+    vpnType: req.body.vpnType,
+    dbHost: req.body.dbHost,
+    dbPort: req.body.dbPort,
+    dbType: req.body.dbType,
+    dbUser: req.body.dbUser,
+    ovpnConfigured: Boolean(req.body.ovpnContent),
     status: "disconnected",
     containerId: "",
-    logs: [`Configura\xE7\xE3o registrada e isolada: ${req.body.clientName} (${req.body.vpnType.toUpperCase()})`]
+    logs: [`Configura\xE7\xE3o registrada para ${req.body.clientName} (${req.body.vpnType.toUpperCase()}); conte\xFAdo sens\xEDvel n\xE3o foi persistido.`]
   };
   configs.push(newConfig);
   saveVpnConfigs(configs);
@@ -1964,26 +2771,26 @@ app.post("/api/vpn/connect", (req, res) => {
   const configs = getVpnConfigs();
   const index = configs.findIndex((c) => c.id === req.body.id);
   if (index === -1) return res.status(404).json({ error: "Configura\xE7\xE3o n\xE3o encontrada" });
-  configs[index].status = "connecting";
-  configs[index].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Solicitando cria\xE7\xE3o de nova rede Docker isolada...`);
-  configs[index].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Subindo container ${configs[index].vpnType}_client_${configs[index].id}...`);
-  saveVpnConfigs(configs);
-  logAudit("Conex\xE3o VPN", "Tentativa", `Tentativa de conex\xE3o VPN iniciada para o cliente: ${configs[index].clientName}`);
-  setTimeout(() => {
-    const updatedConfigs = getVpnConfigs();
-    const idx = updatedConfigs.findIndex((c) => c.id === req.body.id);
-    if (idx !== -1) {
-      if (updatedConfigs[idx].status === "connecting") {
-        updatedConfigs[idx].status = "connected";
-        updatedConfigs[idx].containerId = `docker-vpn-${updatedConfigs[idx].id.substring(0, 6)}`;
-        updatedConfigs[idx].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Network tun0 UP. Interfaces estabelecidas.`);
-        updatedConfigs[idx].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Handshake verificado. Conectado com sucesso em container isolado.`);
-        saveVpnConfigs(updatedConfigs);
-        logAudit("Conex\xE3o VPN", "Sucesso", `Conex\xE3o VPN estabelecida com sucesso para o cliente: ${updatedConfigs[idx].clientName}`);
-      }
+  databaseConnectionManager.testNetworkPath(
+    configs[index].dbHost,
+    Number(configs[index].dbPort || 3306),
+    configs[index].dbType || "mysql"
+  ).then((result) => {
+    if (!result.success) {
+      configs[index].status = "error";
+      configs[index].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Rede n\xE3o alcan\xE7\xE1vel neste processo Node: ${result.message}`);
+      saveVpnConfigs(configs);
+      return res.status(502).json({ success: false, error: result.message, diagnostics: result.diagnostics });
     }
-  }, 3e3);
-  res.json({ success: true });
+    configs[index].status = "connected";
+    configs[index].containerId = "";
+    configs[index].networkVerifiedAt = (/* @__PURE__ */ new Date()).toISOString();
+    configs[index].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Socket TCP aberto em ${configs[index].dbHost}:${configs[index].dbPort} pelo processo Node.`);
+    configs[index].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Alcance de rede confirmado; VPN e autentica\xE7\xE3o ainda n\xE3o foram declaradas.`);
+    saveVpnConfigs(configs);
+    logAudit("Conectividade de rede", "Sucesso", `Socket TCP alcan\xE7\xE1vel para ${configs[index].clientName}; nenhuma VPN simulada foi declarada.`);
+    return res.json({ success: true, networkReachable: true, diagnostics: result.diagnostics });
+  }).catch((error) => res.status(500).json({ success: false, error: error.message || "Falha ao testar a rota de rede." }));
 });
 app.post("/api/vpn/disconnect", (req, res) => {
   const configs = getVpnConfigs();
@@ -1992,25 +2799,26 @@ app.post("/api/vpn/disconnect", (req, res) => {
   const oldName = configs[index].clientName;
   configs[index].status = "disconnected";
   configs[index].containerId = "";
-  configs[index].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Container de VPN terminado.`);
-  configs[index].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Rede isolada destru\xEDda.`);
+  configs[index].networkVerifiedAt = null;
+  configs[index].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Verifica\xE7\xE3o de alcance de rede removida.`);
+  configs[index].logs.push(`[${(/* @__PURE__ */ new Date()).toISOString()}] Nenhum processo de VPN \xE9 gerenciado por esta API.`);
   saveVpnConfigs(configs);
   logAudit("Conex\xE3o VPN", "Info", `VPN desconectada pelo consultor para o cliente: ${oldName}`);
   res.json({ success: true });
 });
-app.post("/api/vpn/test-db", (req, res) => {
+app.post("/api/vpn/test-db", async (req, res) => {
   const configs = getVpnConfigs();
   const index = configs.findIndex((c) => c.id === req.body.id);
   if (index === -1) return res.status(404).json({ error: "Configura\xE7\xE3o n\xE3o encontrada" });
-  if (configs[index].status !== "connected") {
-    logAudit("Conex\xE3o Banco", "Info", `Falha no ping ao banco via VPN para: ${configs[index].clientName} (VPN offline)`);
-    return res.status(400).json({ error: "VPN client n\xE3o est\xE1 rodando. Conecte primeiro." });
-  }
-  logAudit("Conex\xE3o Banco", "Tentativa", `Tentativa de ping ao banco faturamento via VPN para: ${configs[index].clientName}`);
-  setTimeout(() => {
-    logAudit("Conex\xE3o Banco", "Sucesso", `Ping ao banco faturamento bem-sucedido via VPN para o cliente: ${configs[index].clientName}`);
-    res.json({ success: true });
-  }, 1e3);
+  const result = await databaseConnectionManager.testConnection({
+    type: configs[index].dbType || "mysql",
+    host: configs[index].dbHost,
+    port: Number(configs[index].dbPort || 3306),
+    user: configs[index].dbUser,
+    database: configs[index].database
+  });
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(result.success ? 200 : 502).json(result);
 });
 app.get("/api/audit/logs", (req, res) => {
   try {
@@ -2021,28 +2829,52 @@ app.get("/api/audit/logs", (req, res) => {
   }
 });
 async function run() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await (0, import_vite.createServer)({
-      server: { middlewareMode: true },
-      appType: "spa"
+  acquireServerLock();
+  try {
+    if (process.env.NODE_ENV !== "production") {
+      const vite = await (0, import_vite.createServer)({
+        server: {
+          middlewareMode: true,
+          // The Express middleware server is also used by serial E2E runs. Its
+          // browser contract must not depend on a second HMR WebSocket port.
+          hmr: false,
+          watch: null
+        },
+        appType: "spa"
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = import_path.default.join(process.cwd(), "dist");
+      app.use(import_express.default.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(import_path.default.join(distPath, "index.html"));
+      });
+    }
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`================================================`);
+      console.log(`\u{1F680} Sauron est\xE1 rodando!`);
+      console.log(`\u{1F449} Acesse em: http://localhost:${PORT}`);
+      console.log(`\u{1F31F} Backend e API ativos em tempo real.`);
+      console.log(`================================================`);
     });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = import_path.default.join(process.cwd(), "dist");
-    app.use(import_express.default.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(import_path.default.join(distPath, "index.html"));
+    server.once("error", (error) => {
+      releaseServerLock();
+      if (error?.code === "EADDRINUSE") {
+        console.error(`A porta ${PORT} j\xE1 est\xE1 em uso por outro processo. O servidor atual n\xE3o foi iniciado.`);
+      } else {
+        console.error("Falha ao iniciar a API Sauron:", error);
+      }
+      process.exitCode = 1;
     });
+  } catch (error) {
+    releaseServerLock();
+    throw error;
   }
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`================================================`);
-    console.log(`\u{1F680} Sauron est\xE1 rodando!`);
-    console.log(`\u{1F449} Acesse em: http://localhost:${PORT}`);
-    console.log(`\u{1F31F} Backend e API ativos em tempo real.`);
-    console.log(`================================================`);
-  });
 }
-run();
+run().catch((error) => {
+  console.error(error?.message || error);
+  process.exitCode = 1;
+});
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0

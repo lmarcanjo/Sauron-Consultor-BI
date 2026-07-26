@@ -1,7 +1,6 @@
 import React from "react";
 import { Sparkles, Sliders, Volume2, Save, Trash2, Shield, Play } from "lucide-react";
 import { MetricasConsolidadas } from "../types";
-import { dataSourceManager } from "../services/dataSourceManager";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 
 interface ComissoesTabProps {
@@ -60,7 +59,7 @@ export const ComissoesTab: React.FC<ComissoesTabProps> = ({
   triggerSystemBackup,
   userRole = "consultor"
 }) => {
-  const hasRealDataset = dataSourceManager.getActiveSource() === "SPREADSHEET_DATA" && !!activeDatasetStore.getActiveDataset();
+  const hasRealDataset = !!activeDatasetStore.getActiveDataset();
   const isAnalista = userRole === "analista";
   const isGerente = userRole === "gerente";
   

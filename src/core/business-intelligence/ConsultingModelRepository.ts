@@ -27,6 +27,8 @@ export interface BusinessAreaConfig {
   relatedMetrics: string[];
   order: number;
   visible: boolean;
+  /** Lifecycle is optional for backwards-compatible configurations; missing means ACTIVE. */
+  lifecycle?: "ACTIVE" | "ARCHIVED" | "TRASHED" | "DELETED";
 }
 
 export interface CustomMetricConfig {
@@ -49,6 +51,10 @@ export interface ConsultingModelConfiguration {
   customMetrics: CustomMetricConfig[];
   displayDictionary: Record<string, string>; // term -> custom label
   navigationPreferences?: Record<string, any>;
+  /** Id of the last IndustryBlueprint applied to this project, if any (F20.3). */
+  appliedBlueprintId?: string;
+  /** Timestamp of the last Blueprint application, used as a lightweight version marker. */
+  appliedBlueprintVersion?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -64,11 +70,20 @@ export function getActiveConsultingModelConfigSync(): ConsultingModelConfigurati
 }
 
 export function setActiveConsultingModelConfigSync(config: ConsultingModelConfiguration | null): void {
-  if (typeof localStorage === "undefined") return;
-  if (config) {
-    localStorage.setItem("sauron_active_consulting_config", JSON.stringify(config));
-  } else {
-    localStorage.removeItem("sauron_active_consulting_config");
+  if (typeof localStorage !== "undefined") {
+    if (config) {
+      localStorage.setItem("sauron_active_consulting_config", JSON.stringify(config));
+    } else {
+      localStorage.removeItem("sauron_active_consulting_config");
+    }
+  }
+  // F20.3 — Every write to the active Project DNA must be broadcast so that
+  // the NavigationRegistry, sidebar and App shell re-derive their state
+  // immediately (context/company switch, blueprint apply, manual save).
+  // Without this, switching company silently left stale business areas
+  // registered — a cross-tenant leak risk.
+  if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+    window.dispatchEvent(new CustomEvent("sauron:config-updated", { detail: config }));
   }
 }
 

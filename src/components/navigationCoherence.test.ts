@@ -54,14 +54,15 @@ describe("Sauron OS — Navigation Coherence & Product Integrity Tests", () => {
     });
   });
 
-  it("verifies that the 'Conectar Dados' group contains Central de Dados and the Workbook Library", () => {
+  it("verifies that the 'Fontes' group exposes one canonical source surface", () => {
     [true, false].forEach(isAutomotive => {
       const structure = getConsultingFlowStructure(isAutomotive);
-      const connectGroup = structure.find(g => g.groupKey === "conectar_dados");
+      const connectGroup = structure.find(g => g.groupKey === "fontes");
       expect(connectGroup).toBeDefined();
       
       const subItemIds = connectGroup!.subItems.map(s => s.id);
-      expect(subItemIds).toEqual(["importacao", "biblioteca_workbooks"]);
+      expect(subItemIds).toEqual(["central_dados"]);
+      expect(structure.flatMap(group => group.subItems).filter(item => ["importacao", "biblioteca_workbooks", "banco_connector", "vpn_gateway"].includes(item.id))).toHaveLength(0);
     });
   });
 
@@ -71,12 +72,11 @@ describe("Sauron OS — Navigation Coherence & Product Integrity Tests", () => {
     
     expect(groupKeys).toContain("centro_comando");
     expect(groupKeys).toContain("conhecer_cliente");
-    expect(groupKeys).toContain("conectar_dados");
-    expect(groupKeys).toContain("diagnosticar_negocio");
-    expect(groupKeys).toContain("preparar_decisao");
-    expect(groupKeys).toContain("conduzir_sessao");
-    expect(groupKeys).toContain("executar_plano");
-    expect(groupKeys).toContain("evoluir_resultado");
+    expect(groupKeys).toContain("fontes");
+    expect(groupKeys).toContain("analise");
+    expect(groupKeys).toContain("decisao");
+    expect(groupKeys).toContain("reuniao");
+    expect(groupKeys).toContain("acompanhamento");
     expect(groupKeys).toContain("administracao");
   });
 });

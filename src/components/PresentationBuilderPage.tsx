@@ -11,7 +11,6 @@ import {
 import { LancamentoFinanceiro } from '../types';
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
-import { dataSourceManager } from "../services/dataSourceManager";
 import { Enterprise, enterpriseRepository } from "../core/persistence/EnterpriseRepository";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence";
 import { executivePresentationEngine, ExecutivePresentation } from "../core/business-intelligence/ExecutivePresentationEngine";
@@ -67,13 +66,15 @@ export const PresentationBuilderPage: React.FC<PresentationBuilderPageProps> = (
   // Generate presentation dynamically using ExecutivePresentationEngine
   useEffect(() => {
     const ws = workspaceIntelligenceEngine.getCurrentIntelligentWorkspace();
+    const activePreviewRows = activeDataset?.previewRows?.map(row => row.raw as LancamentoFinanceiro) || [];
     executivePresentationEngine.generatePresentation({
       enterpriseId: selectedEnterpriseId || undefined,
       workspace: ws,
       activeDataset,
-      allRows: filteredData.length > 0 ? filteredData : dataOrigem,
+      allRows: filteredData.length > 0 ? filteredData : dataOrigem.length > 0 ? dataOrigem : activePreviewRows,
+      allowActiveDatasetPreviewFallback: activePreviewRows.length > 0,
       moduleMappings: activeDataset ? listModuleMappings(activeDataset.datasetId, getDefaultProjectId(activeDataset)) : [],
-    }).then(res => {
+    }).then(async res => {
       setPresentation(res);
       if (res.status === "ready") {
         const mappedSlides = res.slides.map(slide => ({
@@ -243,7 +244,7 @@ Sauron OS - Inteligência BI de Alta Performance
         <Presentation className="text-emerald-500 w-12 h-12 animate-pulse" />
         <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Configuração Pendente</h3>
         <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
-          Ainda não há informações suficientes. Adicione uma planilha ou confirme uma fonte para visualizar a apresentação.
+          Não há itens selecionados para a apresentação. Escolha campos, indicadores, gráficos ou uma tabela na configuração da fonte.
         </p>
       </div>
     );

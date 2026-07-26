@@ -3,9 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
-import { MessageSquare, Sparkles, CheckCircle2, RefreshCw, Send, ChevronRight, HelpCircle, Layers, HelpCircle as QuestionIcon } from "lucide-react";
-import { BLUEPRINTS, PREDEFINED_QUESTIONS, projectDNAManager, ProjectDNA, PredefinedQuestion } from "../core/business-intelligence/ProjectDNA";
+import React, { useState, useEffect, useMemo } from "react";
+import { MessageSquare, Sparkles, CheckCircle2, RefreshCw, Send, ChevronRight, HelpCircle, Layers, HelpCircle as QuestionIcon, Undo2, AlertTriangle } from "lucide-react";
+import { BLUEPRINTS, PREDEFINED_QUESTIONS } from "../core/business-intelligence/ProjectDNA";
+import { consultingModelRepository, ConsultingModelConfiguration, CustomMetricConfig } from "../core/business-intelligence/ConsultingModelRepository";
+import {
+  computeBlueprintDiff,
+  describeBlueprintDiff,
+  applyBlueprintSafely,
+  commitBlueprintApplication,
+  rollbackBlueprintApplication,
+} from "../core/business-intelligence/BlueprintDiffService";
+import { showToast } from "./Toast";
 
 interface SauronArchitectPanelProps {
   workspaceId: string;
@@ -33,25 +42,28 @@ export const SauronArchitectPanel: React.FC<SauronArchitectPanelProps> = ({
     commission: "Comissões"
   });
 
-  const handleApplyDNA = () => {
-    const blueprint = BLUEPRINTS.find(b => b.id === selectedBlueprintId) || BLUEPRINTS[0];
-    
-    // Build custom metrics based on answered questions
-    const customMetrics = PREDEFINED_QUESTIONS.filter(q => selectedQuestions.includes(q.id)).map(q => {
-      // Find the physical column matching the expected role from active fields, or fallback
-      let fieldId = q.expectedFieldRole; // fallback to expected role name
-      try {
-        const rawConfig = localStorage.getItem(`sauron_consulting_model_${workspaceId}_${companyId || "group_default"}`);
-        if (rawConfig) {
-          const config = JSON.parse(rawConfig);
-          // Look for a field mapped to the expected role
-          const found = Object.values(config.selectedFields || {}).find((f: any) => f.use === "group_results" || f.detectedType === "numeric");
-          if (found) {
-            fieldId = (found as any).physicalName;
-          }
-        }
-      } catch (e) {}
+  // F20.3 Final Closure — Blueprint diff/rollback state
+  const [currentConfig, setCurrentConfig] = useState<ConsultingModelConfiguration | null>(null);
+  const [includedAreaIds, setIncludedAreaIds] = useState<Set<string>>(new Set());
+  const [overwriteConflicts, setOverwriteConflicts] = useState(false);
+  const [lastApplication, setLastApplication] = useState<{ snapshotId: string } | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
+  useEffect(() => {
+    (async () => {
+      let cfg = await consultingModelRepository.getConfiguration(workspaceId, companyId);
+      if (!cfg) cfg = consultingModelRepository.createDefaultConfiguration(workspaceId, "group_default", companyId);
+      setCurrentConfig(cfg);
+    })();
+  }, [workspaceId, companyId]);
+
+  const blueprint = useMemo(() => BLUEPRINTS.find(b => b.id === selectedBlueprintId) || BLUEPRINTS[0], [selectedBlueprintId]);
+
+  const incomingMetrics = useMemo<CustomMetricConfig[]>(() => {
+    return PREDEFINED_QUESTIONS.filter(q => selectedQuestions.includes(q.id)).map(q => {
+      let fieldId: string = q.expectedFieldRole;
+      const found = Object.values(currentConfig?.selectedFields || {}).find((f: any) => f.use === "group_results" || f.detectedType === "numeric");
+      if (found) fieldId = (found as any).physicalName;
       return {
         id: `custom_metric_${q.id}`,
         name: q.text,
@@ -61,28 +73,67 @@ export const SauronArchitectPanel: React.FC<SauronArchitectPanelProps> = ({
         visibleIn: ["dashboard", "presentation", "meeting"]
       };
     });
+  }, [selectedQuestions, currentConfig]);
 
-    const dna: ProjectDNA = {
-      projectId: `${workspaceId}_${companyId || "default"}`,
-      consultingMethod: blueprint.name,
-      terminology: {
-        ...blueprint.terminology,
-        ...customTerminology
-      },
-      visualIdentity: blueprint.visualIdentity,
-      businessAreas: blueprint.businessAreas,
-      presentationStyle: "clean",
-      meetingStyle: "formal",
-      permissions: ["READ", "WRITE"],
-      customMetrics,
-      customDashboards: [],
-      customReports: [],
-      aiBehavior: "analytical"
-    };
+  const incomingTerminology = useMemo(() => ({ ...blueprint.terminology, ...customTerminology }), [blueprint, customTerminology]);
 
-    projectDNAManager.saveDNA(dna);
-    if (onApplied) onApplied();
-    setStep("welcome"); // reset for next use
+  const diff = useMemo(
+    () => computeBlueprintDiff(blueprint, currentConfig, incomingMetrics, incomingTerminology),
+    [blueprint, currentConfig, incomingMetrics, incomingTerminology]
+  );
+
+  // Areas to add/update are pre-selected by default; conflicts require explicit opt-in (Bloco 5).
+  useEffect(() => {
+    setIncludedAreaIds(new Set([...diff.areasToAdd, ...diff.areasToUpdate].map(a => a.areaId)));
+    setOverwriteConflicts(false);
+  }, [diff.areasToAdd.length, diff.areasToUpdate.length, blueprint.id]);
+
+  const toggleIncludedArea = (areaId: string) => {
+    setIncludedAreaIds(prev => {
+      const next = new Set(prev);
+      if (next.has(areaId)) next.delete(areaId); else next.add(areaId);
+      return next;
+    });
+  };
+
+  const handleApplyDNA = async () => {
+    setApplyError(null);
+    try {
+      const cfg = currentConfig || consultingModelRepository.createDefaultConfiguration(workspaceId, "group_default", companyId);
+      const { nextConfig, snapshotId } = applyBlueprintSafely({
+        blueprint,
+        currentConfig: cfg,
+        diff,
+        selection: { includeAreaIds: Array.from(includedAreaIds), overwriteConflicts },
+        incomingMetrics,
+        incomingTerminology,
+      });
+      await commitBlueprintApplication(nextConfig);
+      setCurrentConfig(nextConfig);
+      setLastApplication({ snapshotId });
+      showToast("success", "Modelo aplicado. Desfazer.");
+      if (onApplied) onApplied();
+      setStep("welcome"); // reset for next use
+    } catch (e) {
+      setApplyError((e as Error).message);
+      showToast("error", `Falha ao aplicar o modelo: ${(e as Error).message}`);
+    }
+  };
+
+  const handleUndoApplication = async () => {
+    if (!lastApplication) return;
+    try {
+      const restored = await rollbackBlueprintApplication(workspaceId, companyId, lastApplication.snapshotId);
+      setCurrentConfig(restored);
+      setLastApplication(null);
+      showToast("info", "Aplicação desfeita. Configuração anterior restaurada.");
+    } catch (e) {
+      showToast("error", (e as Error).message);
+    }
+  };
+
+  const handleCancelWizard = () => {
+    setStep("welcome");
   };
 
   return (
@@ -300,13 +351,88 @@ export const SauronArchitectPanel: React.FC<SauronArchitectPanelProps> = ({
               </div>
             </div>
 
+            {/* Bloco 5 — Blueprint diff preview, never applied silently */}
+            <div className="bg-slate-900/30 rounded-xl p-3 border border-slate-850 space-y-3 text-[11px]">
+              <p className="text-slate-300 font-bold">{describeBlueprintDiff(diff)}</p>
+
+              {diff.areasToAdd.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase text-emerald-400 tracking-wider">Novas áreas</span>
+                  {diff.areasToAdd.map(entry => (
+                    <label key={entry.areaId} className="flex items-center gap-2 cursor-pointer text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={includedAreaIds.has(entry.areaId)}
+                        onChange={() => toggleIncludedArea(entry.areaId)}
+                        className="cursor-pointer"
+                      />
+                      <span>{entry.areaName}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {diff.areasToUpdate.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[9px] font-black uppercase text-blue-400 tracking-wider">Áreas a atualizar</span>
+                  {diff.areasToUpdate.map(entry => (
+                    <label key={entry.areaId} className="flex items-center gap-2 cursor-pointer text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={includedAreaIds.has(entry.areaId)}
+                        onChange={() => toggleIncludedArea(entry.areaId)}
+                        className="cursor-pointer"
+                      />
+                      <span>{entry.areaName}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {diff.areasConflicting.length > 0 && (
+                <div className="space-y-1 border-t border-slate-850 pt-2">
+                  <span className="text-[9px] font-black uppercase text-amber-400 tracking-wider flex items-center gap-1">
+                    <AlertTriangle size={11} /> Conflitos de nome
+                  </span>
+                  {diff.areasConflicting.map(entry => (
+                    <p key={entry.areaId} className="text-slate-400">Uma área possui o mesmo nome de uma área existente: <strong className="text-slate-200">{entry.areaName}</strong></p>
+                  ))}
+                  <label className="flex items-center gap-2 cursor-pointer text-amber-300">
+                    <input
+                      type="checkbox"
+                      checked={overwriteConflicts}
+                      onChange={(e) => setOverwriteConflicts(e.target.checked)}
+                      className="cursor-pointer"
+                    />
+                    <span>Sobrescrever área(s) em conflito com os dados deste modelo</span>
+                  </label>
+                </div>
+              )}
+
+              {diff.areasToAdd.length === 0 && diff.areasToUpdate.length === 0 && diff.areasConflicting.length === 0 && (
+                <p className="text-slate-500">Nenhuma área nova ou alterada — apenas indicadores e terminologia serão ajustados.</p>
+              )}
+            </div>
+
+            {applyError && (
+              <p className="text-[11px] text-red-400 font-bold">{applyError}</p>
+            )}
+
             <div className="flex justify-between pt-2">
-              <button
-                onClick={() => setStep("terminology")}
-                className="text-[11px] font-black uppercase text-slate-500 hover:text-slate-400"
-              >
-                Voltar
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setStep("terminology")}
+                  className="text-[11px] font-black uppercase text-slate-500 hover:text-slate-400"
+                >
+                  Voltar
+                </button>
+                <button
+                  onClick={handleCancelWizard}
+                  className="text-[11px] font-black uppercase text-slate-500 hover:text-red-400"
+                >
+                  Cancelar
+                </button>
+              </div>
               <button
                 onClick={handleApplyDNA}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-750 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-blue-900/20 cursor-pointer"
@@ -315,6 +441,20 @@ export const SauronArchitectPanel: React.FC<SauronArchitectPanelProps> = ({
                 <span>Aplicar DNA ao Projeto</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Bloco 7 — session-scoped rollback, always visible once a model was just applied */}
+        {lastApplication && (
+          <div className="mt-4 flex items-center justify-between gap-3 bg-emerald-950/40 border border-emerald-800/60 rounded-xl px-4 py-3">
+            <span className="text-[11px] font-bold text-emerald-300">Modelo aplicado.</span>
+            <button
+              onClick={handleUndoApplication}
+              className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase text-emerald-300 hover:text-emerald-100 cursor-pointer"
+            >
+              <Undo2 size={13} />
+              <span>Desfazer</span>
+            </button>
           </div>
         )}
 

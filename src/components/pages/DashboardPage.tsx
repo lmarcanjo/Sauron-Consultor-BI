@@ -11,14 +11,10 @@ import { FileSpreadsheet, ShieldAlert } from "lucide-react";
 import { LancamentoFinanceiro } from "../../types";
 import { ActiveDataset } from "../../types/dataSource";
 import { activeDatasetStore } from "../../core/data/ActiveDatasetStore";
-import { getDefaultProjectId, listModuleMappings, subscribeModuleMappings } from "../../core/data/moduleMapping";
-import { buildExecutiveDashboard, ExecutiveDashboard } from "../../core/dashboard-engine";
 import { ActiveDatasetRawPreview } from "../ActiveDatasetRawPreview";
-import { DashboardBlocksRenderer } from "../DashboardBlocksRenderer";
-import { FinancialConsistencyStatus } from "../FinancialConsistencyStatus";
-import { SmartConfigurationPanel } from "../SmartConfigurationPanel";
+import { ChaosProfilingPanel } from "../ChaosProfilingPanel";
 import { DomainContextPanel } from "../DomainContextPanel";
-import { getEnterpriseContext, subscribeEnterpriseContext, enterpriseConsolidationService } from "../../core/enterprise-consolidation";
+import { applicationContextResolver, enterpriseConsolidationService } from "../../core/enterprise-consolidation";
 import { enterpriseRepository, Enterprise, Company, BusinessGroup, Unit } from "../../core/persistence/EnterpriseRepository";
 
 interface DashboardPageProps {
@@ -30,9 +26,7 @@ interface DashboardPageProps {
 export const DashboardPage: React.FC<DashboardPageProps> = ({ activeDataset: activeDatasetProp, formatCurrency }) => {
   const activeDataset = activeDatasetProp || activeDatasetStore.getActiveDataset();
   
-  const [context, setContext] = useState(getEnterpriseContext());
-  const [dashboard, setDashboard] = useState<ExecutiveDashboard | null>(null);
-  const [mappingRevision, setMappingRevision] = useState(0);
+  const [context, setContext] = useState(() => applicationContextResolver.resolve().enterprise);
 
   // Group Consolidation State
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
@@ -40,18 +34,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ activeDataset: act
 
   useEffect(() => {
     // Sintonizar contexto ativo
-    const unsubscribeCtx = subscribeEnterpriseContext(setContext);
+    const unsubscribeCtx = applicationContextResolver.subscribe(snapshot => setContext(snapshot.enterprise));
     return () => {
       unsubscribeCtx();
     };
   }, []);
 
-  useEffect(() => {
-    return subscribeModuleMappings(() => setMappingRevision(revision => revision + 1));
-  }, []);
-
-  // All scopes use the same dashboard engine. The context service only
-  // supplies the bounded rows for the selected company, unit, or group.
   useEffect(() => {
     let isMounted = true;
     if (!activeDataset) return;
@@ -68,28 +56,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ activeDataset: act
       setCompatibility(null);
     }
 
-    const projectId = getDefaultProjectId(activeDataset);
-    const moduleMappings = listModuleMappings(activeDataset.datasetId, projectId);
-    enterpriseConsolidationService.getRecordsForContext(context, 1, 100000).then(({ records }) => {
-      if (!isMounted) return;
-      const rowProvider = async (_sheetName: string, limit: number) => records.slice(0, limit);
-      buildExecutiveDashboard({
-        activeDataset,
-        moduleMappings,
-        rowProvider,
-        contextType: context.scope,
-        contextId: context.unitId || context.companyId || context.groupId || activeDataset.datasetId,
-        workspaceId: context.workspaceId,
-        period: context.period,
-      }).then(result => {
-        if (isMounted) setDashboard(result);
-      });
-    });
-
     return () => {
       isMounted = false;
     };
-  }, [activeDataset?.datasetId, activeDataset?.importedAt, mappingRevision, context]);
+  }, [activeDataset?.datasetId, activeDataset?.importedAt, context]);
 
   if (!activeDataset) {
     return (
@@ -99,7 +69,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ activeDataset: act
           <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Nenhuma fonte de dados ativa.</h3>
           <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
             Nenhuma fonte de dados ativa.
-            Importe uma planilha real para começar a análise.
+            Importe uma planilha para começar a análise.
           </p>
         </div>
       </div>
@@ -139,17 +109,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ activeDataset: act
       )}
 
       <ActiveDatasetRawPreview />
-      {dashboard?.consistency && <FinancialConsistencyStatus consistency={dashboard.consistency} />}
-      <DomainContextPanel />
-      <SmartConfigurationPanel activeDataset={activeDataset} onApplied={() => setMappingRevision(revision => revision + 1)} />
-
-      {!dashboard ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
-          <p className="text-xs font-bold text-slate-500">Preparando sua visão executiva...</p>
+      <ChaosProfilingPanel activeDataset={activeDataset} />
+      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm">
+        <h3 className="text-sm font-black text-slate-900 dark:text-white">Resumo da fonte</h3>
+        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">
+          Esta visão mostra somente as informações e análises escolhidas pelo consultor.
+        </p>
+        <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 mt-2">Fonte ativa</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+          <span>Linhas: {activeDataset.rowCount.toLocaleString("pt-BR")}</span>
+          <span>Colunas: {activeDataset.columnCount.toLocaleString("pt-BR")}</span>
+          <span>Abas: {activeDataset.sheets.length.toLocaleString("pt-BR")}</span>
+          <span>Fonte: {activeDataset.sourceName}</span>
         </div>
-      ) : (
-        <DashboardBlocksRenderer blocks={dashboard.blocks} />
-      )}
+      </section>
+      <DomainContextPanel />
 
     </div>
   );

@@ -70,7 +70,7 @@ function buildPendingActions(
       impact: "O sistema fica vazio e impossibilitado de calcular qualquer indicador ou apresentar diagnósticos financeiros.",
       howToFix: "Acesse a área de Importação e envie uma planilha Excel ou CSV com o histórico de lançamentos.",
       actionLabel: "Importar Planilha",
-      actionTab: "importacao"
+      actionTab: "central_dados"
     });
   }
 
@@ -85,9 +85,9 @@ function buildPendingActions(
       priority: "important",
       problem: "Mapeamento financeiro não configurado",
       impact: "Os demonstrativos financeiros (DRE) e os KPIs não serão exibidos ou trarão valores distorcidos.",
-      howToFix: "Acesse Configurações → Mapeamento de Campos e vincule as colunas originais aos termos Receita, Custo e Despesa.",
+      howToFix: "Abra Análise da fonte e confirme os campos encontrados.",
       actionLabel: "Mapear Campos",
-      actionTab: "perfis"
+      actionTab: "analise_estrutura"
     });
   }
 
@@ -130,9 +130,9 @@ function buildPendingActions(
       priority: "optional",
       problem: "Terminologia padrão em uso",
       impact: "A interface exibe termos genéricos. Rótulos como \"Empresas\" ou \"Vendedores\" podem não fazer sentido para a operação do cliente.",
-      howToFix: "Customize os termos padrão no painel de Terminologia da Empresa.",
+      howToFix: "Ajuste os nomes de exibição em Empresas e Grupos quando necessário.",
       actionLabel: "Mapear Termos",
-      actionTab: "perfis"
+      actionTab: "enterprise_center"
     });
   }
 

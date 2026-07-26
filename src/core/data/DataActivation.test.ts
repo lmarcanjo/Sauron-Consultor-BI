@@ -120,7 +120,14 @@ describe("activateImportedSources Transactional and Domain Rules", () => {
   });
 
   it("should rollback states if IndexedDB retrieval throws error", async () => {
-    // Set previous state
+    // The context is established before the previous dataset so the new
+    // context-switch invariant does not intentionally clear the setup state.
+    setEnterpriseContext({
+      scope: "GROUP",
+      groupId: "grp_prev",
+      workbookIds: ["prev_ds"],
+      datasetIds: ["prev_ds"]
+    });
     activeDatasetStore.setActiveDataset({
       datasetId: "prev_ds",
       sourceType: "SPREADSHEET_DATA",
@@ -136,13 +143,6 @@ describe("activateImportedSources Transactional and Domain Rules", () => {
       rawStorageRef: "prev_ds",
       status: "ACTIVE"
     }, []);
-
-    setEnterpriseContext({
-      scope: "GROUP",
-      groupId: "grp_prev",
-      workbookIds: ["prev_ds"],
-      datasetIds: ["prev_ds"]
-    });
 
     // Force error in getMetadata
     vi.mocked(IndexedSpreadsheetStorage.getMetadata).mockRejectedValue(new Error("IndexedDB Read Failed"));

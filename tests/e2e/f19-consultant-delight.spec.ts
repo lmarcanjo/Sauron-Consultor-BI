@@ -35,8 +35,8 @@ test.describe("F19 - jornada de usabilidade do consultor", () => {
       const firstInsightSeconds = (Date.now() - firstInsightStartedAt) / 1000;
       expect(firstInsightSeconds).toBeLessThan(30);
 
-      await navigateSidebar(page, /Diagnosticar Negócio/i, /KPIs & DRE/i);
-      await expect(page.getByText(/Resultado financeiro|Configuração pendente|Nenhuma fonte de dados ativa/i).first()).toBeVisible({ timeout: 30000 });
+      await expect(page.locator("aside").getByRole("button", { name: /KPIs & DRE/i })).toHaveCount(0);
+      await expect(page.getByText(/Dados ativos|Fonte real ativa|DADOS REAIS/i).first()).toBeVisible({ timeout: 30000 });
       await expect(page.locator("body")).not.toContainText(/Readiness Score|GROUP SCOPE|Data lineage|Workspace inexistente|binding ausente/i);
       await expect(page.locator("#root")).not.toBeEmpty();
     } finally {

@@ -49,7 +49,7 @@ export const ToastContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-3 max-w-sm w-full pointer-events-none" role="status" aria-live="polite" aria-atomic="true">
       {toasts.map(toast => {
         const typeStyles = {
           success: "bg-emerald-950 border-emerald-800/80 text-emerald-200",
@@ -77,6 +77,7 @@ export const ToastContainer: React.FC = () => {
             <div className="flex-1 text-xs font-bold leading-relaxed">{toast.message}</div>
             <button
               onClick={() => removeToast(toast.id)}
+              aria-label="Fechar aviso"
               className="text-slate-400 hover:text-white transition shrink-0 cursor-pointer"
             >
               <X size={14} />

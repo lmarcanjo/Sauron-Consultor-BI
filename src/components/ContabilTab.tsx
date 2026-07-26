@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { BookOpen, Search, AlertTriangle, FileSpreadsheet, Play, ArrowRight, Database } from "lucide-react";
 import { LancamentoFinanceiro, MetricasConsolidadas } from "../types";
-import { dataSourceManager } from "../services/dataSourceManager";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { platformLogger } from "../core/platform/PlatformLogger";
 
@@ -42,7 +41,7 @@ export const ContabilTab: React.FC<ContabilTabProps> = ({
   }, [activeDataset]);
 
   const isPendingConfiguration = useMemo(() => {
-    if (dataSourceManager.getActiveSource() !== "SPREADSHEET_DATA") return false;
+    if (!activeDataset) return false;
     if (activeDataset && activeDataset.columnProfiles) {
       // For Contabil, we expect DRE or financial KPIs
       const hasContabilCol = activeDataset.columnProfiles.some((p: any) => p.isDRE || p.isKPI);

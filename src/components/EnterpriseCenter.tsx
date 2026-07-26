@@ -39,9 +39,9 @@ import { executivePresentationEngine, ExecutivePresentation } from "../core/busi
 import { calculatePresentationMetricValues } from "../core/business-intelligence/BusinessIntelligenceEngine";
 import { PresentationMetricValues } from "../core/business-intelligence/PresentationMetricContext";
 import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
-import { useDataSourceManager } from "../hooks/useDataSourceManager";
 import { MarketIntelligencePanel } from "./MarketIntelligencePanel";
 import { Workspace } from "../core/workspace-intelligence/WorkspaceIntelligenceTypes";
+import { SpreadsheetFile } from "../types/dataSource";
 import { marketIntelligenceEngine } from "../core/market-intelligence/MarketIntelligenceEngine";
 import { ConsultingPipelineWidget } from "./ConsultingPipelineWidget";
 import { EnterpriseTimeline } from "./EnterpriseTimeline";
@@ -57,7 +57,40 @@ interface EnterpriseCenterProps {
 type RegisterModalType = "Grupo" | "Empresa" | "Unidade";
 
 export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab }) => {
-  const { activeDataset, activeRecords, activeFiles } = useDataSourceManager();
+  const [activeDataset, setActiveDataset] = useState(activeDatasetStore.getActiveDataset());
+  const [previewRows, setPreviewRows] = useState<any[]>(() => activeDatasetStore.getActiveRows());
+
+  useEffect(() => activeDatasetStore.subscribe(() => {
+    setActiveDataset(activeDatasetStore.getActiveDataset());
+    setPreviewRows(activeDatasetStore.getActiveRows());
+  }), []);
+
+  const activeFiles = useMemo<SpreadsheetFile[]>(() => {
+    if (!activeDataset) return [];
+    return [{
+      id: activeDataset.sourceIdentity?.workbookId || activeDataset.datasetId,
+      fileName: activeDataset.sourceName,
+      importedAt: activeDataset.importedAt,
+      importedBy: "Consultor",
+      status: "ACTIVE",
+      sheets: (activeDataset.sheets || []).map((sheet: any, index: number) => ({
+        id: `${activeDataset.datasetId}-sheet-${index}`,
+        fileId: activeDataset.datasetId,
+        sheetName: typeof sheet === "string" ? sheet : sheet.sheetName,
+        rows: [],
+        columns: (typeof sheet === "string" ? [] : (sheet.columns || [])).map((name: any) => ({
+          name: typeof name === "string" ? name : name.name,
+          type: "text",
+          hasEmptyValues: false,
+        })),
+      })),
+      totalRows: activeDataset.rowCount,
+      totalColumns: activeDataset.columnCount,
+      totalAbas: activeDataset.sheets?.length || 0,
+      qualityLabel: "Excelente",
+      approvedByConsultant: true,
+    }];
+  }, [activeDataset]);
 
   // State lists
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
@@ -223,11 +256,11 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
 
   // Available periods list
   const availablePeriods = Array.from(
-    new Set(activeRecords.map(r => r.Mês || r["mês"] || r["Mes"] || "").filter(Boolean))
+    new Set(previewRows.map(r => r.Mês || r["mês"] || r["Mes"] || "").filter(Boolean))
   );
 
   const scopedRecords = useMemo(() => {
-    let filtered = [...activeRecords];
+    let filtered = [...previewRows];
     if (selectedPeriod) {
       filtered = filtered.filter(r => (r.Mês || r["mês"] || r["Mes"]) === selectedPeriod);
     }
@@ -243,7 +276,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
       if (consolidationScope === "unidade") return unitVal.includes(entityName);
       return true;
     });
-  }, [activeRecords, selectedPeriod, selectedScopeEntity, consolidationScope]);
+  }, [previewRows, selectedPeriod, selectedScopeEntity, consolidationScope]);
 
   useEffect(() => {
     let mounted = true;
@@ -273,13 +306,14 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
       enterpriseId: selectedEnterpriseId || undefined,
       workspace: ws,
       activeDataset,
-      allRows: activeRecords,
+      allRows: previewRows,
+      allowActiveDatasetPreviewFallback: true,
       moduleMappings: activeDataset ? listModuleMappings(activeDataset.datasetId, getDefaultProjectId(activeDataset)) : [],
     }).then(res => {
       setPresentation(res);
       setCurrentSlideIndex(0);
     });
-  }, [selectedEnterpriseId, activeDataset, activeRecords]);
+  }, [selectedEnterpriseId, activeDataset, previewRows]);
 
   // Grouped real data sources listing
   const getGroupedSources = () => {
@@ -727,7 +761,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
             {!activeDataset ? (
               <button
                 type="button"
-                onClick={() => onSelectTab("importacao")}
+                onClick={() => onSelectTab("central_dados")}
                 className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase transition-colors cursor-pointer"
               >
                 Adicionar dados
@@ -839,7 +873,7 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
               </div>
             )}
             <button
-              onClick={() => onSelectTab("importacao")}
+              onClick={() => onSelectTab("central_dados")}
               className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-850 rounded-lg text-[10px] font-black uppercase text-slate-700 dark:text-slate-350 transition-all cursor-pointer text-center block"
             >
               Importar Nova Planilha

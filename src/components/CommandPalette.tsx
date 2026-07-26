@@ -103,106 +103,106 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onSelectTab }) =
           {query.trim() === "" ? (
             <div className="space-y-4 p-3">
               <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider space-y-2">
-                <p className="flex items-center gap-1.5"><Terminal size={12} className="text-blue-500" /> Comandos do Caso de Consultoria:</p>
+                <p className="flex items-center gap-1.5"><Terminal size={12} className="text-blue-500" /> Atalhos da consultoria:</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] font-mono text-slate-500 font-semibold leading-relaxed">
                   <button 
                     onClick={() => { 
-                      onSelectTab("executive_workspace"); 
+                      onSelectTab("enterprise_center");
                       setIsOpen(false); 
                     }} 
                     className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-2 text-slate-700 dark:text-slate-300"
                   >
                     <FolderOpen size={12} className="text-blue-500 shrink-0" />
-                    <span>Abrir Caso</span>
+                    <span>Empresas e Grupos</span>
                   </button>
                   <button 
                     onClick={() => { 
-                      onSelectTab("executive_workspace"); 
+                      onSelectTab("enterprise_center");
                       // Trigger show project creation
                       setIsOpen(false); 
                     }} 
                     className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-2 text-slate-700 dark:text-slate-300"
                   >
                     <Plus size={12} className="text-emerald-500 shrink-0" />
-                    <span>Criar Caso</span>
+                    <span>Novo projeto</span>
                   </button>
                   <button 
                     onClick={() => { 
-                      // Switch to executive_workspace page and open case tab "dossie"
+                      // Open the canonical results surface.
                       window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: "dossie" }));
-                      onSelectTab("executive_workspace"); 
+                      onSelectTab("resumo");
                       setIsOpen(false); 
                     }} 
                     className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-2 text-slate-700 dark:text-slate-300"
                   >
                     <FileText size={12} className="text-indigo-400 shrink-0" />
-                    <span>Abrir Dossiê do Caso</span>
+                    <span>Abrir resultados</span>
                   </button>
                   <button 
                     onClick={() => { 
                       window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: "historico" }));
-                      onSelectTab("executive_workspace"); 
+                      onSelectTab("historico_executivo");
                       setIsOpen(false); 
                     }} 
                     className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-2 text-slate-700 dark:text-slate-300"
                   >
                     <Activity size={12} className="text-amber-500 shrink-0" />
-                    <span>Ver História do Caso</span>
+                    <span>Abrir histórico</span>
                   </button>
                   <button 
                     onClick={() => { 
                       window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: "pessoas" }));
-                      onSelectTab("executive_workspace"); 
+                      onSelectTab("comissoes");
                       setIsOpen(false); 
                     }} 
                     className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-2 text-slate-700 dark:text-slate-300"
                   >
                     <Users size={12} className="text-rose-400 shrink-0" />
-                    <span>Abrir Pessoas do Caso</span>
+                    <span>Abrir pessoas</span>
                   </button>
                   <button 
                     onClick={() => { 
                       window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: "reunioes" }));
-                      onSelectTab("executive_workspace"); 
+                      onSelectTab("preparacao_reuniao");
                       setIsOpen(false); 
                     }} 
                     className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-2 text-slate-700 dark:text-slate-300"
                   >
                     <ClipboardList size={12} className="text-amber-400 shrink-0" />
-                    <span>Abrir Reuniões do Caso</span>
+                    <span>Abrir preparação</span>
                   </button>
                   <button 
                     onClick={() => { 
                       window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: "planos" }));
-                      onSelectTab("executive_workspace"); 
+                      onSelectTab("plano_executivo");
                       setIsOpen(false); 
                     }} 
                     className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-2 text-slate-700 dark:text-slate-300"
                   >
                     <Target size={12} className="text-emerald-400 shrink-0" />
-                    <span>Abrir Planos do Caso</span>
+                    <span>Abrir plano</span>
                   </button>
                   <button 
                     onClick={() => { 
                       window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: "dados" }));
-                      onSelectTab("executive_workspace"); 
+                      onSelectTab("central_dados");
                       setIsOpen(false); 
                     }} 
                     className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-2 text-slate-700 dark:text-slate-300"
                   >
                     <Database size={12} className="text-blue-400 shrink-0" />
-                    <span>Abrir Dados do Caso</span>
+                    <span>Abrir fontes</span>
                   </button>
                   <button 
                     onClick={() => { 
                       window.dispatchEvent(new CustomEvent("sauron:switch-case-tab", { detail: "apresentacoes" }));
-                      onSelectTab("executive_workspace"); 
+                      onSelectTab("apresentacoes");
                       setIsOpen(false); 
                     }} 
                     className="p-2 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-xl border border-slate-150 dark:border-slate-850 text-left cursor-pointer flex items-center gap-2 text-slate-700 dark:text-slate-300"
                   >
                     <Sparkles size={12} className="text-amber-500 shrink-0" />
-                    <span>Abrir Narrativas do Caso</span>
+                    <span>Abrir apresentações</span>
                   </button>
                 </div>
               </div>

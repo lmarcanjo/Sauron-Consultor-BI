@@ -63,5 +63,23 @@ describe("moduleMapping", () => {
     expect(listModuleMappings("dataset-1", "project-1")).toHaveLength(2);
     expect(commercial.updatedAt).toBeTruthy();
   });
-});
 
+  it("persists an empty mapping without requiring semantic fields", () => {
+    const mapping = saveModuleMapping({
+      projectId: "project-1",
+      datasetId: "dataset-empty",
+      moduleName: "Financeiro",
+      sheetName: "Dados",
+      selectedColumns: [],
+      semanticRoles: {},
+    });
+
+    expect(mapping.selectedColumns).toEqual([]);
+    expect(mapping.semanticRoles).toEqual({});
+    expect(getModuleMapping("Financeiro", "dataset-empty", "project-1")).toMatchObject({
+      sheetName: "Dados",
+      selectedColumns: [],
+      semanticRoles: {},
+    });
+  });
+});

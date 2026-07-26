@@ -15,10 +15,12 @@ import { adaptivePresentationEngine } from "../adaptive-ui";
 import { getEnterpriseContext, enterpriseConsolidationService } from "../enterprise-consolidation";
 import { BusinessIntelligenceEngine } from "./BusinessIntelligenceEngine";
 import { BusinessMetricName } from "./BusinessMetricTypes";
-import { buildPresentationMetricValues, inferPresentationMappings } from "./PresentationMetricContext";
+import { buildPresentationMetricValues } from "./PresentationMetricContext";
 import { ModuleFieldMapping } from "../data/moduleMapping";
 import { CertifiedMetricSnapshot, ConsistencyReadinessReport, buildCertifiedMetricSnapshot, buildConsistencyMetricFromBusinessMetric, certifiedMetricSnapshotStore, financialConsistencyOrchestrator } from "../financial-consistency";
 import { getActiveConsultingModelConfigSync } from "./ConsultingModelRepository";
+import { accessControlEngine } from "../identity/AccessControlEngine";
+import { identityEngine } from "../identity/IdentityEngine";
 
 export interface PresentationSlide {
   id: string;
@@ -53,6 +55,8 @@ export class ExecutivePresentationEngine {
     activeDataset?: ActiveDataset | null;
     allRows?: LancamentoFinanceiro[];
     moduleMappings?: ModuleFieldMapping[];
+    /** True only for the current ActiveDataset preview, already scoped by activation. */
+    allowActiveDatasetPreviewFallback?: boolean;
   }): Promise<ExecutivePresentation> {
     const { activeDataset, allRows = [] } = input;
 
@@ -120,14 +124,12 @@ export class ExecutivePresentationEngine {
       context.groupId || context.companyId || context.unitId || context.scope === "WORKBOOK"
     );
     const finalRows = hasExplicitContext
-      ? scopedRows
+      ? (scopedRows.length > 0 || !input.allowActiveDatasetPreviewFallback ? scopedRows : allRows)
       : (scopedRows.length > 0 ? scopedRows : allRows);
 
-    // Business values come from the canonical BI engine. The derived mapping
-    // is transient when older callers have not persisted module mappings.
-    const mappings = input.moduleMappings?.length
-      ? input.moduleMappings
-      : inferPresentationMappings(activeDataset, finalRows);
+    // Business values come from the canonical BI engine. A presentation never
+    // creates a mapping implicitly from column names.
+    const mappings = input.moduleMappings || [];
     const metricNames: BusinessMetricName[] = [
       "receitaCandidata",
       "custoCandidato",
@@ -429,7 +431,13 @@ export class ExecutivePresentationEngine {
 
     if (activeConfig?.businessAreas) {
       activeConfig.businessAreas
-        .filter(area => area.visible && !["financeiro", "comercial", "pessoas"].includes(area.id))
+        .filter(area => area.visible
+          && !["financeiro", "comercial", "pessoas"].includes(area.id)
+          && accessControlEngine.canViewArea(
+            identityEngine.getCurrentUser(),
+            area.id,
+            { groupId: activeConfig.groupId, companyId: activeConfig.companyId },
+          ))
         .forEach(area => {
           finalSlides.push({
             id: `slide_custom_area_${area.id}`,

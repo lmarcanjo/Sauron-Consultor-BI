@@ -1,7 +1,6 @@
 import React from "react";
 import { Package } from "lucide-react";
 import { MetricasConsolidadas } from "../types";
-import { dataSourceManager } from "../services/dataSourceManager";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 
 interface EstoqueTabProps {
@@ -10,7 +9,7 @@ interface EstoqueTabProps {
 }
 
 export const EstoqueTab: React.FC<EstoqueTabProps> = () => {
-  const hasRealDataset = dataSourceManager.getActiveSource() === "SPREADSHEET_DATA" && !!activeDatasetStore.getActiveDataset();
+  const hasRealDataset = !!activeDatasetStore.getActiveDataset();
 
   return (
     <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans">

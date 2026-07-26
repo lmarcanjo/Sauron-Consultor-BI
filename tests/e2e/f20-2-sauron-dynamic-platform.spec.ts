@@ -64,13 +64,6 @@ async function importForCompany(page: Page, filePath: string, company: string, u
   await expect(importer).toHaveCount(0, { timeout: 30000 });
 }
 
-async function acceptSuggestionsIfPresent(page: Page): Promise<void> {
-  const button = page.getByRole("button", { name: /Aceitar sugestões/i }).first();
-  await expect(button).toBeVisible({ timeout: 20000 });
-  await button.click();
-  await expect(page.getByText(/Sugestões salvas|área\(s\) configurada/i).first()).toBeVisible({ timeout: 15000 });
-}
-
 test.describe("F20.2 — SAURON Dynamic Consulting Platform", () => {
   test("creates DNA with SAURON Architect wizard and updates sidebar custom areas dynamically", async ({ page }) => {
     test.setTimeout(180000);
@@ -106,7 +99,6 @@ test.describe("F20.2 — SAURON Dynamic Consulting Platform", () => {
       await companySelect.selectOption({ label: tempFile.company });
       await page.waitForTimeout(1000);
       await navigate(page, /Diagnóstico Executivo/i);
-      await acceptSuggestionsIfPresent(page);
 
       // Navigate to Modelo Consultivo (DNA) tab
       await navigate(page, /Modelo Consultivo/i);

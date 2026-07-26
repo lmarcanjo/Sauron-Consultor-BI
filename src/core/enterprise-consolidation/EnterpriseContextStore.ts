@@ -9,9 +9,10 @@
 import { EnterpriseContext } from "./EnterpriseContextTypes";
 import { dispatchPlatformEvent, PLATFORM_EVENTS } from "../events/PlatformEvents";
 import { runLegacyCompatibilityMigration } from "../migrations/LegacyCompatibilityMigration";
+import { activeDatasetStore } from "../data/ActiveDatasetStore";
 
 const STORAGE_KEY = "sauron_active_enterprise_context";
-type ContextRefreshOptions = { refreshSources?: boolean };
+type ContextRefreshOptions = { refreshSources?: boolean; clearPreviousDataset?: boolean };
 type ContextResolver = (context: EnterpriseContext) => Promise<void>;
 let contextResolver: ContextResolver | null = null;
 let refreshSequence = 0;
@@ -53,6 +54,13 @@ export const getEnterpriseContext = (): EnterpriseContext => {
 };
 
 export const setEnterpriseContext = (context: EnterpriseContext, options: ContextRefreshOptions = {}): void => {
+  const contextChanged = ["scope", "groupId", "companyId", "unitId", "workspaceId"]
+    .some(key => currentContext[key as keyof EnterpriseContext] !== context[key as keyof EnterpriseContext]);
+  if (contextChanged && options.clearPreviousDataset !== false) {
+    // The old source must disappear before the asynchronous resolver starts;
+    // otherwise a company switch briefly shows the previous company's data.
+    activeDatasetStore.clearActiveDataset();
+  }
   currentContext = { ...context };
 
   if (typeof localStorage !== "undefined") {

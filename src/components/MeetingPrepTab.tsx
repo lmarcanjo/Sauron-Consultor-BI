@@ -12,7 +12,8 @@ import {
   ListTodo, Plus, Trash2, Calendar, FileText, BadgeCheck, ShieldAlert,
   ArrowUpRight, ArrowDownRight, RefreshCw, BarChart3, CheckSquare, Target, Network, Building
 } from "lucide-react";
-import { useDataSourceManager } from "../hooks/useDataSourceManager";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
+import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/WorkspaceIntelligenceEngine";
 import { meetingPrepService } from "../services/meetingPrepService";
 import { MeetingPrepReport, AgendaItem } from "../types/meetingPrep";
 import { showToast } from "./Toast";
@@ -30,7 +31,9 @@ interface MeetingPrepTabProps {
 }
 
 export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) => {
-  const { activeDataset, activeRecords, workspace } = useDataSourceManager();
+  const [activeDataset, setActiveDataset] = useState(activeDatasetStore.getActiveDataset());
+  const [previewRows, setPreviewRows] = useState<any[]>(() => activeDatasetStore.getActiveRows());
+  const workspace = workspaceIntelligenceEngine.getCurrentIntelligentWorkspace();
   
   const [context, setContext] = useState(getEnterpriseContext());
   const [report, setReport] = useState<MeetingPrepReport | null>(null);
@@ -53,7 +56,7 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
 
       const rep = await meetingPrepService.generateReport({
         activeDataset,
-        activeRecords,
+        activeRecords: previewRows,
         workspace,
         // Structural workbook analysis is intentionally deferred from the
         // navigation path; BI values remain real and the UI stays responsive.
@@ -66,9 +69,9 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
 
       if (presentationTimerRef.current) clearTimeout(presentationTimerRef.current);
       setPresentation(null);
-      if (activeDataset && activeRecords.length > 0) {
+      if (activeDataset && previewRows.length > 0) {
         const datasetForPresentation = activeDataset;
-        const recordsForPresentation = activeRecords;
+        const recordsForPresentation = previewRows;
         const workspaceForPresentation = workspace;
         presentationTimerRef.current = setTimeout(async () => {
           const presEngine = new ExecutivePresentationEngine();
@@ -77,6 +80,7 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
             allRows: recordsForPresentation,
             workspace: workspaceForPresentation as any,
             moduleMappings: listModuleMappings(datasetForPresentation.datasetId, getDefaultProjectId(datasetForPresentation)),
+            allowActiveDatasetPreviewFallback: true,
           });
           setPresentation(pres);
         }, 750);
@@ -89,6 +93,10 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
   };
 
   useEffect(() => {
+    const unsubscribeDataset = activeDatasetStore.subscribe(() => {
+      setActiveDataset(activeDatasetStore.getActiveDataset());
+      setPreviewRows(activeDatasetStore.getActiveRows());
+    });
     const scheduleLoad = () => {
       if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
       loadTimerRef.current = setTimeout(() => {
@@ -102,10 +110,11 @@ export const MeetingPrepTab: React.FC<MeetingPrepTabProps> = ({ onSelectTab }) =
     const unsubscribe = subscribePlatformEvent(PLATFORM_EVENTS.ENTERPRISE_CONTEXT_CHANGED, handleContextEvent);
     return () => {
       unsubscribe();
+      unsubscribeDataset();
       if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
       if (presentationTimerRef.current) clearTimeout(presentationTimerRef.current);
     };
-  }, [activeDataset, activeRecords]);
+  }, [activeDataset, previewRows]);
 
   // Load / Sync Agenda
   useEffect(() => {

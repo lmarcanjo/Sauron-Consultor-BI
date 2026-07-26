@@ -1,0 +1,13 @@
+{
+  "testName": "arquivo-grande",
+  "startAt": "2026-07-21T16:42:45.673Z",
+  "stepsCompleted": [
+    "17. Arquivo maior processado sem travar a UI"
+  ],
+  "stepsFailed": [],
+  "clickCount": 0,
+  "retries": 0,
+  "errorsEncountered": [],
+  "endAt": "2026-07-21T16:42:48.205Z",
+  "durationMs": 2532
+}

@@ -4,17 +4,119 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
+import os from "node:os";
 
 import { databaseConnectionManager } from "./src/core/connections/DatabaseConnectionManager";
 import { securityEngine } from "./src/core/security/SecurityEngine";
+import { normalizeDatabaseConfig } from "./src/core/connections/DatabaseConfig";
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
+const SERVER_LOCK_FILE = path.join(os.tmpdir(), `sauron-api-${PORT}.lock`);
+let serverLockOwned = false;
+
+function processIsAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error: any) {
+    return error?.code === "EPERM";
+  }
+}
+
+function acquireServerLock(): void {
+  const payload = JSON.stringify({ pid: process.pid, hostname: os.hostname(), port: PORT, startedAt: new Date().toISOString() });
+  try {
+    fs.writeFileSync(SERVER_LOCK_FILE, payload, { encoding: "utf-8", flag: "wx" });
+    serverLockOwned = true;
+    return;
+  } catch (error: any) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+
+  let existing: any = null;
+  try {
+    existing = JSON.parse(fs.readFileSync(SERVER_LOCK_FILE, "utf-8"));
+  } catch {
+    // A truncated lock is treated as stale below.
+  }
+  if (existing?.pid && processIsAlive(Number(existing.pid))) {
+    throw new Error(`Já existe uma API Sauron ativa na porta ${PORT} (PID ${existing.pid}). Encerre o processo antigo antes de iniciar outro.`);
+  }
+
+  fs.rmSync(SERVER_LOCK_FILE, { force: true });
+  fs.writeFileSync(SERVER_LOCK_FILE, payload, { encoding: "utf-8", flag: "wx" });
+  serverLockOwned = true;
+}
+
+function releaseServerLock(): void {
+  if (!serverLockOwned) return;
+  serverLockOwned = false;
+  fs.rmSync(SERVER_LOCK_FILE, { force: true });
+}
+
+process.once("exit", releaseServerLock);
+process.once("SIGINT", () => {
+  releaseServerLock();
+  process.exit(130);
+});
+process.once("SIGTERM", () => {
+  releaseServerLock();
+  process.exit(143);
+});
 
 app.use(express.json({ limit: "50mb" }));
+
+// Temporary, sanitized tracing for the database-source path. This is kept at
+// the API boundary so credentials and connection strings never enter logs.
+function sourceFlowCorrelationId(req: express.Request): string {
+  const header = req.header("x-correlation-id");
+  return header && header.length <= 100 ? header : `source-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function sourceFlowPayload(input: Record<string, any> | undefined): Record<string, any> {
+  const payload = input || {};
+  const normalized = normalizeDatabaseConfig(payload);
+  return {
+    type: normalized.success ? normalized.config.type : null,
+    host: payload.host || null,
+    port: payload.port || null,
+    user: payload.user || payload.dbUser || null,
+    database: payload.database || null,
+    tableName: payload.tableName || payload.selectedTable || null,
+    selectedTable: payload.selectedTable || null,
+    groupId: payload.groupId || null,
+    companyId: payload.companyId || null,
+    unitId: payload.unitId || null,
+    workspaceId: payload.workspaceId || null,
+    sourceId: payload.sourceId || null,
+    datasetId: payload.datasetId || null,
+  };
+}
+
+function logSourceFlow(
+  stage: string,
+  correlationId: string,
+  startedAt: number,
+  details: Record<string, any>,
+  originalPayload?: Record<string, any>
+): void {
+  let serialized = JSON.stringify({
+    stage,
+    correlationId,
+    elapsedMs: Date.now() - startedAt,
+    ...details,
+  });
+  for (const field of ["password", "sshPassword", "sshPrivateKey", "connectionString", "vpnPass", "ovpnContent"]) {
+    const secret = originalPayload?.[field];
+    if (secret) serialized = serialized.split(String(secret)).join("[REDACTED]");
+  }
+  console.info(`[SOURCE_FLOW] ${serialized}`);
+}
 
 // Initialize Gemini Client with telemetria as requested in SKILL.md
 let ai: GoogleGenAI | null = null;
@@ -44,20 +146,95 @@ try {
 
 // Testar conexão detalhada por etapas
 app.post("/api/db/test-connection", async (req, res) => {
+  const correlationId = sourceFlowCorrelationId(req);
+  const startedAt = Date.now();
+  const payload = sourceFlowPayload(req.body);
+  logSourceFlow("test-connection.started", correlationId, startedAt, { endpoint: "/api/db/test-connection", payload }, req.body);
   try {
-    const result = await databaseConnectionManager.testConnection(req.body);
+    const normalized = normalizeDatabaseConfig(req.body || {});
+    if (!normalized.success) return res.status(400).json(normalized);
+    const result = await databaseConnectionManager.testConnection({ ...req.body, type: normalized.config.type });
+    logSourceFlow("test-connection.completed", correlationId, startedAt, {
+      endpoint: "/api/db/test-connection",
+      payload,
+      success: result.success,
+      stage: result.stage,
+      sourceId: null,
+      persisted: false,
+      activated: false,
+      driverCorrelationId: result.correlationId || null,
+      error: result.error || null,
+    }, req.body);
+    res.setHeader("Cache-Control", "no-store");
     return res.json(result);
   } catch (error: any) {
+    logSourceFlow("test-connection.failed", correlationId, startedAt, {
+      endpoint: "/api/db/test-connection",
+      payload,
+      success: false,
+      stage: "unknown",
+      error: { message: error?.message || String(error), code: error?.code || null, stack: error?.stack || null },
+    }, req.body);
     return res.status(500).json({ error: error.message || "Erro de conexão com o banco de dados." });
   }
 });
 
+function parseNetworkTarget(input: any): { host: string; port: number; type: any } | { error: string } {
+  const host = String(input?.host || "").trim();
+  const port = Number(input?.port);
+  const type = String(input?.type || "mysql").toLowerCase();
+  if (!host || host.length > 253) return { error: "Informe um host válido para o diagnóstico." };
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return { error: "Informe uma porta entre 1 e 65535." };
+  if (!["mysql", "postgres", "mssql", "oracle", "mongodb"].includes(type)) return { error: "Tipo de banco não suportado para o diagnóstico." };
+  return { host, port, type };
+}
+
+app.get("/api/db/network-context", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const host = typeof req.query.host === "string" ? req.query.host : "";
+  const server = { bindAddress: "0.0.0.0", port: PORT };
+  if (!host) return res.json({ success: true, runtime: databaseConnectionManager.getRuntimeContext(), server });
+  const target = parseNetworkTarget({ host, port: req.query.port, type: req.query.type });
+  if ("error" in target) return res.status(400).json({ success: false, error: target.error });
+  const diagnostics = await databaseConnectionManager.diagnoseNetworkContext(target.host, target.port, target.type);
+  return res.json({ success: true, ...diagnostics, server });
+});
+
+app.post("/api/db/network-context/diagnose", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const target = parseNetworkTarget(req.body || {});
+  if ("error" in target) return res.status(400).json({ success: false, error: target.error });
+  const diagnostics = await databaseConnectionManager.diagnoseNetworkContext(target.host, target.port, target.type);
+  return res.json({ success: true, ...diagnostics, server: { bindAddress: "0.0.0.0", port: PORT } });
+});
+
 // Testar e varrer tabelas/colunas (usado no painel)
 app.post("/api/db/test", async (req, res) => {
+  const correlationId = sourceFlowCorrelationId(req);
+  const startedAt = Date.now();
+  const payload = sourceFlowPayload(req.body);
+  logSourceFlow("table-discovery.started", correlationId, startedAt, { endpoint: "/api/db/test", payload }, req.body);
   try {
-    const result = await databaseConnectionManager.getTablesAndColumns(req.body);
+    const normalized = normalizeDatabaseConfig(req.body || {});
+    if (!normalized.success) return res.status(400).json(normalized);
+    const result = await databaseConnectionManager.getTablesAndColumns({ ...req.body, type: normalized.config.type });
+    logSourceFlow("table-discovery.completed", correlationId, startedAt, {
+      endpoint: "/api/db/test",
+      payload,
+      success: true,
+      tableCount: result.tables.length,
+      sourceId: null,
+      persisted: false,
+      activated: false,
+    }, req.body);
     return res.json({ success: true, tables: result.tables, tableColumns: result.tableColumns, estimatedRows: result.estimatedRows });
   } catch (error: any) {
+    logSourceFlow("table-discovery.failed", correlationId, startedAt, {
+      endpoint: "/api/db/test",
+      payload,
+      success: false,
+      error: { message: error?.message || String(error), code: error?.code || null, stack: error?.stack || null },
+    }, req.body);
     return res.status(500).json({ error: error.message || "Erro ao testar e obter tabelas/colunas." });
   }
 });
@@ -84,10 +261,38 @@ app.post("/api/db/list-columns", async (req, res) => {
 
 // Buscar registros
 app.post("/api/db/fetch", async (req, res) => {
+  const correlationId = sourceFlowCorrelationId(req);
+  const startedAt = Date.now();
+  const payload = sourceFlowPayload(req.body);
+  logSourceFlow("fetch.started", correlationId, startedAt, { endpoint: "/api/db/fetch", payload }, req.body);
   try {
-    const data = await databaseConnectionManager.executeFetchAndMap(req.body);
+    const normalized = normalizeDatabaseConfig(req.body || {});
+    if (!normalized.success) return res.status(400).json(normalized);
+    const data = await databaseConnectionManager.executeFetchAndMap({
+      ...req.body,
+      type: normalized.config.type,
+      tableName: normalized.config.table,
+      query: normalized.config.query,
+      mappings: normalized.config.mappings,
+    });
+    logSourceFlow("fetch.completed", correlationId, startedAt, {
+      endpoint: "/api/db/fetch",
+      payload,
+      success: true,
+      rowCount: data.length,
+      sourceId: null,
+      persisted: false,
+      activated: false,
+      note: "O endpoint devolve linhas; a persistência/ativação ocorre no callback do frontend.",
+    }, req.body);
     return res.json({ success: true, count: data.length, data });
   } catch (error: any) {
+    logSourceFlow("fetch.failed", correlationId, startedAt, {
+      endpoint: "/api/db/fetch",
+      payload,
+      success: false,
+      error: { message: error?.message || String(error), code: error?.code || null, stack: error?.stack || null },
+    }, req.body);
     return res.status(500).json({ error: error.message || "Erro ao carregar dados do banco de dados." });
   }
 });
@@ -96,6 +301,52 @@ app.post("/api/db/fetch", async (req, res) => {
 const DB_CONFIG_FILE = path.join(process.cwd(), "db_config.json");
 const REPORTS_HISTORY_FILE = path.join(process.cwd(), "reports_history.json");
 const SYSTEM_DB_FILE = path.join(process.cwd(), "system_db.json");
+
+// Database credentials are accepted only for the current Node process. The
+// persisted configuration contains connection metadata and mappings only.
+let runtimeDbSecrets: Record<string, unknown> = {};
+const DB_SECRET_FIELDS = ["password", "sshPassword", "sshPrivateKey", "connectionString"] as const;
+
+function splitDatabaseConfig(input: Record<string, any>): { safe: Record<string, any>; secrets: Record<string, unknown> } {
+  const safe = { ...input };
+  const secrets: Record<string, unknown> = {};
+  DB_SECRET_FIELDS.forEach(field => {
+    if (input[field]) secrets[field] = input[field];
+    delete safe[field];
+  });
+  return { safe, secrets };
+}
+
+function readDatabaseConfig(): Record<string, any> | null {
+  try {
+    if (!fs.existsSync(DB_CONFIG_FILE)) return null;
+    const parsed = JSON.parse(fs.readFileSync(DB_CONFIG_FILE, "utf-8"));
+    const { safe } = splitDatabaseConfig(parsed);
+    if (JSON.stringify(parsed) !== JSON.stringify(safe)) {
+      fs.writeFileSync(DB_CONFIG_FILE, JSON.stringify(safe, null, 2), "utf-8");
+    }
+    return safe;
+  } catch {
+    return null;
+  }
+}
+
+function currentDatabaseConfig(): Record<string, any> | null {
+  const persisted = readDatabaseConfig();
+  return persisted ? { ...persisted, ...runtimeDbSecrets } : null;
+}
+
+function normalizedPersistedDatabaseConfig(input: Record<string, any>): Record<string, any> | { error: string } {
+  const normalized = normalizeDatabaseConfig(input);
+  if ("message" in normalized) return { error: normalized.message };
+  return {
+    ...input,
+    type: normalized.config.type,
+    tableName: normalized.config.table,
+    query: normalized.config.query,
+    mappings: normalized.config.mappings,
+  };
+}
 
 // Auxiliar para ler banco de dados do sistema (incluindo comissões, canais e observações)
 function readSystemDb(): any {
@@ -196,11 +447,8 @@ function writeReportsHistory(history: any[]) {
 // Endpoint para ler configuração do banco
 app.get("/api/db/config", (req, res) => {
   try {
-    if (fs.existsSync(DB_CONFIG_FILE)) {
-      const data = fs.readFileSync(DB_CONFIG_FILE, "utf-8");
-      return res.json({ success: true, config: JSON.parse(data) });
-    }
-    return res.json({ success: true, config: null });
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ success: true, config: readDatabaseConfig() });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -209,8 +457,19 @@ app.get("/api/db/config", (req, res) => {
 // Endpoint para salvar configuração do banco (Modo Administrador)
 app.post("/api/db/config", (req, res) => {
   try {
-    fs.writeFileSync(DB_CONFIG_FILE, JSON.stringify(req.body, null, 2), "utf-8");
-    return res.json({ success: true, message: "Configuração do banco de dados salva com sucesso no servidor." });
+    const normalized = normalizeDatabaseConfig(req.body || {});
+    if (!normalized.success) return res.status(400).json(normalized);
+    const { safe, secrets } = splitDatabaseConfig({
+      ...(req.body || {}),
+      type: normalized.config.type,
+      tableName: normalized.config.table,
+      query: normalized.config.query,
+      mappings: normalized.config.mappings,
+    });
+    runtimeDbSecrets = secrets;
+    fs.writeFileSync(DB_CONFIG_FILE, JSON.stringify(safe, null, 2), "utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ success: true, config: safe, message: "Metadados do banco salvos; segredos permanecem somente em memória." });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
   }
@@ -237,15 +496,57 @@ app.post("/api/system/db", (req, res) => {
 
 // Endpoint de Sincronização em tempo real (Modo Usuário / Refresh)
 app.post("/api/db/sync", async (req, res) => {
+  const correlationId = sourceFlowCorrelationId(req);
+  const startedAt = Date.now();
+  const requestPayload = sourceFlowPayload(req.body);
+  logSourceFlow("sync.started", correlationId, startedAt, { endpoint: "/api/db/sync", payload: requestPayload }, req.body);
   try {
+    const requestedSourceId = typeof req.body?.sourceId === "string" ? req.body.sourceId.trim() : "";
+    if (!requestedSourceId) {
+      return res.status(400).json({ success: false, stage: "configuration", error: "sourceId obrigatório para atualizar uma fonte SQL existente." });
+    }
     await databaseConnectionManager.logAudit("DB_SYNC_STARTED", "Tentativa", "Iniciando processo de sincronização e importação estruturada do banco do cliente.", "lmarcanjo16@gmail.com");
 
-    if (!fs.existsSync(DB_CONFIG_FILE)) {
+    if (!readDatabaseConfig()) {
+      logSourceFlow("sync.configuration-missing", correlationId, startedAt, {
+        endpoint: "/api/db/sync",
+        payload: requestPayload,
+        success: false,
+        sourceId: requestedSourceId,
+        persisted: false,
+        activated: false,
+      });
       await databaseConnectionManager.logAudit("DB_SYNC_SKIPPED", "Info", "Sincronização abortada: Banco de dados do cliente não parametrizado.");
       return res.status(404).json({ error: "Banco de dados não configurado. Por favor, conecte o banco no Modo Administrador e salve a configuração." });
     }
 
-    const config = JSON.parse(fs.readFileSync(DB_CONFIG_FILE, "utf-8"));
+    const persistedConfig = readDatabaseConfig();
+    if (!persistedConfig?.sourceId || persistedConfig.sourceId !== requestedSourceId) {
+      return res.status(409).json({ success: false, stage: "configuration", error: "A fonte SQL selecionada não está registrada neste servidor. Conecte e selecione a tabela novamente." });
+    }
+    const rawConfig = currentDatabaseConfig();
+    const normalizedConfig = rawConfig ? normalizedPersistedDatabaseConfig(rawConfig) : { error: "Banco de dados não configurado." };
+    if ("error" in normalizedConfig) return res.status(400).json({ success: false, stage: "configuration", error: normalizedConfig.error });
+    const config: Record<string, any> = { ...(normalizedConfig as Record<string, any>), sourceId: requestedSourceId };
+    if (!config) {
+      logSourceFlow("sync.configuration-unavailable", correlationId, startedAt, {
+        endpoint: "/api/db/sync",
+        payload: requestPayload,
+        success: false,
+        sourceId: requestedSourceId,
+        persisted: false,
+        activated: false,
+      }, config || undefined);
+      return res.status(404).json({ error: "Banco de dados não configurado. Por favor, conecte o banco no Modo Administrador e salve a configuração." });
+    }
+    logSourceFlow("sync.configuration-loaded", correlationId, startedAt, {
+      endpoint: "/api/db/sync",
+      payload: sourceFlowPayload(config),
+      success: true,
+      sourceId: requestedSourceId,
+      persisted: false,
+      activated: false,
+    }, config);
     const data = await databaseConnectionManager.executeFetchAndMap(config);
 
     // Salvar automaticamente esta sincronização como um novo snapshot histórico!
@@ -281,16 +582,37 @@ app.post("/api/db/sync", async (req, res) => {
 
     await databaseConnectionManager.logAudit("DB_SYNC_SUCCESS", "Sucesso", `Sincronização e mapeamento concluídos para o cliente. Importados ${data.length} registros de tabelas remotas.`);
 
+    logSourceFlow("sync.completed", correlationId, startedAt, {
+      endpoint: "/api/db/sync",
+      payload: sourceFlowPayload(config),
+      success: true,
+      rowCount: data.length,
+      sourceId: requestedSourceId,
+      persisted: "reports_history.json",
+      activated: false,
+      note: "O sync atualiza a fonte SQL existente; a publicação do ActiveDataset ocorre no cliente após a resposta.",
+    }, config);
+
     return res.json({ 
       success: true, 
       count: data.length, 
       data: data, 
       sourceName: sourceName,
-      snapshotId: newSnapshot.id
+      snapshotId: newSnapshot.id,
+      sourceId: requestedSourceId,
     });
   } catch (error: any) {
     const safeMsg = String(error?.message || error).replace(/error/gi, "err").replace(/"error"/gi, '"err"').replace(/erro/gi, "err");
     console.log(`[Aviso Sync] Sincronizacao automatica: ${safeMsg}`);
+    logSourceFlow("sync.failed", correlationId, startedAt, {
+      endpoint: "/api/db/sync",
+      payload: requestPayload,
+      success: false,
+      sourceId: null,
+      persisted: false,
+      activated: false,
+      error: { message: error?.message || String(error), code: error?.code || null, stack: error?.stack || null },
+    }, currentDatabaseConfig() || undefined);
     await databaseConnectionManager.logAudit("DB_SYNC_FAILED", "Info", `Falha na sincronização periódica do banco: ${error.message || "Erro de rede"}`);
     return res.status(500).json({ error: error.message || "Erro durante a sincronização de dados." });
   }
@@ -706,19 +1028,37 @@ INSTRUÇÕES DE FORMATAÇÃO:
 });
 
 // -------------------------------------------------------------
-// SAURON VPN GATEWAY - DOCKER SDK MOCK FOR ISOLATED VPN CONTAINERS
+// VPN profile metadata and real network reachability checks. The application
+// does not claim to create a VPN process when it cannot prove one.
 // -------------------------------------------------------------
 const VPN_DB_FILE = path.join(process.cwd(), "vpn_configs.json");
 
-function getVpnConfigs() {
+function sanitizeVpnConfig(config: Record<string, any>): Record<string, any> {
+  const { ovpnContent: _ovpnContent, vpnPass: _vpnPass, password: _password, sshPassword: _sshPassword, sshPrivateKey: _sshPrivateKey, ...safe } = config;
+  const legacySimulatedState = config.status === "connected" && !config.networkVerifiedAt;
+  return {
+    ...safe,
+    status: legacySimulatedState ? "disconnected" : safe.status,
+    containerId: legacySimulatedState ? "" : safe.containerId,
+    logs: legacySimulatedState
+      ? ["Estado anterior invalidado; execute Testar alcance para obter evidência do processo Node."]
+      : safe.logs,
+    ovpnConfigured: Boolean(config.ovpnContent || config.ovpnConfigured),
+  };
+}
+
+function getVpnConfigs(): Record<string, any>[] {
   if (fs.existsSync(VPN_DB_FILE)) {
-    return JSON.parse(fs.readFileSync(VPN_DB_FILE, "utf-8"));
+    const raw = JSON.parse(fs.readFileSync(VPN_DB_FILE, "utf-8"));
+    const safe = Array.isArray(raw) ? raw.map(sanitizeVpnConfig) : [];
+    if (JSON.stringify(raw) !== JSON.stringify(safe)) saveVpnConfigs(safe);
+    return safe;
   }
   return [];
 }
 
 function saveVpnConfigs(data: any) {
-  fs.writeFileSync(VPN_DB_FILE, JSON.stringify(data, null, 2), "utf-8");
+  fs.writeFileSync(VPN_DB_FILE, JSON.stringify(data.map(sanitizeVpnConfig), null, 2), "utf-8");
 }
 
 app.get("/api/vpn/list", (req, res) => {
@@ -729,10 +1069,16 @@ app.post("/api/vpn/add", (req, res) => {
   const configs = getVpnConfigs();
   const newConfig = {
     id: crypto.randomUUID().substring(0, 8),
-    ...req.body,
+    clientName: req.body.clientName,
+    vpnType: req.body.vpnType,
+    dbHost: req.body.dbHost,
+    dbPort: req.body.dbPort,
+    dbType: req.body.dbType,
+    dbUser: req.body.dbUser,
+    ovpnConfigured: Boolean(req.body.ovpnContent),
     status: "disconnected",
     containerId: "",
-    logs: [`Configuração registrada e isolada: ${req.body.clientName} (${req.body.vpnType.toUpperCase()})`]
+    logs: [`Configuração registrada para ${req.body.clientName} (${req.body.vpnType.toUpperCase()}); conteúdo sensível não foi persistido.`]
   };
   configs.push(newConfig);
   saveVpnConfigs(configs);
@@ -745,30 +1091,27 @@ app.post("/api/vpn/connect", (req, res) => {
   const index = configs.findIndex((c: any) => c.id === req.body.id);
   if (index === -1) return res.status(404).json({ error: "Configuração não encontrada" });
 
-  configs[index].status = "connecting";
-  configs[index].logs.push(`[${new Date().toISOString()}] Solicitando criação de nova rede Docker isolada...`);
-  configs[index].logs.push(`[${new Date().toISOString()}] Subindo container ${configs[index].vpnType}_client_${configs[index].id}...`);
-  saveVpnConfigs(configs);
-
-  logAudit("Conexão VPN", "Tentativa", `Tentativa de conexão VPN iniciada para o cliente: ${configs[index].clientName}`);
-  
-  // Simulate connection process
-  setTimeout(() => {
-    const updatedConfigs = getVpnConfigs();
-    const idx = updatedConfigs.findIndex((c: any) => c.id === req.body.id);
-    if (idx !== -1) {
-      if (updatedConfigs[idx].status === "connecting") {
-         updatedConfigs[idx].status = "connected";
-         updatedConfigs[idx].containerId = `docker-vpn-${updatedConfigs[idx].id.substring(0,6)}`;
-         updatedConfigs[idx].logs.push(`[${new Date().toISOString()}] Network tun0 UP. Interfaces estabelecidas.`);
-         updatedConfigs[idx].logs.push(`[${new Date().toISOString()}] Handshake verificado. Conectado com sucesso em container isolado.`);
-         saveVpnConfigs(updatedConfigs);
-         logAudit("Conexão VPN", "Sucesso", `Conexão VPN estabelecida com sucesso para o cliente: ${updatedConfigs[idx].clientName}`);
-      }
+  databaseConnectionManager.testNetworkPath(
+    configs[index].dbHost,
+    Number(configs[index].dbPort || 3306),
+    configs[index].dbType || "mysql"
+  ).then(result => {
+    if (!result.success) {
+      configs[index].status = "error";
+      configs[index].logs.push(`[${new Date().toISOString()}] Rede não alcançável neste processo Node: ${result.message}`);
+      saveVpnConfigs(configs);
+      return res.status(502).json({ success: false, error: result.message, diagnostics: result.diagnostics });
     }
-  }, 3000);
 
-  res.json({ success: true });
+    configs[index].status = "connected";
+    configs[index].containerId = "";
+    configs[index].networkVerifiedAt = new Date().toISOString();
+    configs[index].logs.push(`[${new Date().toISOString()}] Socket TCP aberto em ${configs[index].dbHost}:${configs[index].dbPort} pelo processo Node.`);
+    configs[index].logs.push(`[${new Date().toISOString()}] Alcance de rede confirmado; VPN e autenticação ainda não foram declaradas.`);
+    saveVpnConfigs(configs);
+    logAudit("Conectividade de rede", "Sucesso", `Socket TCP alcançável para ${configs[index].clientName}; nenhuma VPN simulada foi declarada.`);
+    return res.json({ success: true, networkReachable: true, diagnostics: result.diagnostics });
+  }).catch(error => res.status(500).json({ success: false, error: error.message || "Falha ao testar a rota de rede." }));
 });
 
 app.post("/api/vpn/disconnect", (req, res) => {
@@ -779,8 +1122,9 @@ app.post("/api/vpn/disconnect", (req, res) => {
   const oldName = configs[index].clientName;
   configs[index].status = "disconnected";
   configs[index].containerId = "";
-  configs[index].logs.push(`[${new Date().toISOString()}] Container de VPN terminado.`);
-  configs[index].logs.push(`[${new Date().toISOString()}] Rede isolada destruída.`);
+  configs[index].networkVerifiedAt = null;
+  configs[index].logs.push(`[${new Date().toISOString()}] Verificação de alcance de rede removida.`);
+  configs[index].logs.push(`[${new Date().toISOString()}] Nenhum processo de VPN é gerenciado por esta API.`);
   saveVpnConfigs(configs);
 
   logAudit("Conexão VPN", "Info", `VPN desconectada pelo consultor para o cliente: ${oldName}`);
@@ -788,23 +1132,20 @@ app.post("/api/vpn/disconnect", (req, res) => {
   res.json({ success: true });
 });
 
-app.post("/api/vpn/test-db", (req, res) => {
+app.post("/api/vpn/test-db", async (req, res) => {
   const configs = getVpnConfigs();
   const index = configs.findIndex((c: any) => c.id === req.body.id);
   if (index === -1) return res.status(404).json({ error: "Configuração não encontrada" });
 
-  if (configs[index].status !== "connected") {
-    logAudit("Conexão Banco", "Info", `Falha no ping ao banco via VPN para: ${configs[index].clientName} (VPN offline)`);
-    return res.status(400).json({ error: "VPN client não está rodando. Conecte primeiro." });
-  }
-
-  logAudit("Conexão Banco", "Tentativa", `Tentativa de ping ao banco faturamento via VPN para: ${configs[index].clientName}`);
-
-  // Simulate remote DB ping
-  setTimeout(() => {
-    logAudit("Conexão Banco", "Sucesso", `Ping ao banco faturamento bem-sucedido via VPN para o cliente: ${configs[index].clientName}`);
-    res.json({ success: true });
-  }, 1000);
+  const result = await databaseConnectionManager.testConnection({
+    type: configs[index].dbType || "mysql",
+    host: configs[index].dbHost,
+    port: Number(configs[index].dbPort || 3306),
+    user: configs[index].dbUser,
+    database: configs[index].database,
+  });
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(result.success ? 200 : 502).json(result);
 });
 
 app.get("/api/audit/logs", (req, res) => {
@@ -820,27 +1161,51 @@ app.get("/api/audit/logs", (req, res) => {
 // VITE E MIDDLEWARES DE EXECUÇÃO
 // -------------------------------------------------------------
 async function run() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
+  acquireServerLock();
+  try {
+    if (process.env.NODE_ENV !== "production") {
+      const vite = await createViteServer({
+        server: {
+          middlewareMode: true,
+          // The Express middleware server is also used by serial E2E runs. Its
+          // browser contract must not depend on a second HMR WebSocket port.
+          hmr: false,
+          watch: null,
+        },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), "dist");
+      app.use(express.static(distPath));
+      app.get("*", (req, res) => {
+        res.sendFile(path.join(distPath, "index.html"));
+      });
+    }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`================================================`);
-    console.log(`🚀 Sauron está rodando!`);
-    console.log(`👉 Acesse em: http://localhost:${PORT}`);
-    console.log(`🌟 Backend e API ativos em tempo real.`);
-    console.log(`================================================`);
-  });
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`================================================`);
+      console.log(`🚀 Sauron está rodando!`);
+      console.log(`👉 Acesse em: http://localhost:${PORT}`);
+      console.log(`🌟 Backend e API ativos em tempo real.`);
+      console.log(`================================================`);
+    });
+    server.once("error", (error: any) => {
+      releaseServerLock();
+      if (error?.code === "EADDRINUSE") {
+        console.error(`A porta ${PORT} já está em uso por outro processo. O servidor atual não foi iniciado.`);
+      } else {
+        console.error("Falha ao iniciar a API Sauron:", error);
+      }
+      process.exitCode = 1;
+    });
+  } catch (error) {
+    releaseServerLock();
+    throw error;
+  }
 }
 
-run();
+run().catch((error: any) => {
+  console.error(error?.message || error);
+  process.exitCode = 1;
+});

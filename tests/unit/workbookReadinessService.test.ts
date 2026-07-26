@@ -20,7 +20,7 @@ describe("WorkbookReadinessService", () => {
     vi.mocked(spreadsheetStorageAdapter.hasRows).mockResolvedValue(true);
   });
 
-  it("bloqueia ativação quando há vínculo e persistência, mas sem módulo habilitado", async () => {
+  it("permite ativação com vínculo e persistência mesmo sem mapeamento ou módulo", async () => {
     const vm = await service.evaluate({
       workbook: {
         id: "wb-1",
@@ -35,7 +35,7 @@ describe("WorkbookReadinessService", () => {
         updatedAt: new Date().toISOString(),
       } as any,
       linkedEnterpriseIds: ["company-1"],
-      hasMappings: true,
+      hasMappings: false,
       hasEnabledModules: false,
       hasPresentation: false,
       hasPersistentStorage: true,
@@ -43,7 +43,34 @@ describe("WorkbookReadinessService", () => {
       hasStorageError: false,
     } as any);
 
-    expect(vm.status).toBe("PENDING_CONFIG");
-    expect(vm.canActivate).toBe(false);
+    expect(vm.status).toBe("ACTIVE");
+    expect(vm.canActivate).toBe(true);
+  });
+
+  it("permite ativar uma fonte pronta sem mapeamento", async () => {
+    const vm = await service.evaluate({
+      workbook: {
+        id: "wb-2",
+        projectId: "default",
+        name: "Fonte Operacional",
+        sourceName: "Fonte Operacional",
+        status: "READY",
+        currentVersionId: "v-1",
+        versionIds: ["v-1"],
+        importedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      } as any,
+      linkedEnterpriseIds: ["company-1"],
+      hasMappings: false,
+      hasEnabledModules: false,
+      hasPresentation: false,
+      hasPersistentStorage: true,
+      hasSelectedTabs: true,
+      hasStorageError: false,
+    } as any);
+
+    expect(vm.status).toBe("ACTIVE");
+    expect(vm.canActivate).toBe(true);
   });
 });

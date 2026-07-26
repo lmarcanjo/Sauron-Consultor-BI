@@ -13,12 +13,13 @@ import {
   validateCommissionMappings,
 } from "../core/data/commissionClosing";
 import { SellerStatement } from "../core/data/sellerStatement";
-import { ModuleFieldMappingPanel } from "./ModuleFieldMappingPanel";
+import { ReviewSourceAnalysisAction } from "./ReviewSourceAnalysisAction";
 
 interface CommissionClosingPanelProps {
   activeDataset: ActiveDataset | null;
   formatCurrency: (value: number) => string;
   onMappingSaved?: () => void;
+  onOpenSourceAnalysis?: () => void;
 }
 
 function formatPeriodLabel(period: string): string {
@@ -79,7 +80,7 @@ function PrintableSellerStatement({ statement, formatCurrency }: { statement: Se
   );
 }
 
-export const CommissionClosingPanel: React.FC<CommissionClosingPanelProps> = ({ activeDataset, formatCurrency, onMappingSaved }) => {
+export const CommissionClosingPanel: React.FC<CommissionClosingPanelProps> = ({ activeDataset, formatCurrency, onMappingSaved, onOpenSourceAnalysis }) => {
   const [mappingRevision, setMappingRevision] = React.useState(0);
   const [loadingSellers, setLoadingSellers] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
@@ -182,8 +183,7 @@ export const CommissionClosingPanel: React.FC<CommissionClosingPanelProps> = ({ 
           <h3 className="text-xs font-black uppercase text-amber-800 dark:text-amber-300">Configuração pendente</h3>
           <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-1">{validation.message}</p>
         </div>
-        <ModuleFieldMappingPanel moduleName="Pessoas" activeDataset={activeDataset} onSaved={handleMappingSaved} />
-        <ModuleFieldMappingPanel moduleName="Comissão" activeDataset={activeDataset} onSaved={handleMappingSaved} />
+        <ReviewSourceAnalysisAction onOpen={onOpenSourceAnalysis} />
       </div>
     );
   }
@@ -198,7 +198,7 @@ export const CommissionClosingPanel: React.FC<CommissionClosingPanelProps> = ({ 
               Gere resumos em lote usando apenas vendedores e colunas reais mapeadas.
             </p>
           </div>
-          <ModuleFieldMappingPanel moduleName="Comissão" activeDataset={activeDataset} onSaved={handleMappingSaved} />
+          <ReviewSourceAnalysisAction onOpen={onOpenSourceAnalysis} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">

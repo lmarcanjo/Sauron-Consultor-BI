@@ -263,7 +263,6 @@ import { accessControlEngine } from "./identity/AccessControlEngine";
 import { identityEngine } from "./identity/IdentityEngine";
 import { invitationManager } from "./identity/InvitationManager";
 import { shareLinkManager } from "./identity/ShareLinkManager";
-import { digitalTwinEngine } from "./identity/digitalTwin/DigitalTwinEngine";
 import { PlatformUser, Workspace } from "./identity/types";
 import { securityScoreEngine } from "./identity/SecurityScoreEngine";
 
@@ -413,16 +412,6 @@ describe("Sauron Release v0.6.5 — Identity & Collaboration Foundation Tests Su
     const validation = shareLinkManager.validateShareLink(expiredToken);
     expect(validation.isValid).toBe(false);
     expect(validation.error).toContain("expirou");
-  });
-
-  // 14. Criar digital twin
-  it("provisions the digital twin representation of the enterprise group", () => {
-    const twin = digitalTwinEngine.getGroupTwin();
-    expect(twin.id).toBe("group_cliente_real");
-    expect(twin.companies.length).toBeGreaterThan(0);
-    
-    const company = twin.companies[0];
-    expect(company.stores.some(s => s.id === "store_unidade_a")).toBe(true);
   });
 
   // 15. Usuário gerente vê apenas loja permitida

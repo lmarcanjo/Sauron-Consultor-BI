@@ -24,3 +24,7 @@ Additionally, to assist enterprise clients, consultants require temporary, audit
 ## Consequences
 - **Positive**: Complete multi-tenant isolation, decoupling of security logic from visual components, bulletproof audit trails, and automated compliance checking.
 - **Negative**: Visual components are strictly forbidden from checking `user.role === "SomeRole"`. All components must execute permission checks through the official Identity SDK helpers.
+
+## Permanent Cleanup Rule
+
+Nenhuma Sprint poderá adicionar uma nova funcionalidade sem identificar explicitamente quais componentes, telas, serviços, rotas, testes e documentos se tornaram obsoletos e deverão ser removidos.

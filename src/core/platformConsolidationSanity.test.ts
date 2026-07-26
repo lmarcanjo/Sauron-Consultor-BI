@@ -39,9 +39,8 @@ describe("Platform engine consolidation sanity", () => {
     expect(violations.map(file => path.relative(ROOT, file))).toEqual([]);
   });
 
-  it("keeps consolidated dashboards on ExecutiveDashboardEngine outputs", () => {
+  it("keeps module dashboards on engine outputs while the MVP home remains data-first", () => {
     const dashboardSurfaces = [
-      "components/pages/DashboardPage.tsx",
       "components/ComercialTab.tsx",
       "components/FinanceiroTab.tsx",
       "components/IntelligentDRETab.tsx",
@@ -54,7 +53,6 @@ describe("Platform engine consolidation sanity", () => {
       expect(content).toContain("DashboardBlocksRenderer");
     });
 
-    expect(read("components/pages/DashboardPage.tsx")).toContain("buildExecutiveDashboard");
     ["ComercialTab.tsx", "FinanceiroTab.tsx", "IntelligentDRETab.tsx", "PeopleIntelligenceTab.tsx"].forEach(fileName => {
       expect(read(`components/${fileName}`)).toContain("buildModuleDashboard");
     });

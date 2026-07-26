@@ -6,7 +6,7 @@ import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
 import { buildModuleDashboard, ExecutiveDashboard } from "../core/dashboard-engine";
 import { DashboardBlocksRenderer } from "./DashboardBlocksRenderer";
-import { ModuleFieldMappingPanel } from "./ModuleFieldMappingPanel";
+import { ReviewSourceAnalysisAction } from "./ReviewSourceAnalysisAction";
 import { platformLogger } from "../core/platform/PlatformLogger";
 import { getEnterpriseContext } from "../core/enterprise-consolidation";
 
@@ -15,14 +15,17 @@ interface IntelligentDRETabProps {
   formatCurrency: (v: number) => string;
   activeIndustryTemplateId: string;
   activeDataset?: ActiveDataset | null;
+  onOpenSourceAnalysis?: () => void;
 }
 
 export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
   activeDataset: activeDatasetProp,
+  onOpenSourceAnalysis,
 }) => {
   const [activeDatasetState, setActiveDataset] = React.useState(activeDatasetStore.getActiveDataset());
   const activeDataset = activeDatasetProp || activeDatasetState;
   const [dashboard, setDashboard] = React.useState<ExecutiveDashboard | null>(null);
+  const [hasMapping, setHasMapping] = React.useState(false);
   const [mappingRevision, setMappingRevision] = React.useState(0);
 
   React.useEffect(() => {
@@ -52,6 +55,7 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
 
     const projectId = getDefaultProjectId(activeDataset);
     const moduleMappings = listModuleMappings(activeDataset.datasetId, projectId);
+    setHasMapping(moduleMappings.some(mapping => mapping.moduleName === "DRE"));
     const context = getEnterpriseContext();
     buildModuleDashboard("DRE", {
       activeDataset,
@@ -89,11 +93,6 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
         <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-4">
           O resultado só é calculado quando Receita, Custos e Despesas forem identificados na planilha. Confirme as informações abaixo.
         </p>
-        <ModuleFieldMappingPanel
-          moduleName="DRE"
-          activeDataset={activeDataset}
-          onSaved={() => setMappingRevision(revision => revision + 1)}
-        />
       </div>
 
       {!dashboard ? (
@@ -102,8 +101,13 @@ export const IntelligentDRETab: React.FC<IntelligentDRETabProps> = ({
           <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Preparando seu resultado financeiro</h3>
           <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">Lendo os valores da planilha.</p>
         </div>
-      ) : (
+      ) : hasMapping ? (
         <DashboardBlocksRenderer blocks={dashboard.blocks} />
+      ) : (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-xs font-semibold text-amber-800 dark:text-amber-200">
+          <p>Esta análise precisa de uma informação ainda não confirmada.</p>
+          <div className="mt-3"><ReviewSourceAnalysisAction onOpen={onOpenSourceAnalysis} /></div>
+        </div>
       )}
     </div>
   );

@@ -165,11 +165,8 @@ export class WorkbookReadinessService {
       return this.buildViewModel(workbook, "PENDING_LINK", actions);
     }
 
-    // 5. Configuração de campos
-    if (!hasMappings || !hasEnabledModules) {
-      actions.push("Configure os campos e habilite pelo menos um módulo para a análise.");
-      return this.buildViewModel(workbook, "PENDING_CONFIG", actions);
-    }
+    // 5. Configuração semântica é opcional para ativar a fonte. A análise de
+    // módulos pode continuar pendente sem impedir o acesso aos dados físicos.
 
     // 6. Pronto para reunião
     if (hasMappings && hasEnabledModules && hasPresentation) {
@@ -177,7 +174,7 @@ export class WorkbookReadinessService {
     }
 
     // 7. Ativa
-    if (workbook.status === "ACTIVE" || (hasMeta && rowCount > 0 && hasRows && hasMappings)) {
+    if (workbook.status === "ACTIVE" || (hasMeta && rowCount > 0 && hasRows)) {
       return this.buildViewModel(workbook, "ACTIVE", []);
     }
 

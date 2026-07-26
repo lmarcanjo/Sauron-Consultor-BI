@@ -28,6 +28,7 @@ export interface UploadedSheetMetadata {
   sheetName: string;
   rowCount: number;
   columnCount: number;
+  columns?: string[];
   formulaCount: number;
   storageRef: string;
   classification:

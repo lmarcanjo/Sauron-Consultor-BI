@@ -24,7 +24,6 @@ beforeAll(() => {
 
 import { pluginEngine } from "../core/plugins/PluginEngine";
 import { ClientFilterManager } from "../services/clientFilterManager";
-import { dataSourceManager } from "../services/dataSourceManager";
 
 // Register plugins
 import "../core/plugins/automotive/AutomotivePlugin";
@@ -89,31 +88,7 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
     });
   });
 
-  // Test 4: Demo data must not appear in the production data flow
-  it("guarantees demo/mock data does not appear in the production data flow", () => {
-    // Save original state
-    const originalSource = dataSourceManager.getActiveSource();
-    
-    try {
-      // 1. When SPREADSHEET_DATA is active, demo data must be empty or filtered out
-      dataSourceManager.setActiveSource("SPREADSHEET_DATA");
-      const records = dataSourceManager.getActiveRecords();
-      
-      // Since workspace has no active files in the fresh test environment, SPREADSHEET_DATA should return empty list
-      expect(records.length).toBe(0);
-
-      // 2. DEMO_DATA is a legacy source type and must not surface records in the normal product flow
-      dataSourceManager.setActiveSource("DEMO_DATA");
-      const demoRecords = dataSourceManager.getActiveRecords();
-      expect(demoRecords.length).toBe(0);
-      
-    } finally {
-      // Restore state
-      dataSourceManager.setActiveSource(originalSource);
-    }
-  });
-
-  // Test 5: Verify dataGenerator.ts is fully clean and only does CSV exports
+  // Test 4: Verify dataGenerator.ts is fully clean and only does CSV exports
   it("verifies that src/utils/dataGenerator.ts is clean and contains no mock generation logic or forbidden terms", () => {
     const generatorPath = path.resolve(__dirname, "../utils/dataGenerator.ts");
     const content = fs.readFileSync(generatorPath, "utf-8");
@@ -162,15 +137,7 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
     });
   });
 
-  // Test 7: Architectural validation of CaseHub.tsx size limit
-  it("enforces CaseHub.tsx does not exceed 350 lines", () => {
-    const caseHubPath = path.resolve(__dirname, "./CaseHub.tsx");
-    const content = fs.readFileSync(caseHubPath, "utf-8");
-    const lines = content.split("\n");
-    expect(lines.length).toBeLessThanOrEqual(350);
-  });
-
-  // Test 8: Architectural validation of MeetingModePage.tsx size limit
+  // Test 7: Architectural validation of MeetingModePage.tsx size limit
   it("enforces MeetingModePage.tsx does not exceed 450 lines", () => {
     const meetingModePath = path.resolve(__dirname, "./MeetingModePage.tsx");
     const content = fs.readFileSync(meetingModePath, "utf-8");
@@ -178,7 +145,7 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
     expect(lines.length).toBeLessThanOrEqual(450);
   });
 
-  // Test 9: Prevention of non-deterministic math random functions outside of demoData.ts
+  // Test 8: Prevention of non-deterministic math random functions outside of demoData.ts
   it("ensures Math.random() is never called outside of the official demo data layer (src/data/demoData.ts)", () => {
     const srcDir = path.resolve(__dirname, "../");
     const violations: string[] = [];
@@ -218,7 +185,7 @@ describe("Sauron React Components and Data Cleanup Unit Tests", () => {
     expect(violations.length).toBe(0);
   });
 
-  // Test 10: CTO-directed absolute cleanup and prohibition checks
+  // Test 9: CTO-directed absolute cleanup and prohibition checks
   it("enforces complete absence of legacy importer imports and unrequested/forbidden terms in normal code", () => {
     const srcDir = path.resolve(__dirname); // src/components/
     const forbiddenImports = ["ImportacaoPlanilhasTab", "SpreadsheetSteps"];

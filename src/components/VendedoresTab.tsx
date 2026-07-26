@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Users, TrendingUp, Award, Target, Coins, ShieldAlert, Sparkles, Filter, ChevronRight, Activity, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
-import { dataSourceManager } from "../services/dataSourceManager";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { evaluateModuleRequirements, findFirstColumn } from "../core/data/moduleDataRequirements";
 import { resolveComparison } from "../core/data/comparisonState";
@@ -17,7 +16,7 @@ export const VendedoresTab: React.FC<VendedoresTabProps> = ({
 }) => {
   const [selectedSellerLeft, setSelectedSellerLeft] = useState("");
   const [selectedSellerRight, setSelectedSellerRight] = useState("");
-  const isRealSpreadsheet = dataSourceManager.getActiveSource() === "SPREADSHEET_DATA" && !!activeDatasetStore.getActiveDataset();
+  const isRealSpreadsheet = !!activeDatasetStore.getActiveDataset();
   const peopleRequirements = evaluateModuleRequirements("people");
   const vendorColumn = findFirstColumn(peopleRequirements.detectedColumns, [/vendedor/i, /funcion[aá]rio/i, /colaborador/i, /nome/i]);
   const revenueColumn = findFirstColumn(peopleRequirements.detectedColumns, [/venda/i, /receita/i, /valor/i, /tot_mercadoria/i]);

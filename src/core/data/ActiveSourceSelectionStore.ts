@@ -54,7 +54,13 @@ export const activeSourceSelectionStore = {
   },
 
   getForScope(scope: ActiveSourceScope): ActiveSourceSelection | null {
-    return this.get(getActiveSourceScopeKey(scope));
+    if (typeof localStorage === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(`${ACTIVE_SELECTION_STORAGE_KEY_PREFIX}${getActiveSourceScopeKey(scope)}`);
+      return raw ? JSON.parse(raw) as ActiveSourceSelection : null;
+    } catch {
+      return null;
+    }
   },
 
   setForScope(scope: ActiveSourceScope, sourceIds: string[]): ActiveSourceSelection {
@@ -69,7 +75,7 @@ export const activeSourceSelectionStore = {
     };
     this.set(selection);
     // Read-only compatibility pointer for older consumers. Context-aware code
-    // always reads the canonical scoped key above.
+    // never resolves a scope through this pointer.
     if (typeof localStorage !== "undefined") {
       try {
         localStorage.setItem(`${ACTIVE_SELECTION_STORAGE_KEY_PREFIX}${scope.workspaceId}`, JSON.stringify(selection));

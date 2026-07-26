@@ -14,16 +14,18 @@ test('Active Dataset Reflection Hotfix Verification Suite › verifies that impo
   await fileChooser.setFiles(fixture.filePath);
 
   await expect(page.getByText(fixture.fileName).first()).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(/FONTE CONECTADA|Dados ativos|Dados Reais Ativos/i).first()).toBeVisible({ timeout: 30000 });
   await page.keyboard.press('Escape');
 
   await navigateSidebar(page, /Centro de Comando/i, /Centro de Comando/i);
-  await expect(page.getByText(/DADOS REAIS|Fonte real|Dashboard|Centro de Comando/i).first()).toBeVisible();
+  await expect(page.getByText(/Empresas e Grupos|Fontes de Dados|Fonte ativa/i).first()).toBeVisible();
 
-  await navigateSidebar(page, /Diagnosticar Negócio/i, /KPIs & DRE/i);
-  await expect(page.getByText(/Configuração pendente|Fonte real ativa|dados reais|KPIs/i).first()).toBeVisible();
+  await expect(page.locator('aside').getByRole('button', { name: /KPIs & DRE/i })).toHaveCount(0);
+  await expect(page.getByText(/Empresas e Grupos|Fontes de Dados|Fonte ativa/i).first()).toBeVisible();
 
   await page.reload();
   await openDataCenter(page);
-  await expect(page.getByText(fixture.fileName).first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(/FONTE CONECTADA|Dados ativos|Dados Reais Ativos/i).first()).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(fixture.fileName).first()).toBeVisible({ timeout: 30000 });
   await expect(page.getByText(/Demonstração|MOCK DATA/i)).not.toBeVisible();
 });

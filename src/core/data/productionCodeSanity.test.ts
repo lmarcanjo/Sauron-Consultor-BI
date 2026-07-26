@@ -32,13 +32,11 @@ describe("Production Code Sanity Test - Anti-Mock Contamination", () => {
             fullPath.includes("componentsCleanup.test.ts") ||
             fullPath.includes("App.tsx") || 
             fullPath.includes("CentralDadosTab.tsx") || 
-            fullPath.includes("DataSourceManager.ts") || 
             fullPath.includes("DigitalTwinEngine.ts") ||
             fullPath.includes("OrganizationManager.ts") ||
             fullPath.includes("UserManager.ts") ||
             fullPath.includes("PeopleManager.ts") ||
             fullPath.includes("ProductQAConsole.tsx") ||
-            fullPath.includes("spreadsheetWorkspaceManager.ts") ||
             fullPath.includes("DatabaseConnectionManager.ts");
 
           if (!isTestFile && !isInternalDemoOrAllowed) {

@@ -20,8 +20,9 @@ test('Sessão Executiva abre sem tela quebrada', async ({ page }) => {
 
 test('KPIs e DRE abre com estado real ou configuração pendente', async ({ page }) => {
   await page.goto('/');
-  await navigateSidebar(page, /Diagnosticar Negócio/i, /KPIs & DRE/i);
-  await expect(page.getByText(/Configuração pendente|Nenhuma fonte de dados ativa|Fonte real ativa|KPIs/i).first()).toBeVisible();
+  await ensureConsultantSession(page);
+  await expect(page.locator('aside').getByRole('button', { name: /KPIs & DRE/i })).toHaveCount(0);
+  await expect(page.getByText(/Nenhuma fonte de dados ativa|SEM FONTE ATIVA/i).first()).toBeVisible();
   await expect(page.getByText(/Grupo Alpha|Topázio|MOCK DATA/i)).not.toBeVisible();
 });
 
@@ -34,7 +35,8 @@ test('Decks abre sem depender de dados fictícios', async ({ page }) => {
 
 test('Dossiês abre com linguagem de consultoria', async ({ page }) => {
   await page.goto('/');
-  await navigateSidebar(page, /Diagnosticar Negócio/i, /Dossiês|Relatórios/i);
-  await expect(page.getByText(/Dossi|Relatório|Nenhuma fonte/i).first()).toBeVisible();
+  await ensureConsultantSession(page);
+  await expect(page.locator('aside').getByRole('button', { name: /Dossiês|Relatórios/i })).toHaveCount(0);
+  await expect(page.getByText(/Nenhuma fonte de dados ativa|SEM FONTE ATIVA/i).first()).toBeVisible();
   await expect(page.getByText(/Grupo Alpha|Topázio|MOCK DATA/i)).not.toBeVisible();
 });

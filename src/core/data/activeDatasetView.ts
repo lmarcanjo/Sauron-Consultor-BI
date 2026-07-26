@@ -1,4 +1,5 @@
 import { activeDatasetStore } from "./ActiveDatasetStore";
+import { spreadsheetStorageAdapter } from "../storage/IndexedSpreadsheetStorageAdapter";
 
 export type RawRow = Record<string, any>;
 
@@ -61,6 +62,67 @@ export function getActiveRawRows(): RawRow[] {
 
 export function getPreviewRows(limit = 20): RawRow[] {
   return getActiveRawRows().slice(0, limit);
+}
+
+/** Reads one bounded page from the active source without hydrating the store. */
+export async function getActiveRowsPage(page = 0, pageSize = 100, sheetName?: string): Promise<RawRow[]> {
+  const dataset = activeDatasetStore.getActiveDataset();
+  if (!dataset || pageSize <= 0) return [];
+
+  const selectedSheet = sheetName || dataset.activeSheet || (typeof dataset.sheets[0] === "string" ? dataset.sheets[0] : dataset.sheets[0]?.sheetName);
+  if (!selectedSheet) return page === 0 ? getPreviewRows(pageSize) : [];
+
+  const sourceIds = dataset.sourceDatasetIds?.length
+    ? dataset.sourceDatasetIds
+    : [dataset.rawStorageRef || dataset.datasetId];
+  const offset = Math.max(0, page) * pageSize;
+  const rows: RawRow[] = [];
+  for (const sourceId of sourceIds) {
+    if (!sourceId || sourceId.startsWith("api:")) continue;
+    const sourceRows = await spreadsheetStorageAdapter.getRowsPaged(sourceId, selectedSheet, offset, pageSize);
+    rows.push(...sourceRows);
+    if (rows.length >= pageSize) break;
+  }
+  return rows.slice(0, pageSize);
+}
+
+export interface ActiveDistinctValuesOptions {
+  limit?: number;
+  pageSize?: number;
+  maxRows?: number;
+  signal?: AbortSignal;
+}
+
+/**
+ * Produces filter options from bounded storage pages. The result is a small
+ * value set, never a copy of the active records.
+ */
+export async function getActiveDistinctValues(column: string, options: ActiveDistinctValuesOptions = {}): Promise<string[]> {
+  const dataset = activeDatasetStore.getActiveDataset();
+  if (!dataset || !column) return [];
+
+  const limit = Math.max(1, options.limit || 500);
+  const pageSize = Math.max(1, Math.min(options.pageSize || 500, 1000));
+  const maxRows = Math.max(pageSize, options.maxRows || dataset.rowCount || pageSize);
+  const values = new Set<string>();
+  let scanned = 0;
+  let page = 0;
+
+  while (scanned < maxRows && values.size < limit) {
+    if (options.signal?.aborted) return Array.from(values).sort();
+    const rows = await getActiveRowsPage(page, pageSize);
+    if (rows.length === 0) break;
+    for (const row of rows) {
+      const value = row[column];
+      if (value !== undefined && value !== null && String(value).trim() !== "") values.add(String(value));
+      if (values.size >= limit) break;
+    }
+    scanned += rows.length;
+    page += 1;
+    if (rows.length < pageSize) break;
+  }
+
+  return Array.from(values).sort();
 }
 
 export function getActiveColumns(): string[] {

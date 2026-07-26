@@ -50,9 +50,10 @@ export const ActiveDatasetRawPreview: React.FC = () => {
       });
   }, [dataset, selectedSheet]);
 
-  const sheets = dataset?.sheets.map(sheet => typeof sheet === "string" ? sheet : sheet.sheetName) || [];
+  const datasetSheets = dataset?.sheets || [];
+  const sheets = datasetSheets.map(sheet => typeof sheet === "string" ? sheet : sheet.sheetName);
   const activeSheetName = selectedSheet || dataset?.activeSheet || "";
-  const activeSheetMetadata = dataset?.sheets.find((sheet): sheet is Exclude<ActiveDataset["sheets"][number], string> =>
+  const activeSheetMetadata = datasetSheets.find((sheet): sheet is Exclude<ActiveDataset["sheets"][number], string> =>
     typeof sheet !== "string" && sheet.sheetName === activeSheetName
   );
   const visibleRows = sheetRows.slice(0, 20);
@@ -69,10 +70,10 @@ export const ActiveDatasetRawPreview: React.FC = () => {
   }
 
   return (
-    <div className="p-4 bg-white dark:bg-slate-900 border border-emerald-500 dark:border-emerald-700 rounded-lg shadow-sm mb-6">
+    <div data-testid="active-dataset-raw-preview" className="p-4 bg-white dark:bg-slate-900 border border-emerald-500 dark:border-emerald-700 rounded-lg shadow-sm mb-6">
       <h2 className="text-sm font-bold text-emerald-800 dark:text-emerald-300 mb-2 uppercase tracking-wider">Dados ativos</h2>
       <div className="grid grid-cols-2 gap-4 text-xs text-slate-600 dark:text-slate-400 mb-4">
-        <p><strong className="text-slate-800 dark:text-slate-200">Nome:</strong> {dataset.sourceName}</p>
+        <p data-testid="active-dataset-source-name"><strong className="text-slate-800 dark:text-slate-200">Nome:</strong> {dataset.sourceName}</p>
         <p><strong className="text-slate-800 dark:text-slate-200">Linhas:</strong> {activeSheetMetadata?.rowCount ?? dataset.rowCount}</p>
         <p><strong className="text-slate-800 dark:text-slate-200">Colunas:</strong> {activeSheetMetadata?.columnCount ?? dataset.columnCount}</p>
         <p><strong className="text-slate-800 dark:text-slate-200">Aba:</strong> {activeSheetName}</p>

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { dataSourceManager } from '../services/dataSourceManager';
 import { activeDatasetStore } from '../core/data/ActiveDatasetStore';
 
 export const DataFlowDebugPanel: React.FC = () => {
@@ -10,9 +9,9 @@ export const DataFlowDebugPanel: React.FC = () => {
   const [isQaMode, setIsQaMode] = useState(false);
 
   const activeDataset = activeDatasetStore.getActiveDataset();
-  const activeSource = dataSourceManager.getActiveSource();
+  const activeSource = activeDataset?.sourceType || null;
   const records = activeDatasetStore.getActiveRows();
-  const filters = dataSourceManager.getAvailableFilters();
+  const filters = (activeDataset?.columnProfiles || []).filter((profile: any) => profile.isFilter);
 
   useEffect(() => {
     if (typeof window !== "undefined") {

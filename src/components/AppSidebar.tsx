@@ -10,7 +10,13 @@ import {
 import { adaptiveNavigationEngine } from "../core/adaptive-ui";
 import { getConsultingFlowStructure } from '../core/navigation/consultingFlowStructure';
 import { getActiveConsultingModelConfigSync } from '../core/business-intelligence/ConsultingModelRepository';
-import { getModuleCapabilityState, shouldExposeModule } from '../core/navigation/moduleCapabilities';
+import { getModuleCapabilityState, resolveResultModuleCapability, shouldExposeModule } from '../core/navigation/moduleCapabilities';
+import { navigationRegistry, checkNavigationPermission } from '../core/navigation/NavigationRegistry';
+import { isBusinessAreaRoute } from '../core/navigation/PageCapabilityModel';
+import { activeDatasetStore } from '../core/data/ActiveDatasetStore';
+import { listModuleMappings } from '../core/data/moduleMapping';
+import { chaosProfilingRepository } from '../core/chaos-data-profiling/ChaosProfilingRepository';
+import { PLATFORM_EVENTS, subscribePlatformEvent } from '../core/events/PlatformEvents';
 
 interface SidebarProps {
   activePage: string;
@@ -22,6 +28,8 @@ interface SidebarProps {
   setIsDesktopCollapsed: (v: boolean) => void;
   userRole?: string;
   hasActiveDataset?: boolean;
+  /** VIEW_AREA:<id> style grants for the current user (F20.3 Bloco 9). */
+  userPermissions?: string[];
 }
 
 const AppSidebarContent: React.FC<SidebarProps> = ({ 
@@ -34,6 +42,7 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
   setIsDesktopCollapsed,
   userRole = "SUPER_ADMIN",
   hasActiveDataset = false,
+  userPermissions = [],
 }) => {
   const [dictionaryTick, setDictionaryTick] = useState(0);
   const [activeConfig, setActiveConfig] = useState(getActiveConsultingModelConfigSync());
@@ -46,6 +55,11 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
     window.addEventListener("sauron:dictionary-updated", handleUpdate);
     window.addEventListener("sauron:consulting-model-updated" as any, handleUpdate);
     window.addEventListener("sauron:config-updated" as any, handleUpdate);
+    window.addEventListener("sauron:area-permissions-updated" as any, handleUpdate);
+    window.addEventListener("sauron:active-dataset-changed" as any, handleUpdate);
+    window.addEventListener("SAURON_CHAOS_PROFILING_UPDATED", handleUpdate);
+    const unsubscribeDataset = subscribePlatformEvent(PLATFORM_EVENTS.ACTIVE_DATASET_CHANGED, handleUpdate);
+    const unsubscribeSourceConfiguration = subscribePlatformEvent(PLATFORM_EVENTS.SOURCE_CONFIGURED, handleUpdate);
     
     const handleStorage = (e: StorageEvent) => {
       if (e.key === "sauron_active_consulting_config") {
@@ -58,6 +72,11 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
       window.removeEventListener("sauron:dictionary-updated", handleUpdate);
       window.removeEventListener("sauron:consulting-model-updated" as any, handleUpdate);
       window.removeEventListener("sauron:config-updated" as any, handleUpdate);
+      window.removeEventListener("sauron:area-permissions-updated" as any, handleUpdate);
+      window.removeEventListener("sauron:active-dataset-changed" as any, handleUpdate);
+      window.removeEventListener("SAURON_CHAOS_PROFILING_UPDATED", handleUpdate);
+      unsubscribeDataset();
+      unsubscribeSourceConfiguration();
       window.removeEventListener("storage", handleStorage);
     };
   }, []);
@@ -123,19 +142,53 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
 
   // Build adapted menu structure
   const rawStructure = getConsultingFlowStructure(menuOptions);
+  const activeDataset = activeDatasetStore.getActiveDataset();
+  const moduleMappings = activeDataset ? listModuleMappings(activeDataset.datasetId) : [];
+  const sourceId = activeDataset?.sourceIdentity?.sourceId || activeDataset?.datasetId || "";
+  const confirmedView = sourceId ? chaosProfilingRepository.getConfirmedViewSync(sourceId) : null;
+  const confirmedColumns = confirmedView?.selectedColumns || [];
+  const numericColumns = activeDataset?.columnProfiles
+    .filter(profile => profile.type === "number" || profile.type === "currency")
+    .map(profile => profile.originalName || profile.name) || [];
+  const textColumns = activeDataset?.columnProfiles
+    .filter(profile => profile.type === "text" || profile.type === "string")
+    .map(profile => profile.originalName || profile.name) || [];
+  const configuredModules = new Set(moduleMappings.map(mapping => mapping.moduleName));
+  const hasSelectedContent = Boolean(activeDataset);
+  const hasModelConfiguration = (moduleId: string): boolean => Boolean(
+    activeConfig && (
+      activeConfig.customMetrics.some(metric => metric.visibleIn.includes(moduleId))
+      || Object.values(activeConfig.selectedFields).some(field => field.visible && field.use !== "do_not_use" && field.use !== "auxiliary_detail")
+    )
+  );
   const consultingFlowStructure = adaptiveNavigationEngine.adaptMenuStructure(rawStructure).map(group => {
-    const enabledModules = activeConfig?.enabledModules || ["diagnostico", "financeiro", "dre", "comercial", "pessoas", "comissao", "apresentacao", "reuniao", "plano", "historico"];
+    const enabledModules = activeConfig?.enabledModules?.length
+      ? activeConfig.enabledModules
+      : ["diagnostico", "financeiro", "dre", "comercial", "pessoas", "comissao", "apresentacao", "reuniao", "plano", "historico"];
     
     let filteredSubItems = group.subItems.filter((item: any) => {
+      if (!hasActiveDataset && ["dre_inteligente", "financeiro", "comercial", "comissoes", "obstaculos", "consultor_ia", "relatorios"].includes(item.id)) return false;
+      const resultCapability = resolveResultModuleCapability(item.id, {
+        hasActiveDataset,
+        hasConfirmedDatasetView: Boolean(confirmedView),
+        confirmedColumns,
+        mappings: moduleMappings,
+        numericColumns,
+        textColumns,
+      });
+      if (["financeiro", "comercial", "comissoes", "vendedores", "dre_inteligente", "obstaculos", "consultor_ia", "contabil", "itens", "estoque"].includes(item.id)
+        && resultCapability !== "AVAILABLE") return false;
+      if (hasActiveDataset && item.id === "apresentacoes" && !hasSelectedContent) return false;
+      if (hasActiveDataset && ["preparacao_reuniao", "modo_reuniao", "reuniao_ata", "reuniao_notes"].includes(item.id) && !hasSelectedContent) return false;
       if (item.id === "dre_inteligente" && !enabledModules.includes("dre")) return false;
       if (item.id === "financeiro" && !enabledModules.includes("financeiro")) return false;
       if (item.id === "comercial" && !enabledModules.includes("comercial")) return false;
       if (item.id === "comissoes" && !enabledModules.includes("pessoas")) return false;
-      if (item.id === "apresentacoes" && !enabledModules.includes("apresentacao")) return false;
-      if (item.id === "preparacao_reuniao" && !enabledModules.includes("reuniao")) return false;
-      if (item.id === "modo_reuniao" && !enabledModules.includes("reuniao")) return false;
-      if (item.id === "reuniao_ata" && !enabledModules.includes("reuniao")) return false;
-      if (item.id === "reuniao_notes" && !enabledModules.includes("reuniao")) return false;
+      if (item.id === "apresentacoes" && !enabledModules.includes("apresentacao") && !hasSelectedContent) return false;
+      if (item.id === "preparacao_reuniao" && !enabledModules.includes("reuniao") && !hasSelectedContent) return false;
+      if (item.id === "modo_reuniao" && !enabledModules.includes("reuniao") && !hasSelectedContent) return false;
+      if (item.id === "reuniao_ata" && !enabledModules.includes("reuniao") && !hasSelectedContent) return false;
+      if (item.id === "reuniao_notes" && !enabledModules.includes("reuniao") && !hasSelectedContent) return false;
       if (item.id === "resumo" && !enabledModules.includes("diagnostico")) return false;
       if (item.id === "plano_executivo" && !enabledModules.includes("plano")) return false;
       if (item.id === "plano_responsaveis" && !enabledModules.includes("plano")) return false;
@@ -164,29 +217,49 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
       };
     });
 
-    if (group.groupKey === "diagnosticar_negocio" && activeConfig?.businessAreas) {
+    if (group.groupKey === "analise") {
       const nextSubs: any[] = [];
-      const resSub = group.subItems.find(s => s.id === "resumo");
+      const resSub = filteredSubItems.find(s => s.id === "resumo");
       if (resSub) nextSubs.push(resSub);
 
-      activeConfig.businessAreas.forEach(area => {
-        if (area.visible) {
+      // F20.3 — Business Areas are read exclusively from NavigationRegistry,
+      // the single canonical source populated from the active Project DNA.
+      // No sidebar-local knowledge of "custom_area_" construction remains.
+      // Bloco 9: a user without VIEW_AREA:<id> never sees the menu item.
+      navigationRegistry
+        .getAll({ source: "DNA", visibleOnly: true })
+        .filter(item => checkNavigationPermission(item, userRole, userPermissions))
+        .filter(item => {
+          // The default consulting scaffold is not a consultant decision. Keep
+          // it out of the visible menu until fields, metrics or an explicit
+          // custom area have been configured for the active source.
+          const areaId = item.id.replace(/^custom_area_/, "");
+          if (!hasActiveDataset) return false;
+          if (!["financeiro", "comercial", "pessoas", "comissoes", "dre"].includes(areaId)) return true;
+          if (activeConfig?.businessAreas?.some(area => area.id === areaId && area.visible !== false)) return true;
+          const moduleName = areaId === "comissoes" ? "Comissão" : areaId === "pessoas" ? "Pessoas" : areaId === "dre" ? "DRE" : areaId[0].toUpperCase() + areaId.slice(1);
+          return Array.from(configuredModules).some(configuredModule => configuredModule === moduleName)
+            || hasModelConfiguration(areaId);
+        })
+        .sort((a, b) => a.order - b.order)
+        .forEach(item => {
+          const areaId = item.id.replace(/^custom_area_/, "");
+          const dynamicTitle = areaId === "pessoas"
+            ? activeConfig?.displayDictionary["people"] || item.label
+            : item.label;
           nextSubs.push({
-            title: area.name,
-            id: `custom_area_${area.id}`,
+            title: dynamicTitle,
+            id: item.id,
             icon: Layers,
             availability: "AVAILABLE" as const
           });
-        }
+        });
+
+      filteredSubItems.forEach(s => {
+        if (s.id !== "resumo") nextSubs.push(s);
       });
 
-      group.subItems.forEach(s => {
-        if (["obstaculos", "consultor_ia", "relatorios"].includes(s.id)) {
-          nextSubs.push(s);
-        }
-      });
-
-      filteredSubItems = nextSubs;
+      filteredSubItems = Array.from(new Map(nextSubs.map(item => [item.id, item])).values());
     }
 
     return {
@@ -208,7 +281,7 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
       <aside
         role="navigation"
         aria-label="Menu principal de navegação"
-        className={`bg-slate-900 border-r border-slate-800 flex flex-col h-screen fixed left-0 top-0 text-slate-300 z-50 transition-all duration-300 ${
+        className={`bg-slate-900 border-r border-slate-800 flex flex-col h-screen fixed left-0 top-0 text-slate-300 z-[60] transition-all duration-300 ${
         isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'
       } ${isDesktopCollapsed ? 'lg:w-16' : 'lg:w-64'}`}>
         
@@ -281,6 +354,7 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
                   <button
                     onClick={() => toggleGroup(group.groupKey)}
                     aria-expanded={isGroupExpanded}
+                    aria-label={group.accessibleLabel || group.title}
                     aria-controls={`sidebar-group-${group.groupKey}`}
                     className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${
                       isGroupActive
@@ -312,7 +386,8 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
                             setActivePage(sub.id);
                             if (window.innerWidth < 1024) setIsMobileOpen(false);
                           }}
-                          data-testid={sub.id === "importacao" ? "btn-open-data-center" : sub.id.startsWith("custom_area_") ? `sidebar-${sub.id}` : undefined}
+                          aria-label={sub.accessibleLabel || sub.title}
+                          data-testid={sub.id === "central_dados" ? "btn-sidebar-open-data-center" : isBusinessAreaRoute(sub.id) ? `sidebar-${sub.id}` : undefined}
                           className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
                             isActive
                               ? "bg-blue-600/15 text-blue-400 font-extrabold border-l-2 border-blue-500 -ml-px pl-[9px] rounded-l-none"
@@ -343,19 +418,6 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
                 >
                   <ShieldAlert size={13} />
                   <span>Product QA Console</span>
-                </button>
-              )}
-              {typeof window !== "undefined" && window.location.search.includes("lab=true") && (
-                <button
-                  onClick={() => setActivePage("sdl_studio")}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
-                    activePage === "sdl_studio"
-                      ? "bg-blue-600/15 text-blue-400 font-extrabold"
-                      : "hover:bg-slate-800/60 text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  <Layers size={13} />
-                  <span>SDL Studio</span>
                 </button>
               )}
             </div>

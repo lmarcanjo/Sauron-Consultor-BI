@@ -25,3 +25,7 @@ Furthermore, to handle dense operations (e.g., parsing massive 100,000-line spre
 ## Consequences
 - **Positive**: Complete encapsulation of business rules; frictionless scalability for database read-replicas; absolute network security; and clear modular contracts enabling parallel engineering teams to implement backend routes without breaking existing core modules.
 - **Negative**: Adds a thin layer of mapping code (Mappers/DTOs) between the domain engines and the API, representing a deliberate tradeoff favoring high maintainability over short-term rapid prototyping.
+
+## Permanent Cleanup Rule
+
+Nenhuma Sprint poderá adicionar uma nova funcionalidade sem identificar explicitamente quais componentes, telas, serviços, rotas, testes e documentos se tornaram obsoletos e deverão ser removidos.

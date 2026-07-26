@@ -15,13 +15,16 @@
  */
 
 import type { BusinessAreaConfig } from "../business-intelligence/ConsultingModelRepository";
+import { getActiveConsultingModelConfigSync } from "../business-intelligence/ConsultingModelRepository";
+import { trashRepository } from "../persistence/TrashRepository";
+import { businessAreaEntityNamespace } from "../business-intelligence/businessAreaEntityId";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type NavigationItemType =
   | "STATIC"       // Built-in tabs (enterprise_center, resumo, …)
-  | "BUSINESS_AREA" // Consultant-defined area (custom_area_*)
-  | "SYSTEM"       // Infrastructure tabs (qa_console, sdl_studio)
+  | "BUSINESS_AREA" // Area defined by the active Project DNA (custom_area_*)
+  | "SYSTEM"       // Infrastructure tabs (qa_console)
   | "LAB";         // Experimental / hidden
 
 export type NavigationItemSource =
@@ -142,17 +145,12 @@ export const navigationRegistry = new NavigationRegistrySingleton();
 const STATIC_NAV_ITEMS: Omit<NavigationItemDefinition, "source">[] = [
   // ── Centro de Comando ─────────────────────────────────────────────────────
   { id: "enterprise_center",    type: "STATIC", label: "Empresas e Grupos",      iconKey: "Building",       group: "centro_comando",     order: 1,  visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
-  { id: "executive_workspace",  type: "STATIC", label: "Centro de Comando",      iconKey: "Briefcase",      group: "centro_comando",     order: 2,  visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   // ── Conhecer Cliente ─────────────────────────────────────────────────────
-  { id: "digital_twin",         type: "STATIC", label: "Gêmeo Digital",          iconKey: "Network",        group: "conhecer_cliente",   order: 10, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   { id: "area_consultor",       type: "STATIC", label: "Projetos de Consultoria", iconKey: "FolderOpen",    group: "conhecer_cliente",   order: 11, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   { id: "modelo_consultivo",    type: "STATIC", label: "Modelo Consultivo",       iconKey: "Settings",      group: "conhecer_cliente",   order: 12, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   // ── Conectar Dados ───────────────────────────────────────────────────────
-  { id: "importacao",           type: "STATIC", label: "Importar Planilhas",      iconKey: "FileText",      group: "conectar_dados",     order: 20, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
-  { id: "biblioteca_workbooks", type: "STATIC", label: "Biblioteca de Planilhas", iconKey: "FolderOpen",   group: "conectar_dados",     order: 21, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
-  { id: "banco_connector",      type: "STATIC", label: "Conectar Banco",          iconKey: "Server",        group: "conectar_dados",     order: 22, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
-  { id: "vpn_gateway",          type: "STATIC", label: "VPN Gateway",             iconKey: "Shield",        group: "conectar_dados",     order: 23, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   { id: "central_dados",        type: "STATIC", label: "Central de Dados",        iconKey: "Database",      group: "conectar_dados",     order: 24, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
+  { id: "analise_estrutura",    type: "STATIC", label: "Análise da fonte",        iconKey: "Database",      group: "analise",             order: 29, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   // ── Diagnosticar Negócio (static) ────────────────────────────────────────
   { id: "resumo",               type: "STATIC", label: "Diagnóstico Executivo",   iconKey: "BarChart3",     group: "diagnosticar_negocio", order: 30, visible: true, canRenderWithoutDataset: false, requiresDataset: true,  requiresApproval: true,  requiresConfiguredFields: false },
   { id: "dre_inteligente",      type: "STATIC", label: "KPIs & DRE",              iconKey: "Target",        group: "diagnosticar_negocio", order: 31, visible: true, canRenderWithoutDataset: false, requiresDataset: true,  requiresApproval: true,  requiresConfiguredFields: false },
@@ -166,12 +164,10 @@ const STATIC_NAV_ITEMS: Omit<NavigationItemDefinition, "source">[] = [
   { id: "itens",                type: "STATIC", label: "Itens",                   iconKey: "Package",       group: "diagnosticar_negocio", order: 39, visible: true, canRenderWithoutDataset: false, requiresDataset: true,  requiresApproval: true,  requiresConfiguredFields: false },
   { id: "estoque",              type: "STATIC", label: "Estoque",                 iconKey: "Archive",       group: "diagnosticar_negocio", order: 40, visible: true, canRenderWithoutDataset: false, requiresDataset: true,  requiresApproval: true,  requiresConfiguredFields: false },
   { id: "comissoes",            type: "STATIC", label: "People Intelligence",     iconKey: "Users",         group: "diagnosticar_negocio", order: 41, visible: true, canRenderWithoutDataset: false, requiresDataset: true,  requiresApproval: true,  requiresConfiguredFields: false },
-  { id: "operacoes_servicos",   type: "STATIC", label: "Operações & Serviços",    iconKey: "Settings",      group: "diagnosticar_negocio", order: 42, visible: true, canRenderWithoutDataset: false, requiresDataset: true,  requiresApproval: true,  requiresConfiguredFields: false },
+  { id: "operacoes_atendimento", type: "STATIC", label: "Operações & Atendimento", iconKey: "Settings",      group: "diagnosticar_negocio", order: 42, visible: true, canRenderWithoutDataset: false, requiresDataset: true,  requiresApproval: true,  requiresConfiguredFields: false },
   // ── Preparar Decisão ──────────────────────────────────────────────────────
-  { id: "narrativa_executiva",  type: "STATIC", label: "Narrativa Executiva",     iconKey: "FileText",      group: "preparar_decisao",   order: 50, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   { id: "apresentacoes",        type: "STATIC", label: "Decks",                   iconKey: "Presentation",  group: "preparar_decisao",   order: 51, visible: true, canRenderWithoutDataset: false, requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   { id: "apresentacoes_templates", type: "STATIC", label: "Templates",            iconKey: "Layers",        group: "preparar_decisao",   order: 52, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
-  { id: "story_builder",        type: "STATIC", label: "Story Builder",           iconKey: "FileText",      group: "preparar_decisao",   order: 53, visible: true, canRenderWithoutDataset: false, requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   // ── Conduzir Sessão ───────────────────────────────────────────────────────
   { id: "preparacao_reuniao",   type: "STATIC", label: "Preparação da Reunião",   iconKey: "ClipboardList", group: "conduzir_sessao",    order: 60, visible: true, canRenderWithoutDataset: false, requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   { id: "modo_reuniao",         type: "STATIC", label: "Sessão Executiva",        iconKey: "MonitorPlay",   group: "conduzir_sessao",    order: 61, visible: true, canRenderWithoutDataset: false, requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
@@ -200,7 +196,6 @@ const STATIC_NAV_ITEMS: Omit<NavigationItemDefinition, "source">[] = [
   { id: "admin_invites",        type: "STATIC", label: "Convites",                iconKey: "UserPlus",      group: "administracao",      order: 96, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false, adminOnly: true },
   { id: "admin_shares",         type: "STATIC", label: "Compartilhamentos",       iconKey: "Share2",        group: "administracao",      order: 97, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false, adminOnly: true },
   // ── System / Lab ──────────────────────────────────────────────────────────
-  { id: "sdl_studio",           type: "SYSTEM", label: "SDL Studio",              iconKey: "Code",          group: "system",             order: 200, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
   { id: "qa_console",           type: "LAB",    label: "QA Console",              iconKey: "Terminal",      group: "system",             order: 201, visible: true, canRenderWithoutDataset: true,  requiresDataset: false, requiresApproval: false, requiresConfiguredFields: false },
 ];
 
@@ -246,3 +241,144 @@ export function checkAreaPermission(
     userPermissions.includes(`${action}_AREA:*`)
   );
 }
+
+// ─── Block 2: Canonical Tab Resolution ─────────────────────────────────────────
+//
+// resolveNavigationTarget() is the ONLY function allowed to decide whether a
+// requested route (static or dynamic) may be entered. App.tsx, gates and
+// breadcrumbs must call this instead of re-implementing prefix checks,
+// VALID_TABS membership tests, or admin allow-lists.
+
+export type NavigationResolution =
+  | "ALLOWED"
+  | "NOT_FOUND"
+  | "DISABLED"
+  | "NOT_AUTHORIZED"
+  | "NOT_APPLICABLE"
+  | "PENDING_CONFIGURATION";
+
+export interface NavigationResolutionContext {
+  userRole: string;
+  userPermissions: string[];
+  /** Whether the current context has an active, connected dataset. */
+  hasActiveDataset: boolean;
+  /** Whether the active dataset has been homologated/approved for use. */
+  isApproved: boolean;
+}
+
+export interface NavigationResolutionResult {
+  status: NavigationResolution;
+  item: NavigationItemDefinition | null;
+  /** Route to redirect to when status is not ALLOWED/PENDING_CONFIGURATION. */
+  fallbackRouteKey: string;
+}
+
+/**
+ * Resolve whether `requestedTab` may be entered given the current user and
+ * data context. PENDING_CONFIGURATION is not a redirect — the caller should
+ * keep the route active and render the appropriate readiness/empty state.
+ */
+export function resolveNavigationTarget(
+  requestedTab: string,
+  context: NavigationResolutionContext,
+  fallbackRouteKey = "enterprise_center"
+): NavigationResolutionResult {
+  if (!requestedTab) {
+    return { status: "NOT_FOUND", item: null, fallbackRouteKey };
+  }
+
+  const item = navigationRegistry.resolve(requestedTab);
+  if (!item) {
+    return { status: "NOT_FOUND", item: null, fallbackRouteKey };
+  }
+
+  if (!item.visible) {
+    return { status: "NOT_APPLICABLE", item, fallbackRouteKey };
+  }
+
+  if (!checkNavigationPermission(item, context.userRole, context.userPermissions)) {
+    return { status: "NOT_AUTHORIZED", item, fallbackRouteKey };
+  }
+
+  if (item.requiresDataset && !context.hasActiveDataset) {
+    return { status: "PENDING_CONFIGURATION", item, fallbackRouteKey };
+  }
+
+  if (item.requiresApproval && !context.isApproved) {
+    return { status: "PENDING_CONFIGURATION", item, fallbackRouteKey };
+  }
+
+  return { status: "ALLOWED", item, fallbackRouteKey };
+}
+
+// ─── Block 5/6: Live sync with the active Project DNA ──────────────────────────
+//
+// The registry is self-sufficient: it listens for configuration changes
+// (blueprint applied, area created/disabled, company/context switch) and
+// re-registers its own BUSINESS_AREA entries. No other module needs to know
+// when or how to call registerFromDNA — this prevents the exact "second
+// registry" / scattered-knowledge failure mode this phase must eliminate.
+export function syncNavigationRegistryFromActiveConfig(): void {
+  const config = getActiveConsultingModelConfigSync();
+  navigationRegistry.registerFromDNA(config?.businessAreas ?? []);
+  void refreshArchivedAreaIndex(config?.workspaceId, config?.companyId);
+}
+
+// ─── Bloco 3 (Final Closure): Archived-area index ──────────────────────────────
+//
+// Archived/trashed Business Areas are removed from the active DNA's
+// `businessAreas` array entirely (see BusinessAreaLifecycleService), so a
+// stale deep link to `custom_area_<id>` resolves to nothing in the registry.
+// This index — scoped to the *currently active* workspace/company only —
+// lets callers distinguish "this area was archived" from "this route never
+// existed", without making NavigationRegistry's synchronous resolution
+// functions async.
+let archivedAreaIdsForActiveCompany = new Set<string>();
+
+async function refreshArchivedAreaIndex(workspaceId?: string, companyId?: string): Promise<void> {
+  if (!workspaceId) {
+    archivedAreaIdsForActiveCompany = new Set();
+    return;
+  }
+  try {
+    const prefix = businessAreaEntityNamespace(workspaceId, companyId);
+    const [archived, trashed] = await Promise.all([
+      trashRepository.getArchived("BusinessArea"),
+      trashRepository.getTrash("BusinessArea"),
+    ]);
+    const ids = [...archived, ...trashed]
+      .filter(item => item.entityId.startsWith(prefix))
+      .map(item => item.entityId.slice(prefix.length));
+    archivedAreaIdsForActiveCompany = new Set(ids);
+  } catch {
+    // Trash storage unavailable (e.g. cold boot) — fail safe to "no archived areas known".
+    archivedAreaIdsForActiveCompany = new Set();
+  }
+}
+
+export type MissingBusinessAreaClassification = "NOT_A_BUSINESS_AREA_ROUTE" | "NEVER_EXISTED" | "ARCHIVED";
+
+/**
+ * Classifies a route that failed to resolve in the registry. Only meaningful
+ * for `custom_area_*` routes that are NOT currently registered — callers
+ * should check `navigationRegistry.resolve()` first.
+ */
+export function classifyMissingBusinessAreaRoute(routeKey: string): MissingBusinessAreaClassification {
+  if (!routeKey.startsWith("custom_area_")) return "NOT_A_BUSINESS_AREA_ROUTE";
+  const areaId = routeKey.slice("custom_area_".length);
+  return archivedAreaIdsForActiveCompany.has(areaId) ? "ARCHIVED" : "NEVER_EXISTED";
+}
+
+/** Test-only synchronous setter — production code must go through refreshArchivedAreaIndex. */
+export function __setArchivedAreaIdsForTesting(ids: string[]): void {
+  archivedAreaIdsForActiveCompany = new Set(ids);
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("sauron:config-updated", syncNavigationRegistryFromActiveConfig as EventListener);
+  window.addEventListener("sauron:consulting-model-updated", syncNavigationRegistryFromActiveConfig as EventListener);
+}
+
+// Initial sync so the registry reflects any config already persisted before
+// this module was first imported (e.g. after a page reload).
+syncNavigationRegistryFromActiveConfig();

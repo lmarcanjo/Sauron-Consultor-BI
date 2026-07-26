@@ -21,17 +21,8 @@ export function parseCSV(text: string): { data: LancamentoFinanceiro[]; missingF
     delimiter = ";";
   }
   
-  // Extract and clean headers
-  const headers = firstLine.split(delimiter).map(h => 
-    h.trim().replace(/^["']|["']$/g, "").replace('Mes', 'Mês').replace('Razao', 'Razão')
-  );
-  
-  const requiredColumns = [
-    "Grupo", "CNPJ", "Marca", "Empresa", "Filial", "Mês", "Razão", "Categoria", "Receita", "Custo", "Despesa"
-  ];
-  
-  // Check which mandatory columns are missing
-  const absentFields = requiredColumns.filter(col => !headers.includes(col));
+  // Preserve the physical headers. Semantic interpretation is optional.
+  const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^["']|["']$/g, ""));
   
   // Loop through lines
   for (let i = 1; i < lines.length; i++) {
@@ -52,45 +43,18 @@ export function parseCSV(text: string): { data: LancamentoFinanceiro[]; missingF
       return isNaN(num) ? 0 : num;
     };
     
-    const receita = parseNum(row["Receita"]);
-    const custo = parseNum(row["Custo"]);
-    const despesa = parseNum(row["Despesa"]);
-    
-    // Dynamic fallback for Lucro and Margem
-    const lucro = row["Lucro"] !== undefined ? parseNum(row["Lucro"]) : Math.round((receita - custo - despesa) * 100) / 100;
-    const margem = row["Margem"] !== undefined ? parseNum(row["Margem"]) : (receita > 0 ? Math.round((lucro / receita) * 100 * 100) / 100 : 0);
-    const orcamento = row["Orçamento"] !== undefined ? parseNum(row["Orçamento"]) : (row["Orcamento"] !== undefined ? parseNum(row["Orcamento"]) : Math.round((receita * 0.95) * 100) / 100);
-    
-    const newEntry: any = {
-      Grupo: row["Grupo"] || "Geral",
-      CNPJ: row["CNPJ"] || "00.000.000/0001-00",
-      Marca: row["Marca"] || "N/D",
-      Empresa: row["Empresa"] || "Empresa Geral",
-      Filial: row["Filial"] || "Matriz",
-      Mês: row["Mês"] || "N/D",
-      Razão: row["Razão"] || "Outros",
-      Categoria: row["Categoria"] || "Sem Categoria",
-      Receita: receita,
-      Custo: custo,
-      Despesa: despesa,
-      Lucro: lucro,
-      Margem: margem,
-      Orcamento: orcamento
-    };
-
-    // Copy any remaining fields
-    for (const key of Object.keys(row)) {
-      if (!(key in newEntry) && key.trim() !== "") {
-        newEntry[key] = row[key];
-      }
-    }
+    const newEntry: any = { id: String(i), ...row };
+    // Convert only fields that physically exist; no derived defaults.
+    ["Receita", "Custo", "Despesa", "Lucro", "Margem", "Orçamento", "Orcamento"].forEach(column => {
+      if (Object.prototype.hasOwnProperty.call(row, column)) newEntry[column] = parseNum(row[column]);
+    });
 
     result.push(newEntry);
   }
   
   return { 
     data: result, 
-    missingFields: absentFields 
+    missingFields: []
   };
 }
 

@@ -120,15 +120,22 @@ test.describe("RC-3 Final multiempresa e confiança", () => {
     await selectGroupContext(page);
     await acceptSuggestionsIfPresent(page);
     await expect(page.getByText(/Visão consolidada/i).first()).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText(/R\$\s*600,00|600/).first()).toBeVisible({ timeout: 30000 });
+    const groupPreview = page.getByTestId("active-dataset-raw-preview");
+    await expect(groupPreview.getByText("100", { exact: true }).first()).toBeVisible({ timeout: 30000 });
+    await expect(groupPreview.getByText("200", { exact: true }).first()).toBeVisible({ timeout: 30000 });
+    await expect(groupPreview.getByText("300", { exact: true }).first()).toBeVisible({ timeout: 30000 });
 
     for (const file of files) {
       await selectCompanyContext(page, file.company);
       await acceptSuggestionsIfPresent(page);
       await expect(page.getByRole("heading", { name: new RegExp(`Visão da empresa - ${file.company}`) }).first()).toBeVisible({ timeout: 15000 });
-      await expect(page.getByText(new RegExp(`R\\$\\s*${file.value},00|${file.value}`)).first()).toBeVisible({ timeout: 30000 });
-      await navigate(page, /KPIs & DRE/i);
-      await expect(page.getByText(new RegExp(`R\\$\\s*${file.value},00|${file.value}`)).first()).toBeVisible({ timeout: 30000 });
+      const companyPreview = page.getByTestId("active-dataset-raw-preview");
+      await expect(companyPreview).toContainText(file.company, { timeout: 30000 });
+      await expect(companyPreview.getByText(String(file.value), { exact: true }).first()).toBeVisible({ timeout: 30000 });
+      for (const sibling of files.filter(candidate => candidate.company !== file.company)) {
+        await expect(companyPreview).not.toContainText(sibling.company);
+      }
+      await expect(page.locator("aside").getByRole("button", { name: /KPIs & DRE/i })).toHaveCount(0);
       await navigate(page, /Diagnóstico Executivo/i);
     }
 
@@ -138,28 +145,34 @@ test.describe("RC-3 Final multiempresa e confiança", () => {
     await expect(page.getByText(/Visão da empresa/i).first()).toBeVisible({ timeout: 30000 });
     await expect(page.getByText(/R\$\s*300,00|300/).first()).toBeVisible({ timeout: 30000 });
 
-    await navigate(page, /Biblioteca de Planilhas/i);
-    const dCard = page.getByRole("heading", { name: files[1].name, exact: true }).locator("xpath=../..");
-    await expect(dCard.getByTitle("Arquivar")).toBeVisible({ timeout: 15000 });
-    await dCard.getByTitle("Arquivar").click();
-    await expect(dCard.getByTitle("Restaurar")).toBeVisible({ timeout: 15000 });
+    await navigate(page, /Fontes de Dados/i);
+    const dRow = page.locator("tr").filter({ hasText: files[1].name }).first();
+    await expect(dRow.getByTitle("Arquivar")).toBeVisible({ timeout: 15000 });
+    await dRow.getByTitle("Arquivar").click();
+    await expect(dRow.getByTitle("Restaurar")).toBeVisible({ timeout: 15000 });
     await navigate(page, /Diagnóstico Executivo/i);
     await selectGroupContext(page);
     await acceptSuggestionsIfPresent(page);
-    await expect(page.getByText(/R\$\s*400,00|400/).first()).toBeVisible({ timeout: 30000 });
+    const archivedGroupPreview = page.getByTestId("active-dataset-raw-preview");
+    await expect(archivedGroupPreview.getByText("100", { exact: true }).first()).toBeVisible({ timeout: 30000 });
+    await expect(archivedGroupPreview.getByText("300", { exact: true }).first()).toBeVisible({ timeout: 30000 });
+    await expect(archivedGroupPreview).not.toContainText("Empresa D RC3");
 
-    await navigate(page, /Biblioteca de Planilhas/i);
-    const archivedD = page.getByRole("heading", { name: files[1].name, exact: true }).locator("xpath=../..");
+    await navigate(page, /Fontes de Dados/i);
+    const archivedD = page.locator("tr").filter({ hasText: files[1].name }).first();
     await expect(archivedD.getByTitle("Restaurar")).toBeVisible({ timeout: 15000 });
     await archivedD.getByTitle("Restaurar").click();
     await expect(archivedD.getByTitle("Arquivar")).toBeVisible({ timeout: 15000 });
     await navigate(page, /Diagnóstico Executivo/i);
     await selectGroupContext(page);
     await acceptSuggestionsIfPresent(page);
-    await expect(page.getByText(/R\$\s*600,00|600/).first()).toBeVisible({ timeout: 30000 });
+    const restoredGroupPreview = page.getByTestId("active-dataset-raw-preview");
+    await expect(restoredGroupPreview.getByText("100", { exact: true }).first()).toBeVisible({ timeout: 30000 });
+    await expect(restoredGroupPreview.getByText("200", { exact: true }).first()).toBeVisible({ timeout: 30000 });
+    await expect(restoredGroupPreview.getByText("300", { exact: true }).first()).toBeVisible({ timeout: 30000 });
 
-    await navigate(page, /Biblioteca de Planilhas/i);
-    await expect(page.locator("h4").filter({ hasText: /rc3-[CDE]\.csv/ })).toHaveCount(3);
+    await navigate(page, /Fontes de Dados/i);
+    await expect(page.locator("tr").filter({ hasText: /rc3-[CDE]\.csv/ })).toHaveCount(3);
     await expect(page.locator("body")).not.toContainText("up_file_");
     expect(browserMessages, browserMessages.join("\n")).toEqual([]);
   });

@@ -6,7 +6,7 @@ import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
 import { buildModuleDashboard, ExecutiveDashboard } from "../core/dashboard-engine";
 import { DashboardBlocksRenderer } from "./DashboardBlocksRenderer";
-import { ModuleFieldMappingPanel } from "./ModuleFieldMappingPanel";
+import { ReviewSourceAnalysisAction } from "./ReviewSourceAnalysisAction";
 import { platformLogger } from "../core/platform/PlatformLogger";
 import { getEnterpriseContext } from "../core/enterprise-consolidation";
 
@@ -14,11 +14,13 @@ interface ComercialTabProps {
   metrics: MetricasConsolidadas;
   formatCurrency: (v: number) => string;
   activeDataset?: ActiveDataset | null;
+  onOpenSourceAnalysis?: () => void;
 }
 
-export const ComercialTab: React.FC<ComercialTabProps> = ({ activeDataset: activeDatasetProp }) => {
+export const ComercialTab: React.FC<ComercialTabProps> = ({ activeDataset: activeDatasetProp, onOpenSourceAnalysis }) => {
   const activeDataset = activeDatasetProp || activeDatasetStore.getActiveDataset();
   const [dashboard, setDashboard] = React.useState<ExecutiveDashboard | null>(null);
+  const [hasMapping, setHasMapping] = React.useState(false);
   const [mappingRevision, setMappingRevision] = React.useState(0);
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({ activeDataset: activ
 
     const projectId = getDefaultProjectId(activeDataset);
     const moduleMappings = listModuleMappings(activeDataset.datasetId, projectId);
+    setHasMapping(moduleMappings.some(mapping => mapping.moduleName === "Comercial"));
     const context = getEnterpriseContext();
     buildModuleDashboard("Comercial", {
       activeDataset,
@@ -76,11 +79,6 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({ activeDataset: activ
         <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-4">
           Veja os resultados encontrados na planilha. Quando faltar uma informação, confirme os campos abaixo.
         </p>
-        <ModuleFieldMappingPanel
-          moduleName="Comercial"
-          activeDataset={activeDataset}
-          onSaved={() => setMappingRevision(revision => revision + 1)}
-        />
       </div>
 
       {!dashboard ? (
@@ -89,8 +87,13 @@ export const ComercialTab: React.FC<ComercialTabProps> = ({ activeDataset: activ
           <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Preparando sua visão comercial</h3>
           <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">Lendo as informações da planilha.</p>
         </div>
-      ) : (
+      ) : hasMapping ? (
         <DashboardBlocksRenderer blocks={dashboard.blocks} />
+      ) : (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 p-4 text-xs font-semibold text-amber-800 dark:text-amber-200">
+          <p>Esta análise precisa de uma informação ainda não confirmada.</p>
+          <div className="mt-3"><ReviewSourceAnalysisAction onOpen={onOpenSourceAnalysis} /></div>
+        </div>
       )}
     </div>
   );

@@ -43,6 +43,7 @@ export interface Unit {
 }
 
 export type SourceBindingStatus = "ACTIVE" | "ARCHIVED" | "REMOVED";
+export type SourceBindingScope = "GROUP" | "COMPANY" | "UNIT";
 
 export interface SourceEnterpriseBinding {
   bindingId: string;
@@ -54,6 +55,7 @@ export interface SourceEnterpriseBinding {
   groupId?: string;
   companyId?: string;
   unitId?: string;
+  scopeType?: SourceBindingScope;
   status: SourceBindingStatus;
   createdAt: string;
   updatedAt: string;
@@ -123,12 +125,30 @@ export class EnterpriseRepository {
     await persistenceManager.set(EnterpriseRepository.BINDINGS_STORAGE_KEY, bindings);
   }
 
+  private bindingMatchesIdentity(binding: SourceEnterpriseBinding, identity: string): boolean {
+    return Boolean(identity) && [binding.sourceId, binding.workbookId, binding.datasetId].includes(identity);
+  }
+
+  private deduplicateBindings(bindings: SourceEnterpriseBinding[]): SourceEnterpriseBinding[] {
+    const byWorkbook = new Map<string, SourceEnterpriseBinding>();
+    for (const binding of bindings) {
+      const key = binding.workbookId || binding.sourceId || binding.datasetId;
+      const current = byWorkbook.get(key);
+      if (!current || (current.status !== "ACTIVE" && binding.status === "ACTIVE") || binding.updatedAt > current.updatedAt) {
+        byWorkbook.set(key, binding);
+      }
+    }
+    return Array.from(byWorkbook.values());
+  }
+
   /**
    * Returns the canonical source-to-enterprise relation. Legacy workbookIds
    * arrays are read only to perform an idempotent migration on first access.
    */
   public async listSourceBindings(): Promise<SourceEnterpriseBinding[]> {
-    const bindings = await this.readSourceBindings();
+    const rawBindings = await this.readSourceBindings();
+    const bindings = this.deduplicateBindings(rawBindings);
+    const deduplicated = bindings.length !== rawBindings.length;
     const bySource = new Map(bindings.map(binding => [binding.sourceId, binding]));
     const entities = await this.getAll();
     const orderedEntities = [
@@ -136,11 +156,11 @@ export class EnterpriseRepository {
       ...entities.filter(entity => entity.type === "Empresa"),
       ...entities.filter(entity => entity.type === "Grupo"),
     ];
-    let changed = false;
+    let changed = deduplicated;
 
     for (const entity of orderedEntities) {
       for (const workbookId of entity.workbookIds || []) {
-        if (isTemporarySourceId(workbookId) || bySource.has(workbookId)) continue;
+        if (isTemporarySourceId(workbookId) || bindings.some(binding => this.bindingMatchesIdentity(binding, workbookId))) continue;
         const companyId = entity.type === "Empresa" ? entity.id : entity.type === "Unidade" ? (entity as Unit).parentId : undefined;
         const company = companyId ? entities.find(candidate => candidate.id === companyId) : undefined;
         const binding: SourceEnterpriseBinding = {
@@ -153,6 +173,7 @@ export class EnterpriseRepository {
           groupId: entity.type === "Grupo" ? entity.id : (company as Company | undefined)?.parentId,
           companyId,
           unitId: entity.type === "Unidade" ? entity.id : undefined,
+          scopeType: entity.type === "Grupo" ? "GROUP" : entity.type === "Empresa" ? "COMPANY" : "UNIT",
           status: "ACTIVE",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -162,7 +183,7 @@ export class EnterpriseRepository {
       }
     }
 
-    const migrated = Array.from(bySource.values());
+    const migrated = this.deduplicateBindings(Array.from(bySource.values()));
     const bindingByLegacyId = new Map<string, SourceEnterpriseBinding>();
     migrated.forEach(binding => {
       [binding.sourceId, binding.workbookId, binding.datasetId].forEach(id => bindingByLegacyId.set(id, binding));
@@ -203,7 +224,7 @@ export class EnterpriseRepository {
   }
 
   public async getSourceBinding(sourceId: string): Promise<SourceEnterpriseBinding | null> {
-    const binding = (await this.listSourceBindings()).find(item => item.sourceId === sourceId);
+    const binding = (await this.listSourceBindings()).find(item => this.bindingMatchesIdentity(item, sourceId));
     return binding || null;
   }
 
@@ -216,6 +237,7 @@ export class EnterpriseRepository {
     groupId?: string;
     companyId?: string;
     unitId?: string;
+    scopeType?: SourceBindingScope;
   }): Promise<SourceEnterpriseBinding> {
     if (isTemporarySourceId(input.sourceId) || isTemporarySourceId(input.workbookId)) {
       throw new Error("A fonte temporária precisa ser convertida em workbook persistido antes do vínculo.");
@@ -223,7 +245,7 @@ export class EnterpriseRepository {
 
     const now = new Date().toISOString();
     const existing = await this.listSourceBindings();
-    const current = existing.find(binding => binding.sourceId === input.sourceId);
+    const current = existing.find(binding => [input.sourceId, input.workbookId, input.datasetId].some(identity => this.bindingMatchesIdentity(binding, identity)));
     const binding: SourceEnterpriseBinding = {
       bindingId: current?.bindingId || `binding_${input.sourceId}`,
       sourceId: input.sourceId,
@@ -234,11 +256,12 @@ export class EnterpriseRepository {
       groupId: input.groupId,
       companyId: input.companyId,
       unitId: input.unitId,
+      scopeType: input.scopeType || (input.unitId ? "UNIT" : input.companyId ? "COMPANY" : "GROUP"),
       status: "ACTIVE",
       createdAt: current?.createdAt || now,
       updatedAt: now,
     };
-    const nextBindings = existing.filter(item => item.sourceId !== binding.sourceId);
+    const nextBindings = existing.filter(item => ![binding.sourceId, binding.workbookId, binding.datasetId].some(identity => this.bindingMatchesIdentity(item, identity)));
     nextBindings.push(binding);
     await this.writeSourceBindings(nextBindings);
 
@@ -257,9 +280,9 @@ export class EnterpriseRepository {
 
   public async removeSourceBinding(sourceId: string): Promise<void> {
     const bindings = await this.listSourceBindings();
-    const target = bindings.find(binding => binding.sourceId === sourceId);
+    const target = bindings.find(binding => this.bindingMatchesIdentity(binding, sourceId));
     if (!target) return;
-    await this.writeSourceBindings(bindings.filter(binding => binding.sourceId !== sourceId));
+    await this.writeSourceBindings(bindings.filter(binding => !this.bindingMatchesIdentity(binding, sourceId)));
     const entities = await this.getAll();
     await persistenceManager.set(
       EnterpriseRepository.STORAGE_KEY,

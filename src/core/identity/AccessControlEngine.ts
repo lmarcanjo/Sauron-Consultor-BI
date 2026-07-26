@@ -7,6 +7,12 @@ import { PlatformUser, Permission, Role, Workspace, AccessPolicy, PermissionScop
 import { permissionManager } from "./PermissionManager";
 import { organizationManager } from "./OrganizationManager";
 import { auditEngine } from "../audit/AuditEngine";
+import { areaPermissionRepository, AreaAction, AreaPermissionContext } from "./AreaPermissionRepository";
+
+// Roles treated as full-trust internal operators for Business Area access —
+// consistent with how the rest of this engine already treats them (see
+// getVisibleCompaniesForUser below).
+const AREA_FULL_TRUST_ROLES: Role[] = ["SUPER_ADMIN", "CONSULTANT", "Consultant Admin", "Consultant"];
 
 export class AccessControlEngine {
   private static instance: AccessControlEngine;
@@ -211,6 +217,53 @@ export class AccessControlEngine {
     const allowedResourceIds = storePolicies.map(p => p.resourceId).filter(Boolean) as string[];
     // Intersect
     return workspace.companies.filter(c => allowedResourceIds.includes(c) || allowedResourceIds.some(id => c.includes(id)));
+  }
+
+  // --- BUSINESS AREA ACCESS (F20.3 Bloco 8) ---
+  //
+  // Areas are dynamic (defined by the consultant via Project DNA), so they
+  // cannot live in the static `Permission` union. Grants are per
+  // user+area+action, stored in `AreaPermissionRepository`.
+
+  private hasAreaAction(user: PlatformUser | null | undefined, areaId: string, action: AreaAction, context?: AreaPermissionContext): boolean {
+    if (!user) return false;
+    if (AREA_FULL_TRUST_ROLES.includes(user.role)) return true;
+    return areaPermissionRepository
+      .getGrantsForUser(user.id, context)
+      .some(g => g.areaId === areaId && g.actions.includes(action));
+  }
+
+  public canViewArea(user: PlatformUser | null | undefined, areaId: string, context?: AreaPermissionContext): boolean {
+    return this.hasAreaAction(user, areaId, "VIEW", context);
+  }
+
+  public canEditArea(user: PlatformUser | null | undefined, areaId: string, context?: AreaPermissionContext): boolean {
+    return this.hasAreaAction(user, areaId, "EDIT", context);
+  }
+
+  public canConfigureArea(user: PlatformUser | null | undefined, areaId: string, context?: AreaPermissionContext): boolean {
+    return this.hasAreaAction(user, areaId, "CONFIGURE", context);
+  }
+
+  public canArchiveArea(user: PlatformUser | null | undefined, areaId: string, context?: AreaPermissionContext): boolean {
+    return this.hasAreaAction(user, areaId, "ARCHIVE", context);
+  }
+
+  public canDeleteArea(user: PlatformUser | null | undefined, areaId: string, context?: AreaPermissionContext): boolean {
+    return this.hasAreaAction(user, areaId, "DELETE", context);
+  }
+
+  public canExportArea(user: PlatformUser | null | undefined, areaId: string, context?: AreaPermissionContext): boolean {
+    return this.hasAreaAction(user, areaId, "EXPORT", context);
+  }
+
+  /** Permission strings (`VIEW_AREA:<id>`, …) for NavigationRegistry's `checkNavigationPermission`. */
+  public getAreaPermissionStrings(user: PlatformUser | null | undefined, context?: AreaPermissionContext): string[] {
+    if (!user) return [];
+    if (AREA_FULL_TRUST_ROLES.includes(user.role)) {
+      return ["VIEW_AREA:*", "EDIT_AREA:*", "CONFIGURE_AREA:*", "ARCHIVE_AREA:*", "DELETE_AREA:*", "EXPORT_AREA:*"];
+    }
+    return areaPermissionRepository.toPermissionStrings(user.id, context);
   }
 
   public getVisibleKPIsForUser(user: PlatformUser | null | undefined, kpis: { id: string; name: string; costCenter?: string }[]): any[] {

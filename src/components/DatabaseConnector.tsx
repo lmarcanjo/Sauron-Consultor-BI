@@ -23,9 +23,13 @@ import {
 } from "lucide-react";
 import { LancamentoFinanceiro } from "../types";
 import { showToast } from "./Toast";
+import { getEnterpriseContext } from "../core/enterprise-consolidation/EnterpriseContextStore";
+import type { DatabaseSourceSelection, NormalizedDatabaseConfig } from "../core/connections/DatabaseConfig";
+
+export type DatabaseDataLoadedHandler = (data: LancamentoFinanceiro[], sourceName: string, selection?: DatabaseSourceSelection) => void | Promise<string | void>;
 
 interface DatabaseConnectorProps {
-  onDataLoaded: (data: LancamentoFinanceiro[], sourceName: string) => void;
+  onDataLoaded: DatabaseDataLoadedHandler;
   currentSource: string;
 }
 
@@ -61,7 +65,10 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
     tables?: string[];
     tableColumns?: Record<string, { name: string; type: string }[]>;
     estimatedRows?: Record<string, number>;
-    isVpnSimulated?: boolean;
+    diagnostics?: {
+      runtime?: { process: string; pid: number; hostname: string; containerized: boolean };
+      stages: { stage: string; status: string; message: string }[];
+    };
   } | null>(null);
 
   // Selected table & query mode
@@ -108,7 +115,14 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
         if (savedConfig) {
           try {
             const parsed = JSON.parse(savedConfig);
-            applyDatabaseConfig(parsed);
+            const secretFields = ["password", "sshPassword", "sshPrivateKey", "connectionString"];
+            const safeConfig = { ...parsed };
+            const hadPersistedSecret = secretFields.some(field => Boolean(safeConfig[field]));
+            secretFields.forEach(field => delete safeConfig[field]);
+            if (hadPersistedSecret) {
+              localStorage.setItem("sauron_db_config", JSON.stringify(safeConfig));
+            }
+            applyDatabaseConfig(safeConfig);
           } catch (e) {
             console.error("Erro ao carregar configurações locais do banco:", e);
           }
@@ -117,9 +131,9 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
     };
 
     const applyDatabaseConfig = (parsed: any) => {
-      setDbType(parsed.dbType || "postgres");
+      setDbType(parsed.type || parsed.dbType || "postgres");
       setHost(parsed.host || "localhost");
-      setPort(parsed.port || (parsed.dbType === "mysql" ? "3306" : "5432"));
+      setPort(parsed.port || ((parsed.type || parsed.dbType) === "mysql" ? "3306" : "5432"));
       setUser(parsed.user || "postgres");
       setDatabase(parsed.database || "sauron");
       setSsl(parsed.ssl !== undefined ? parsed.ssl : true);
@@ -197,6 +211,7 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
       const diagResponse = await fetch("/api/db/test-connection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify(config)
       });
       
@@ -206,7 +221,8 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
         setTestResult({
           success: false,
           error: `Falha na etapa [${(diagData.stage || "unknown").toUpperCase()}]: ${diagData.message || "Não foi possível estabelecer contato."}`,
-          technicalDetails: diagData.technicalDetails || "Nenhum log de depuração adicional foi gerado."
+          technicalDetails: diagData.technicalDetails || "Nenhum log de depuração adicional foi gerado.",
+          diagnostics: diagData.diagnostics,
         });
         return;
       }
@@ -216,6 +232,7 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
       const response = await fetch("/api/db/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify(config)
       });
 
@@ -226,19 +243,19 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
           success: true,
           tables: resData.tables || [],
           tableColumns: resData.tableColumns || {},
-          isVpnSimulated: resData.isVpnSimulated || diagData.isVpnSimulated
+          diagnostics: diagData.diagnostics
         });
 
         // Set first table as selected if not already set
         if (resData.tables && resData.tables.length > 0 && !selectedTable) {
           setSelectedTable(resData.tables[0]);
-          autoMapColumns(resData.tables[0], resData.tableColumns || {});
         }
       } else {
         setTestResult({
           success: false,
           error: resData.error || "A autenticação foi autorizada, mas falhou ao varrer as tabelas do catálogo público.",
-          technicalDetails: "O usuário do banco de dados pode ter permissões de conexão, mas carece de acesso para ler a tabela 'information_schema'."
+          technicalDetails: "O usuário do banco de dados pode ter permissões de conexão, mas carece de acesso para ler a tabela 'information_schema'.",
+          diagnostics: diagData.diagnostics
         });
       }
     } catch (err: any) {
@@ -253,50 +270,8 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
     }
   };
 
-  // Automatically map columns based on exact or semantic match in lowercase
-  const autoMapColumns = (table: string, columnsMap: Record<string, { name: string; type: string }[]>) => {
-    let targetTable = table;
-    if (targetTable === "__ALL_TABLES__") {
-      const keys = Object.keys(columnsMap);
-      if (keys.length > 0) {
-        targetTable = keys[0];
-      }
-    }
-    const cols = columnsMap[targetTable] || [];
-    const newMappings = { ...mappings };
-
-    const searchSynonyms: Record<string, string[]> = {
-      Grupo: ["grupo", "subgrupo", "empresa_grupo", "nome_grupo", "economic_group"],
-      CNPJ: ["cnpj", "documento", "empresa_cnpj", "tax_id", "cpf_cnpj"],
-      Marca: ["marca", "bandeira", "fabricante", "brand", "montadora"],
-      Empresa: ["empresa", "razao_social", "company", "nome_empresa", "unidade"],
-      Filial: ["filial", "subsidiary", "loja", "ponto_venda", "branch"],
-      Mês: ["mes", "competencia", "data", "periodo", "mes_ano", "month", "date"],
-      Razão: ["razao", "conta", "rubrica", "categoria_despesa", "conta_contabil", "account_name"],
-      Receita: ["receita", "faturamento", "receita_bruta", "total_receita", "revenue", "sales"],
-      Custo: ["custo", "cmv", "custo_venda", "cost", "cogs"],
-      Despesa: ["despesa", "gasto", "despesas", "operating_expense", "gastos", "expenses"]
-    };
-
-    Object.keys(searchSynonyms).forEach((appField) => {
-      const synonyms = searchSynonyms[appField];
-      const match = cols.find((col) => {
-        const nameLower = col.name.toLowerCase();
-        return synonyms.some((syn) => nameLower === syn || nameLower.includes(syn));
-      });
-      if (match) {
-        newMappings[appField] = match.name;
-      }
-    });
-
-    setMappings(newMappings);
-  };
-
   const handleTableChange = (tableName: string) => {
     setSelectedTable(tableName);
-    if (testResult?.tableColumns) {
-      autoMapColumns(tableName, testResult.tableColumns);
-    }
   };
 
   const handleMappingChange = (field: string, dbCol: string) => {
@@ -306,16 +281,17 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
     }));
   };
 
-  const saveConfiguration = async () => {
+  const saveConfiguration = async (sourceId?: string) => {
     const configSave = {
+      type: dbType,
       dbType,
       host,
       port,
       user,
-      password, // include password so backend can connect to sync
       database,
       ssl,
-      connectionString: useConnectionString ? connectionString : "",
+      connectionString: "",
+      useConnectionString: false,
       mappings,
       selectedTable,
       customQuery,
@@ -324,8 +300,7 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
       sshHost,
       sshPort,
       sshUser,
-      sshPassword,
-      sshPrivateKey
+      ...(sourceId ? { sourceId } : {})
     };
     
     // Save to local storage
@@ -336,7 +311,14 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
       await fetch("/api/db/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(configSave)
+        body: JSON.stringify({
+          ...configSave,
+          useConnectionString,
+          connectionString: useConnectionString ? connectionString : "",
+          password,
+          sshPassword,
+          sshPrivateKey
+        })
       });
     } catch (err) {
       console.error("Erro ao salvar configuração do banco de dados no servidor:", err);
@@ -360,14 +342,6 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
           return;
         }
       }
-    }
-
-    // Check if critical mappings are set
-    const criticalFields = ["Grupo", "CNPJ", "Marca", "Empresa", "Mês", "Razão", "Receita", "Custo", "Despesa"];
-    const missingFields = criticalFields.filter((f) => !mappings[f]);
-    if (missingFields.length > 0 && !useCustomQuery) {
-      setStatusMessage(`Alerta: Defina o mapeamento para os campos: ${missingFields.join(", ")}`);
-      return;
     }
 
     setIsLoading(true);
@@ -397,9 +371,26 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
         if (resData.count === 0) {
           setStatusMessage("Banco conectado com sucesso, mas a consulta não retornou linhas.");
         } else {
-          saveConfiguration();
           const sourcePrefix = "";
-          onDataLoaded(resData.data, `${sourcePrefix}Banco SQL: ${database || "String de Conexão"}`);
+          const sourceName = `${sourcePrefix}Banco SQL: ${database || "String de Conexão"}`;
+          const context = getEnterpriseContext();
+          const selection: DatabaseSourceSelection = {
+            sourceLabel: sourceName,
+            enterpriseContext: context,
+            config: {
+              type: dbType,
+              host: host.trim(),
+              port: Number(port) || 0,
+              user: user.trim(),
+              database: database.trim(),
+              ssl,
+              table: selectedTable,
+              query: useCustomQuery ? customQuery : "",
+              mappings,
+            } satisfies NormalizedDatabaseConfig,
+          };
+          const sourceId = await onDataLoaded(resData.data, sourceName, selection);
+          await saveConfiguration(typeof sourceId === "string" ? sourceId : undefined);
           setStatusMessage(`Sucesso! Importados ${resData.count} registros com sucesso.`);
           // Auto close database panel after 1.5 seconds on successful load
           setTimeout(() => {
@@ -655,11 +646,6 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                     <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-extrabold bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-900">
                       <CheckCircle2 size={13} className="text-blue-500" /> Conectado! {testResult.tables?.length || 0} {dbType === "mongodb" ? "coleções" : "tabelas"} encontradas.
                     </span>
-                    {testResult.isVpnSimulated && (
-                      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-900 text-[10px]">
-                        🛡️ VPN Ativa (Criptografada / Sandbox)
-                      </span>
-                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1.5 max-w-[280px] md:max-w-[400px]">
@@ -674,6 +660,20 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                       </details>
                     )}
                   </div>
+                )}
+                {testResult.diagnostics?.stages && (
+                  <details className="mt-2 text-[10px] text-slate-600 dark:text-slate-300">
+                    <summary className="cursor-pointer font-bold">Ver etapas executadas</summary>
+                    <div className="mt-1 space-y-1 font-mono">
+                      {testResult.diagnostics.stages.map(stage => (
+                        <div key={stage.stage}>
+                          <span className={stage.status === "passed" ? "text-emerald-600" : stage.status === "failed" ? "text-red-600" : "text-slate-500"}>
+                            {stage.status.toUpperCase()} {stage.stage}
+                          </span>{" "}{stage.message}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 )}
               </div>
             )}
@@ -729,9 +729,6 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                           type="button"
                           onClick={() => {
                             setSelectedTable("__ALL_TABLES__");
-                            if (testResult.tables.length > 0) {
-                              autoMapColumns(testResult.tables[0], testResult.tableColumns || {});
-                            }
                           }}
                           className={`px-2 py-0.5 text-[9px] font-extrabold uppercase rounded border ${
                             selectedTable === "__ALL_TABLES__"
@@ -785,7 +782,6 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                               onClick={() => {
                                 if (isAllOptionSelected) {
                                   setSelectedTable(t);
-                                  autoMapColumns(t, testResult.tableColumns || {});
                                 } else {
                                   const currentList = selectedTable ? selectedTable.split(",").map(x => x.trim()).filter(Boolean) : [];
                                   if (currentList.includes(t)) {
@@ -794,9 +790,6 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                                   } else {
                                     const newList = [...currentList, t];
                                     setSelectedTable(newList.join(", "));
-                                    if (newList.length === 1) {
-                                      autoMapColumns(t, testResult.tableColumns || {});
-                                    }
                                   }
                                 }
                               }}
@@ -870,16 +863,16 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 space-y-3">
                   <div className="flex items-center gap-1.5 justify-between">
                     <div className="flex items-center gap-1.5">
-                      <span className="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">MAPEAMENTO</span>
-                      <h5 className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wide">Mapeamento de Colunas do Banco</h5>
+                      <span className="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">OPCIONAL</span>
+                      <h5 className="font-bold text-slate-800 dark:text-slate-200 text-[11px] uppercase tracking-wide">Escolha como interpretar as colunas</h5>
                     </div>
                     <span className="text-[10px] text-blue-505 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-800 rounded px-2 py-0.5 font-bold">
-                      Mapeado Automático
+                      Nenhum campo é obrigatório
                     </span>
                   </div>
                   
                   <p className="text-[10px] text-slate-400 dark:text-slate-450 leading-normal mb-2 font-medium">
-                    Selecione quais colunas da tabela <span className="font-bold text-slate-650 dark:text-slate-350">"{selectedTable}"</span> representam os dados de negócios do Sauron:
+                    A escolha é opcional. Você pode continuar com os nomes físicos da tabela <span className="font-bold text-slate-650 dark:text-slate-350">"{selectedTable}"</span> e configurar os campos depois:
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -1054,7 +1047,7 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                     ) : (
                       <Play size={12} />
                     )}
-                    <span>Importar Dados do Banco</span>
+                    <span>Continuar com os dados da tabela</span>
                   </button>
                 </div>
               </div>

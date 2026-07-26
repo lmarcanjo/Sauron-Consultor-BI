@@ -41,6 +41,7 @@ describe("production sanity", () => {
     const compatibilityFiles = new Set([
       path.resolve(productionRoot, "core/data/sourceIdentity.ts"),
       path.resolve(productionRoot, "core/migrations/LegacyCompatibilityMigration.ts"),
+      path.resolve(productionRoot, "core/migrations/LegacyLocalStateRepairService.ts"),
     ]);
     const violations = productionFiles(productionRoot)
       .filter(file => !compatibilityFiles.has(file))

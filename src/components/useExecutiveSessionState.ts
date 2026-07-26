@@ -260,14 +260,18 @@ export const useExecutiveSessionState = ({
         )}`,
       };
 
-      caseHistoryEngine.logNarrativeEvent(
-        project.id,
-        "Reunião executiva realizada",
-        `Sessão de ${formatTime(timerSeconds)} finalizada com ${sessionDecisions.length} decisões e ${
-          newActionPlans.length
-        } novos planos de ação.`,
-        "session_realized"
-      );
+      try {
+        caseHistoryEngine.logNarrativeEvent(
+          project.id,
+          "Reunião executiva realizada",
+          `Sessão de ${formatTime(timerSeconds)} finalizada com ${sessionDecisions.length} decisões e ${
+            newActionPlans.length
+          } novos planos de ação.`,
+          "session_realized"
+        );
+      } catch {
+        // O registro auxiliar não pode impedir a conclusão da ata local.
+      }
 
       // Gravar no localStorage para atualizar Timeline e Checklist de Reunião
       try {

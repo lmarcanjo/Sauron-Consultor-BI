@@ -10,7 +10,7 @@ import {
 } from "./BusinessMetricTypes";
 import { ActiveDataset } from "../../types/dataSource";
 import { ModuleFieldMapping } from "../data/moduleMapping";
-import { buildPresentationMetricValues, inferPresentationMappings, PresentationMetricValues } from "./PresentationMetricContext";
+import { buildPresentationMetricValues, PresentationMetricValues } from "./PresentationMetricContext";
 
 export class BusinessIntelligenceEngine {
   private readonly metrics = new Map<string, BusinessMetric>();
@@ -47,9 +47,10 @@ export async function calculatePresentationMetricValues(params: {
   rows: Record<string, unknown>[];
   moduleMappings?: ModuleFieldMapping[];
 }): Promise<{ values: PresentationMetricValues; metrics: BusinessMetric[]; mappings: ModuleFieldMapping[] }> {
-  const mappings = params.moduleMappings?.length
-    ? params.moduleMappings
-    : inferPresentationMappings(params.activeDataset, params.rows);
+  // Presentation metrics are only valid after the consultant has saved a
+  // mapping. Pattern matching belongs to the suggestion UI, never to a live
+  // executive artifact.
+  const mappings = params.moduleMappings || [];
   const engine = new BusinessIntelligenceEngine({
     activeDataset: params.activeDataset,
     moduleMappings: mappings,

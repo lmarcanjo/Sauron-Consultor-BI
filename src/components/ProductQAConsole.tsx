@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   ShieldAlert, CheckCircle2, AlertTriangle, Play, RefreshCw, ArrowRight, ClipboardCheck 
 } from "lucide-react";
-import { dataSourceManager } from "../services/dataSourceManager";
+import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 
 interface QAItem {
   id: string;
@@ -26,7 +26,7 @@ export const ProductQAConsole: React.FC<{ setActivePage: (p: string) => void }> 
       id: "excel_import",
       name: "Importação Excel (> 10 colunas)",
       description: "Valida se o interpretador de planilhas lê arquivos com mais de 10 colunas reais de dados.",
-      targetPage: "importacao",
+      targetPage: "central_dados",
       checklist: [
         "Carregar arquivo vendas_large.csv com 15 colunas",
         "Confirmar se todas as colunas aparecem no grid de colunas",
@@ -37,7 +37,7 @@ export const ProductQAConsole: React.FC<{ setActivePage: (p: string) => void }> 
       id: "csv_import",
       name: "Tolerância Separador CSV",
       description: "Garante compatibilidade e tolerância com separadores variados (ponto e vírgula, vírgula, tabulação).",
-      targetPage: "importacao",
+      targetPage: "central_dados",
       checklist: [
         "Carregar CSV delimitado por vírgulas",
         "Carregar CSV delimitado por ponto-e-vírgula",
@@ -48,7 +48,7 @@ export const ProductQAConsole: React.FC<{ setActivePage: (p: string) => void }> 
       id: "dynamic_filters",
       name: "Filtros Dinâmicos Customizados",
       description: "Verifica se os filtros são gerados e aplicados com base nas colunas escolhidas pelo consultor.",
-      targetPage: "importacao",
+      targetPage: "central_dados",
       checklist: [
         "Marcar coluna 'Mês' ou 'Vendedor' como filtro ativo",
         "Abrir Gaveta de Filtros no dashboard",
@@ -78,10 +78,10 @@ export const ProductQAConsole: React.FC<{ setActivePage: (p: string) => void }> 
       ]
     },
     {
-      id: "exec_story",
-      name: "Narrativa Executiva Sincronizada",
+      id: "exec_presentation",
+      name: "Apresentação Executiva Sincronizada",
       description: "Confirma se a inteligência de negócios reflete os dados reais no sumário gerencial.",
-      targetPage: "narrativa_executiva",
+      targetPage: "apresentacoes",
       checklist: [
         "Importar planilha real com receitas e despesas customizadas",
         "Verificar se o sumário descritivo reflete o novo lucro líquido total",
@@ -114,24 +114,22 @@ export const ProductQAConsole: React.FC<{ setActivePage: (p: string) => void }> 
 
   // Dynamic status check
   const checkStatus = (id: string): { status: "passed" | "warning" | "failed"; error?: string } => {
-    const workspace = dataSourceManager.getWorkspace();
-    const activeSource = dataSourceManager.getActiveSource();
-    const isRealSpreadsheet = activeSource === "SPREADSHEET_DATA";
+    const activeDataset = activeDatasetStore.getActiveDataset();
+    const isRealSpreadsheet = !!activeDataset;
 
     switch (id) {
       case "excel_import":
-        const hasLargeFile = workspace.files.some(f => f.totalColumns > 10 || f.sheets.some(s => s.columns.length > 10 || (s.rows.length > 0 && Object.keys(s.rows[0]).length > 10)));
+        const hasLargeFile = Boolean(activeDataset && activeDataset.columnCount > 10);
         if (hasLargeFile) return { status: "passed" };
         return { status: "warning", error: "Nenhum arquivo ativo com > 10 colunas. Importe o vendas_large.csv para homologar." };
       
       case "csv_import":
-        const hasCsv = workspace.files.some(f => f.fileName.toLowerCase().endsWith(".csv"));
+        const hasCsv = Boolean(activeDataset?.sourceName.toLowerCase().endsWith(".csv"));
         if (hasCsv) return { status: "passed" };
         return { status: "warning", error: "Nenhum arquivo CSV ativo na central." };
 
       case "dynamic_filters":
-        const filtersRegistered = localStorage.getItem("sauron_ds_filters");
-        if (filtersRegistered && JSON.parse(filtersRegistered).length > 0) return { status: "passed" };
+        if (activeDataset?.columnProfiles?.some((profile: any) => profile.isFilter)) return { status: "passed" };
         return { status: "warning", error: "Nenhum filtro customizado registrado pelo consultor ainda." };
 
       case "dre_real":
@@ -150,8 +148,7 @@ export const ProductQAConsole: React.FC<{ setActivePage: (p: string) => void }> 
         return { status: "passed" };
 
       case "persistence":
-        const profiles = localStorage.getItem("sauron_ds_import_profile");
-        if (profiles && JSON.parse(profiles).length > 0) return { status: "passed" };
+        if (activeDataset?.importProfile || activeDataset?.columnProfiles?.length) return { status: "passed" };
         return { status: "passed" };
 
       default:

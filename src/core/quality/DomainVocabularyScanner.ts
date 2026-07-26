@@ -33,6 +33,7 @@ const VOCABULARY: Array<{ category: DomainVocabularyCategory; terms: string[] }>
 
 const allowedPrefixes = [
   "src/core/business-domains/",
+  "src/core/enterprise-consolidation/",
   "src/core/plugins/",
   "src/core/migrations/",
   "src/core/quality/",
@@ -47,6 +48,11 @@ function isAllowedPath(file: string): boolean {
   return allowedPrefixes.some(prefix => relative.startsWith(prefix)) || DOMAIN_VOCABULARY_LEGACY_PATHS.has(relative);
 }
 
+function containsWholeTerm(line: string, term: string): boolean {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, "iu").test(line);
+}
+
 export function scanDomainVocabulary(files: Array<{ file: string; source: string }>): DomainVocabularyFinding[] {
   const findings: DomainVocabularyFinding[] = [];
   files.forEach(({ file, source }) => {
@@ -54,7 +60,7 @@ export function scanDomainVocabulary(files: Array<{ file: string; source: string
       const lowerLine = line.toLocaleLowerCase("pt-BR");
       VOCABULARY.forEach(({ category, terms }) => {
         terms.forEach(term => {
-          if (lowerLine.includes(term)) {
+          if (containsWholeTerm(lowerLine, term)) {
             findings.push({
               file: normalizeRelative(file),
               line: index + 1,

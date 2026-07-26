@@ -6,3 +6,4 @@
 export * from "./EnterpriseContextTypes";
 export * from "./EnterpriseContextStore";
 export * from "./EnterpriseConsolidationService";
+export * from "./ApplicationContextResolver";
