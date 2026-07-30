@@ -11,6 +11,7 @@ import { Workspace } from "../workspace-intelligence/WorkspaceIntelligenceTypes"
 import { ActiveDataset } from "../../types/dataSource";
 import { businessDomainEngine } from "../business-domains/BusinessDomainEngine";
 import { LancamentoFinanceiro } from "../../types";
+import { normalizeExternalScalar } from "../../utils/calculations";
 import { adaptivePresentationEngine } from "../adaptive-ui";
 import { getEnterpriseContext, enterpriseConsolidationService } from "../enterprise-consolidation";
 import { BusinessIntelligenceEngine } from "./BusinessIntelligenceEngine";
@@ -92,7 +93,7 @@ export class ExecutivePresentationEngine {
     let targetName = activeDataset.sourceName;
     let targetType = "Grupo";
 
-    const uniqueGroupsInRows = Array.from(new Set(allRows.map(r => r.Grupo || r["Grupo Econômico"] || r["Grupo Economico"] || "").filter(Boolean)));
+    const uniqueGroupsInRows = Array.from(new Set(allRows.map(r => normalizeExternalScalar(r.Grupo || r["Grupo Econômico"] || r["Grupo Economico"])).filter(Boolean)));
     if (uniqueGroupsInRows.length === 1 && uniqueGroupsInRows[0]) {
       targetName = uniqueGroupsInRows[0];
     }

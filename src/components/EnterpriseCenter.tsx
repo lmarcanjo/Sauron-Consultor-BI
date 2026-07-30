@@ -37,6 +37,7 @@ import { workspaceIntelligenceEngine } from "../core/workspace-intelligence";
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
 import { executivePresentationEngine, ExecutivePresentation } from "../core/business-intelligence/ExecutivePresentationEngine";
 import { calculatePresentationMetricValues } from "../core/business-intelligence/BusinessIntelligenceEngine";
+import { normalizeExternalScalar } from "../utils/calculations";
 import { PresentationMetricValues } from "../core/business-intelligence/PresentationMetricContext";
 import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
 import { MarketIntelligencePanel } from "./MarketIntelligencePanel";
@@ -268,12 +269,12 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
 
     const entityName = selectedScopeEntity.toLowerCase();
     return filtered.filter(r => {
-      const groupVal = String(r.Grupo || r["grupo"] || "").toLowerCase();
-      const compVal = String(r.Empresa || r["empresa"] || "").toLowerCase();
-      const unitVal = String(r.Unidade || r["unidade"] || "").toLowerCase();
-      if (consolidationScope === "grupo") return groupVal.includes(entityName) || compVal.includes(entityName);
-      if (consolidationScope === "empresa") return compVal.includes(entityName);
-      if (consolidationScope === "unidade") return unitVal.includes(entityName);
+      const groupVal = normalizeExternalScalar(r.Grupo || r["grupo"]).toLowerCase();
+      const compVal = normalizeExternalScalar(r.Empresa || r["empresa"]).toLowerCase();
+      const unitVal = normalizeExternalScalar(r.Unidade || r["unidade"]).toLowerCase();
+      if (consolidationScope === "grupo") return (groupVal.length > 0 && groupVal.includes(entityName)) || (compVal.length > 0 && compVal.includes(entityName));
+      if (consolidationScope === "empresa") return compVal.length > 0 && compVal.includes(entityName);
+      if (consolidationScope === "unidade") return unitVal.length > 0 && unitVal.includes(entityName);
       return true;
     });
   }, [previewRows, selectedPeriod, selectedScopeEntity, consolidationScope]);
@@ -1277,6 +1278,9 @@ export const EnterpriseCenter: React.FC<EnterpriseCenterProps> = ({ onSelectTab 
                 <label className="text-[9px] font-black uppercase text-slate-450 block mb-1">Chave de Acesso do Hub</label>
                 <input
                   type="password"
+                  id="market-api-key"
+                  name="marketApiKey"
+                  autoComplete="current-password"
                   value={marketApiKey}
                   onChange={(e) => setMarketApiKey(e.target.value)}
                   placeholder="Vincular chave de API"

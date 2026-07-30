@@ -509,82 +509,84 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
           <div className="h-px bg-slate-150 dark:bg-slate-800"></div>
 
           {/* Connection inputs */}
-          {!useConnectionString ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="col-span-2">
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">IP do Servidor / Host</label>
-                <input
-                  type="text"
-                  value={host}
-                  onChange={(e) => setHost(e.target.value)}
-                  placeholder="ex: localhost, 127.0.0.1 ou bando.gcp.com"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded px-2.5 py-1.5 font-sans focus:outline-none focus:border-blue-500 font-medium"
-                />
-              </div>
+          <form onSubmit={(e) => { e.preventDefault(); testConnection(); }} className="space-y-4">
+            {!useConnectionString ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">IP do Servidor / Host</label>
+                  <input
+                    type="text"
+                    value={host}
+                    onChange={(e) => setHost(e.target.value)}
+                    placeholder="ex: localhost, 127.0.0.1 ou bando.gcp.com"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded px-2.5 py-1.5 font-sans focus:outline-none focus:border-blue-500 font-medium"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Porta</label>
-                <input
-                  type="text"
-                  value={port}
-                  onChange={(e) => setPort(e.target.value)}
-                  placeholder={dbType === "mysql" ? "3306" : dbType === "mssql" ? "1433" : dbType === "oracle" ? "1521" : dbType === "mongodb" ? "27017" : "5432"}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded px-2.5 py-1.5 font-mono focus:outline-none focus:border-blue-500 text-[11px]"
-                />
-              </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Porta</label>
+                  <input
+                    type="text"
+                    value={port}
+                    onChange={(e) => setPort(e.target.value)}
+                    placeholder={dbType === "mysql" ? "3306" : dbType === "mssql" ? "1433" : dbType === "oracle" ? "1521" : dbType === "mongodb" ? "27017" : "5432"}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded px-2.5 py-1.5 font-mono focus:outline-none focus:border-blue-500 text-[11px]"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
-                  {dbType === "mongodb" ? "Database (MongoDB)" : "Banco de Dados"}
-                </label>
-                <input
-                  type="text"
-                  value={database}
-                  onChange={(e) => setDatabase(e.target.value)}
-                  placeholder={dbType === "mongodb" ? "sauron" : "nome_do_banco"}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded px-2.5 py-1.5 font-sans focus:outline-none focus:border-blue-500 font-medium"
-                />
-              </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
+                    {dbType === "mongodb" ? "Database (MongoDB)" : "Banco de Dados"}
+                  </label>
+                  <input
+                    type="text"
+                    value={database}
+                    onChange={(e) => setDatabase(e.target.value)}
+                    placeholder={dbType === "mongodb" ? "sauron" : "nome_do_banco"}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded px-2.5 py-1.5 font-sans focus:outline-none focus:border-blue-500 font-medium"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Usuário</label>
-                <input
-                  type="text"
-                  value={user}
-                  onChange={(e) => setUser(e.target.value)}
-                  placeholder={dbType === "postgres" ? "postgres" : dbType === "mysql" ? "root" : dbType === "mssql" ? "sa" : dbType === "oracle" ? "system" : "admin"}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 font-sans focus:outline-none focus:border-blue-500 text-slate-700 dark:text-slate-200"
-                />
-              </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Usuário</label>
+                  <input
+                    type="text"
+                    value={user}
+                    autoComplete="username"
+                    onChange={(e) => setUser(e.target.value)}
+                    placeholder={dbType === "postgres" ? "postgres" : dbType === "mysql" ? "root" : dbType === "mssql" ? "sa" : dbType === "oracle" ? "system" : "admin"}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 font-sans focus:outline-none focus:border-blue-500 text-slate-700 dark:text-slate-200"
+                  />
+                </div>
 
-              <div className="col-span-2">
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Senha (Segura no Server)</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 font-sans focus:outline-none focus:border-blue-500 text-slate-800 dark:text-white"
-                />
-              </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Senha (Segura no Server)</label>
+                  <input
+                    type="password"
+                    value={password}
+                    autoComplete="current-password"
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2.5 py-1.5 font-sans focus:outline-none focus:border-blue-500 text-slate-800 dark:text-white"
+                  />
+                </div>
 
-              <div className="flex items-center gap-1.5 h-full pt-4">
-                <input
-                  type="checkbox"
-                  id="ssl-checkbox"
-                  checked={ssl}
-                  onChange={(e) => setSsl(e.target.checked)}
-                  className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                />
-                <label htmlFor="ssl-checkbox" className="text-[10px] font-bold text-slate-550 dark:text-slate-400 select-none cursor-pointer">
-                  Utilizar SSL (Recomendado)
-                </label>
+                <div className="flex items-center gap-1.5 h-full pt-4">
+                  <input
+                    type="checkbox"
+                    id="ssl-checkbox"
+                    checked={ssl}
+                    onChange={(e) => setSsl(e.target.checked)}
+                    className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="ssl-checkbox" className="text-[10px] font-bold text-slate-550 dark:text-slate-400 select-none cursor-pointer">
+                    Utilizar SSL (Recomendado)
+                  </label>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">String de Conexão SQL Completa</label>
+            ) : (
+              <div className="space-y-3">
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">String de Conexão SQL Completa</label>
                 <input
                   type="text"
                   value={connectionString}
@@ -603,20 +605,8 @@ export const DatabaseConnector: React.FC<DatabaseConnectorProps> = ({
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded px-2.5 py-1.5 font-mono focus:outline-none focus:border-blue-500 text-[11px]"
                 />
               </div>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  id="ssl-conn-checkbox"
-                  checked={ssl}
-                  onChange={(e) => setSsl(e.target.checked)}
-                  className="rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                />
-                <label htmlFor="ssl-conn-checkbox" className="text-[10px] font-bold text-slate-550 dark:text-slate-400 select-none cursor-pointer">
-                  Habilitar certificado SSL interno no Driver
-                </label>
-              </div>
-            </div>
-          )}
+            )}
+          </form>
 
           {/* Test connection row */}
           <div className="flex items-center gap-3">

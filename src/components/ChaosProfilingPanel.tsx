@@ -94,6 +94,8 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
   const [columnType, setColumnType] = useState("all");
   const [columnScrollTop, setColumnScrollTop] = useState(0);
   const [labelDrafts, setLabelDrafts] = useState<Record<string, string>>({});
+  const [confirmationStatus, setConfirmationStatus] = useState<"idle" | "confirming" | "success" | "error">("idle");
+  const [confirmationError, setConfirmationError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -234,10 +236,23 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
     setSelectedColumns(current => current.includes(column) ? current.filter(item => item !== column) : [...current, column]);
   };
 
-  const saveDraft = async (columnsOverride?: string[]) => {
+  const saveDraft = async (columnsOverride?: string[] | React.SyntheticEvent | unknown) => {
     if (!profile) return;
-    const columnsToSave = columnsOverride || selectedColumns;
-    if (columnsToSave.length === 0) return;
+
+    // Normalize input: reject SyntheticEvents or non-array inputs
+    let columnsToSave: string[] = [];
+    if (Array.isArray(columnsOverride)) {
+      columnsToSave = columnsOverride.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+    } else if (columnsOverride instanceof Set) {
+      columnsToSave = Array.from(columnsOverride).filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+    } else {
+      columnsToSave = selectedColumns;
+    }
+
+    // Deduplicate preserving order
+    columnsToSave = Array.from(new Set(columnsToSave));
+
+    if (!Array.isArray(columnsToSave) || columnsToSave.length === 0) return;
     const containerId = selectedBlock?.containerId || profile.physicalContainers[0]?.id || "";
     const selectedProfiles = profile.physicalColumns.filter(column => columnsToSave.includes(column.physicalName));
     const view = createDatasetView({
@@ -287,21 +302,62 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
     updateProfile(updated);
   };
 
+  const consultantSummary = useMemo(() => {
+    if (!profile) return null;
+    return buildConsultantUnderstandingSummary(
+      profile,
+      buildSourceDrivenAnalysis(profile),
+      zcxProposalState || undefined
+    );
+  }, [profile, zcxProposalState]);
+
+  const enterpriseModel = useMemo(() => {
+    if (!profile) return null;
+    return enterpriseDiscoveryEngine.discoverOrganization(
+      profile,
+      buildSourceDrivenAnalysis(profile)
+    );
+  }, [profile]);
+
+  const reconciliationProposal = useMemo(() => {
+    if (!profile || !enterpriseModel) return null;
+    return generateReconciliationProposal(
+      profile,
+      enterpriseModel,
+      {
+        groupId: activeDataset?.context?.groupId || null,
+        companyId: activeDataset?.context?.companyId || null,
+        unitId: activeDataset?.context?.unitId || null,
+      }
+    );
+  }, [profile, enterpriseModel, activeDataset?.context?.groupId, activeDataset?.context?.companyId, activeDataset?.context?.unitId]);
+
   if (!activeDataset) return null;
 
   return (
-    <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-4" data-testid="chaos-profiling-panel">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300"><FileSearch size={18} /></div>
-          <div>
-            <h3 className="text-sm font-black text-slate-900 dark:text-white">Análise da fonte</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Compreenda e confirme os campos encontrados antes de realizar análises.</p>
+    <div className="space-y-6" data-testid="chaos-profiling-panel">
+      {/* Structural Card / Header */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+              Profiling Estrutural
+            </span>
+            <span className="text-xs font-semibold text-slate-500">
+              {totalColumns} colunas · {totalKnownRows.toLocaleString("pt-BR")} registros
+            </span>
           </div>
+          <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+            Análise Estrutural e Reconhecimento da Fonte
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {profile ? "Estrutura mapeada sem alteração nos dados físicos." : "Execute a análise para descobrir a organização e os padrões dos dados."}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 self-start md:self-center">
           {isProfiling ? (
-            <button type="button" onClick={cancelProfiling} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-rose-200 text-rose-700 dark:text-rose-300 text-xs font-bold" data-testid="chaos-cancel">
+            <button type="button" onClick={cancelProfiling} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-black">
               <Square size={13} /> Cancelar
             </button>
           ) : (
@@ -324,17 +380,10 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
       )}
       {message && <p className="text-xs font-semibold text-slate-600 dark:text-slate-300" role="status">{message}</p>}
 
-      {profile && (
+      {profile && consultantSummary && (
         <ConsultantDiscoveryPanel
-          summary={buildConsultantUnderstandingSummary(
-            profile,
-            buildSourceDrivenAnalysis(profile),
-            zcxProposalState || undefined
-          )}
-          enterpriseModel={enterpriseDiscoveryEngine.discoverOrganization(
-            profile,
-            buildSourceDrivenAnalysis(profile)
-          )}
+          summary={consultantSummary}
+          enterpriseModel={enterpriseModel || undefined}
           onAcceptSuggestedStructure={() => {
             const highConfNames = zcxProposalState?.fieldProposals
               .filter(f => f.autoSelected)
@@ -350,16 +399,29 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
             saveDraft(allCols);
           }}
           onConfirmSourceUnderstanding={async () => {
-            if (profile) {
+            if (!profile) return;
+            try {
+              setConfirmationStatus("confirming");
+              setConfirmationError(null);
               const allCols = selectAllPhysicalColumns(profile);
               setSelectedColumns(allCols);
               await saveDraft(allCols);
               if (draftView) {
                 await confirmDatasetView(draftView);
+                setConfirmationStatus("success");
+                setMessage("Fonte confirmada para análises.");
+              } else {
+                setConfirmationStatus("success");
                 setMessage("Fonte confirmada para análises.");
               }
+            } catch (err: any) {
+              setConfirmationStatus("error");
+              setConfirmationError(err?.message || "Não foi possível confirmar a fonte.");
             }
           }}
+          canConfirmSourceUnderstanding={Boolean(profile)}
+          confirmationStatus={confirmationStatus}
+          confirmationError={confirmationError}
           onGoToAnalysis={() => {
             const allCols = selectAllPhysicalColumns(profile);
             setSelectedColumns(allCols);
@@ -368,17 +430,9 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
         />
       )}
 
-      {profile && (
+      {profile && reconciliationProposal && (
         <ReconciliationPanel
-          proposal={generateReconciliationProposal(
-            profile,
-            enterpriseDiscoveryEngine.discoverOrganization(profile),
-            {
-              groupId: activeDataset?.context?.groupId || null,
-              companyId: activeDataset?.context?.companyId || null,
-              unitId: activeDataset?.context?.unitId || null,
-            }
-          )}
+          proposal={reconciliationProposal}
           onConfirmReconciliation={(creations, assoc) => {
             setMessage("Reconciliação organizacional aprovada com sucesso.");
           }}
@@ -388,29 +442,16 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
         />
       )}
 
-      {zcxProposalState && (
-        <ZcxProposalPanel
-          proposal={zcxProposalState}
-          onAcceptSuggested={() => {
-            if (profile) {
-              const highConfNames = zcxProposalState.fieldProposals
-                .filter(f => f.autoSelected)
-                .map(f => f.physicalName);
-              const targetCols = highConfNames.length > 0 ? highConfNames : selectVisiblePhysicalColumns(profile);
-              setSelectedColumns(targetCols);
-              saveDraft(targetCols);
-            }
-          }}
-          onReviewQuestions={() => setIsOpen(true)}
-          onKeepOriginalNames={() => {
-            if (profile) {
-              const allCols = selectAllPhysicalColumns(profile);
-              setSelectedColumns(allCols);
-              saveDraft(allCols);
-            }
-          }}
-          onOpenAdvancedConfig={() => setIsOpen(true)}
-        />
+      {profile && (
+        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
+          >
+            {isOpen ? "Ocultar detalhes técnicos" : "Ver detalhes técnicos"}
+          </button>
+        </div>
       )}
 
       {profile && isOpen && (
@@ -453,7 +494,7 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
 
           <div className="space-y-3"><div className="flex items-center justify-between"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Sugestões de significado</h4><span className="text-[10px] text-slate-400">O nome original é preservado</span></div>{profile.semanticSuggestions.slice(0, 120).map(suggestion => <div key={suggestion.id} className="flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800"><div className="flex-1"><p className="font-mono text-xs text-slate-800 dark:text-slate-100">{suggestion.physicalColumns.join(", ")}</p><p className="text-[10px] text-slate-500">Sugestão de interpretação: {suggestion.suggestedRole} · confiança {confidenceLabel(suggestion.confidence)}</p>{suggestion.warnings.map(warning => <p key={warning} className="text-[10px] text-amber-700 dark:text-amber-300"><AlertTriangle size={11} className="inline mr-1" />{warning}</p>)}</div><input value={labelDrafts[suggestion.id] ?? suggestion.suggestedLabel} onChange={event => setLabelDrafts(current => ({ ...current, [suggestion.id]: event.target.value }))} aria-label={`Nome de exibição de ${suggestion.physicalColumns[0]}`} className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs md:w-36" /><button type="button" onClick={() => updateSuggestion(suggestion.id, "CONFIRMED")} className="px-2 py-1.5 rounded border border-emerald-200 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">Aceitar</button><button type="button" onClick={() => updateSuggestion(suggestion.id, "REJECTED")} className="px-2 py-1.5 rounded border border-rose-200 text-rose-700 dark:text-rose-300 text-[10px] font-bold">Rejeitar</button><button type="button" onClick={() => updateSuggestion(suggestion.id, "IGNORED")} className="px-2 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold">Sem significado</button></div>)}</div>
 
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20"><div><p className="text-xs font-black text-indigo-900 dark:text-indigo-200">Confirmar visão da fonte</p><p className="text-[10px] text-indigo-700 dark:text-indigo-300 mt-1">Salve uma revisão preliminar e confirme para liberar a estrutura de análises.</p></div><button type="button" onClick={saveDraft} disabled={selectedColumns.length === 0} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-black disabled:opacity-40"><Save size={13} />Salvar revisão</button></div>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20"><div><p className="text-xs font-black text-indigo-900 dark:text-indigo-200">Confirmar visão da fonte</p><p className="text-[10px] text-indigo-700 dark:text-indigo-300 mt-1">Salve uma revisão preliminar e confirme para liberar a estrutura de análises.</p></div><button type="button" onClick={() => saveDraft(selectedColumns)} disabled={selectedColumns.length === 0} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-black disabled:opacity-40"><Save size={13} />Salvar revisão</button></div>
 
           {draftView && draftView.status === "DRAFT" && <div className="p-3 rounded-lg border border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-900/50 flex flex-col md:flex-row md:items-center justify-between gap-3"><div><p className="text-xs font-black text-amber-900 dark:text-amber-200">Revisão aguardando confirmação</p><p className="text-[10px] text-amber-800 dark:text-amber-300">{draftView.selectedColumns.length} campos selecionados · confirme para utilizar esta visão.</p></div><button type="button" onClick={confirmDraft} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-black"><Check size={13} />Confirmar visão</button></div>}
 
@@ -462,7 +503,7 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
           {profile.qualityFindings.length > 0 && <div className="space-y-2"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Achados de qualidade</h4><div className="grid md:grid-cols-2 gap-2">{profile.qualityFindings.slice(0, 12).map(finding => <div key={finding.id} className="p-3 rounded-lg border border-slate-200 dark:border-slate-800"><p className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-200">{finding.code} · {finding.severity}</p><p className="text-[10px] text-slate-500 mt-1">{finding.message}</p></div>)}</div></div>}
         </div>
       )}
-    </section>
+    </div>
   );
 };
 

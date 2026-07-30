@@ -26,7 +26,10 @@ interface ConsultantDiscoveryPanelProps {
   onAcceptSuggestedStructure: () => void;
   onReviewInterpretations: () => void;
   onKeepOriginalNames: () => void;
-  onConfirmSourceUnderstanding?: () => void;
+  onConfirmSourceUnderstanding: () => Promise<void> | void;
+  canConfirmSourceUnderstanding?: boolean;
+  confirmationStatus?: "idle" | "confirming" | "success" | "error";
+  confirmationError?: string | null;
   onGoToAnalysis: () => void;
 }
 
@@ -36,6 +39,10 @@ export const ConsultantDiscoveryPanel: React.FC<ConsultantDiscoveryPanelProps> =
   onAcceptSuggestedStructure,
   onReviewInterpretations,
   onKeepOriginalNames,
+  onConfirmSourceUnderstanding,
+  canConfirmSourceUnderstanding = true,
+  confirmationStatus = "idle",
+  confirmationError = null,
   onGoToAnalysis,
 }) => {
   const [showEnterpriseMap, setShowEnterpriseMap] = useState(false);
@@ -59,16 +66,6 @@ export const ConsultantDiscoveryPanel: React.FC<ConsultantDiscoveryPanelProps> =
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl font-medium">
             O SAURON analisou a estrutura da fonte e organizou as descobertas abaixo. Nenhuma configuração técnica é necessária para prosseguir.
           </p>
-        </div>
-
-        <div className="flex items-center gap-3 self-start md:self-center">
-          <button
-            type="button"
-            onClick={onGoToAnalysis}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md hover:shadow-emerald-600/20 cursor-pointer flex items-center gap-2"
-          >
-            Ir para análises <ArrowRight size={16} />
-          </button>
         </div>
       </div>
 
@@ -210,52 +207,60 @@ export const ConsultantDiscoveryPanel: React.FC<ConsultantDiscoveryPanelProps> =
         </div>
       </div>
 
-      {/* 5. PRÓXIMOS PASSOS (AÇÕES SIMPLIFICADAS E DIREITAS) */}
+      {/* 5. PRÓXIMOS PASSOS (UMA ÚNICA CTA DE VALIDAÇÃO CANÔNICA) */}
       <div className="space-y-3 border-t border-slate-100 dark:border-slate-800 pt-6">
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-          5. Próximos passos
+          5. Conclusão do entendimento
         </h3>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={onAcceptSuggestedStructure}
-            className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-sm cursor-pointer flex items-center gap-2"
-          >
-            <CheckCircle2 size={16} /> Usar estrutura sugerida
-          </button>
+        {confirmationError && (
+          <div className="p-3.5 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-400 font-semibold">
+            {confirmationError}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onReviewInterpretations}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer flex items-center gap-2"
+            >
+              <HelpCircle size={15} /> Revisar dúvidas detalhadas
+            </button>
+            <button
+              type="button"
+              onClick={onKeepOriginalNames}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer flex items-center gap-2"
+            >
+              <RotateCcw size={15} /> Manter todos os nomes originais
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={onReviewInterpretations}
-            className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer flex items-center gap-2"
-          >
-            <HelpCircle size={15} /> Revisar interpretações
-          </button>
-
-          <button
-            type="button"
-            onClick={onKeepOriginalNames}
-            className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer flex items-center gap-2"
-          >
-            <RotateCcw size={15} /> Continuar com nomes originais
-          </button>
-
-          <button
-            type="button"
-            onClick={onConfirmSourceUnderstanding || onAcceptSuggestedStructure}
-            className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center gap-2"
-            data-testid="btn-confirm-source-understanding"
-          >
-            <CheckCircle2 size={16} /> Confirmar compreensão da fonte
-          </button>
-
-          <button
-            type="button"
-            onClick={onGoToAnalysis}
-            className="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ml-auto"
-          >
-            Ir para análises <ArrowRight size={16} />
-          </button>
+          <div className="flex items-center gap-3">
+            {confirmationStatus === "success" ? (
+              <button
+                type="button"
+                onClick={onGoToAnalysis}
+                className="px-6 py-3 rounded-2xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-black uppercase tracking-wider transition-all shadow-md cursor-pointer flex items-center gap-2"
+                data-testid="btn-go-to-analysis"
+              >
+                Ir para análises <ArrowRight size={16} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onConfirmSourceUnderstanding}
+                disabled={!canConfirmSourceUnderstanding || confirmationStatus === "confirming"}
+                aria-busy={confirmationStatus === "confirming"}
+                className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-indigo-500/20 cursor-pointer flex items-center gap-2"
+                data-testid="btn-confirm-source-understanding"
+              >
+                <CheckCircle2 size={18} />
+                {confirmationStatus === "confirming"
+                  ? "Validando entendimento..."
+                  : "Validar entendimento da empresa"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

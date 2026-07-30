@@ -14,6 +14,7 @@ import { activeDatasetStore } from "../data/ActiveDatasetStore";
 import { IndexedSpreadsheetStorage } from "../storage/IndexedSpreadsheetStorage";
 import { parseNumericValue } from "../data/activeDatasetView";
 import { LancamentoFinanceiro } from "../../types";
+import { normalizeExternalScalar } from "../../utils/calculations";
 import { activeSourceSelectionStore } from "../data/ActiveSourceSelectionStore";
 import { registerEnterpriseContextResolver } from "./EnterpriseContextStore";
 import { ActiveDataset } from "../../types/dataSource";
@@ -174,10 +175,10 @@ export class EnterpriseConsolidationService {
         const groupName = group.name.toLowerCase();
 
         filtered = allRecords.filter(row => {
-          const rGroup = (row.Grupo || row["grupo"] || "").toLowerCase();
-          const rCompany = (row.Empresa || row["empresa"] || "").toLowerCase();
+          const rGroup = normalizeExternalScalar(row.Grupo || row["grupo"]).toLowerCase();
+          const rCompany = normalizeExternalScalar(row.Empresa || row["empresa"]).toLowerCase();
           
-          return rGroup.includes(groupName) || companyNames.some(name => rCompany.includes(name));
+          return (rGroup.length > 0 && rGroup.includes(groupName)) || companyNames.some(name => rCompany.length > 0 && rCompany.includes(name));
         });
       }
     } else if (context.scope === "COMPANY" && context.companyId) {
@@ -185,8 +186,8 @@ export class EnterpriseConsolidationService {
       if (company) {
         const companyName = company.name.toLowerCase();
         filtered = allRecords.filter(row => {
-          const rCompany = (row.Empresa || row["empresa"] || "").toLowerCase();
-          return rCompany.includes(companyName);
+          const rCompany = normalizeExternalScalar(row.Empresa || row["empresa"]).toLowerCase();
+          return rCompany.length > 0 && rCompany.includes(companyName);
         });
       }
     } else if (context.scope === "UNIT" && context.unitId) {
@@ -194,8 +195,8 @@ export class EnterpriseConsolidationService {
       if (unit) {
         const unitName = unit.name.toLowerCase();
         filtered = allRecords.filter(row => {
-          const rUnit = (row.Filial || row["filial"] || row.Unidade || row["unidade"] || "").toLowerCase();
-          return rUnit.includes(unitName);
+          const rUnit = normalizeExternalScalar(row.Filial || row["filial"] || row.Unidade || row["unidade"]).toLowerCase();
+          return rUnit.length > 0 && rUnit.includes(unitName);
         });
       }
     }

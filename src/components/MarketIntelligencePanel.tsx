@@ -72,21 +72,25 @@ export const MarketIntelligencePanel: React.FC<MarketIntelligencePanelProps> = (
             Vincule as chaves de API externas do segmento para liberar feeds, cotações de commodities e taxas macroeconômicas.
           </p>
         </div>
-        <div className="flex gap-2 justify-center max-w-xs mx-auto">
+        <form onSubmit={(e) => { e.preventDefault(); handleConfigure(apiKeyInput); }} className="flex gap-2 justify-center max-w-xs mx-auto">
+          <label htmlFor="market-hub-key" className="sr-only">Chave de API do Hub</label>
           <input
+            id="market-hub-key"
+            name="marketHubKey"
             type="password"
+            autoComplete="current-password"
             placeholder="Chave de API do Hub"
             value={apiKeyInput}
             onChange={(e) => setApiKeyInput(e.target.value)}
             className="w-full text-xs p-2 bg-slate-950 border border-slate-800 rounded-lg text-white font-bold"
           />
           <button
-            onClick={() => handleConfigure(apiKeyInput)}
+            type="submit"
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] uppercase rounded-lg cursor-pointer shrink-0"
           >
             Ativar Hub
           </button>
-        </div>
+        </form>
       </div>
     );
   }

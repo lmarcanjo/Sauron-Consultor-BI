@@ -1,6 +1,1712 @@
 {
   "auditLogs": [
     {
+      "id": "log_ddc29b88-dcbe-415e-8e64-98dfac322423",
+      "timestamp": "2026-07-28T12:46:52.215Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao encerrar a transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785242812211-b31f52db",
+      "mysqlCode": "ER_ROLLBACK",
+      "originalError": "rollback failed",
+      "stack": "Error: rollback failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:346:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at rollback (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:961:28)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1134:17)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:353:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_c7bb0bad-94cf-43c0-a8a9-d2236020cbcf",
+      "timestamp": "2026-07-28T12:46:52.208Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao configurar transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785242812205-b68728b4",
+      "mysqlCode": "ER_CANT_CHANGE_TX_CHARACTERISTICS",
+      "originalError": "READ ONLY transaction rejected",
+      "stack": "Error: READ ONLY transaction rejected\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:329:72)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1080:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:335:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_dbbd25c3-7050-48e7-910c-aeb658df4d81",
+      "timestamp": "2026-07-28T12:46:52.201Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao executar SELECT 1.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "query",
+      "correlationId": "db-1785242812198-31b0e77e",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "read query denied",
+      "stack": "Error: read query denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:312:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1117:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:319:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_94ffa850-30c0-44a9-83f2-4e6f7381d76e",
+      "timestamp": "2026-07-28T12:46:52.195Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Erro ao ler o schema MySQL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "schema",
+      "correlationId": "db-1785242812191-a0dcc18f",
+      "elapsedMs": 1,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "table access denied",
+      "stack": "Error: table access denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:293:56)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1098:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:301:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_090eaf5b-e444-45b7-a0fa-c68f0ec13de4",
+      "timestamp": "2026-07-28T12:46:52.186Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao validar o database selecionado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785242812183-14aee12e",
+      "elapsedMs": 0,
+      "mysqlCode": "PROTOCOL_CONNECTION_LOST",
+      "originalError": "database validation failed",
+      "stack": "Error: database validation failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:278:67)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1044:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:284:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_2600870c-a791-4dc5-9ac5-45cf8eb995e1",
+      "timestamp": "2026-07-28T12:46:52.179Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Database selecionado não corresponde ao solicitado: outro.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785242812174-da14ffc7",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_DATABASE_SELECTION",
+      "originalError": "Database selecionado não corresponde ao solicitado: outro.",
+      "stack": "Error: Database selecionado não corresponde ao solicitado: outro.\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1053:27)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:269:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_120a99bd-ea83-411f-a7f3-085893d6fa1c",
+      "timestamp": "2026-07-28T12:46:52.168Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Banco de dados 'consultoria' não foi encontrado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785242812164-09f6e9e0",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_BAD_DB_ERROR",
+      "originalError": "Unknown database 'consultoria'",
+      "stack": "Error: Unknown database 'consultoria'\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:198:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_738d0620-06f4-4e01-9214-44b0f6575cc5",
+      "timestamp": "2026-07-28T12:46:52.161Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "auth",
+      "correlationId": "db-1785242812157-3a5b778a",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_21dfbb2e-33f7-4930-8697-65e7763fb803",
+      "timestamp": "2026-07-28T12:46:52.153Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha no handshake MySQL/SSL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "handshake",
+      "correlationId": "db-1785242812149-35a2e009",
+      "elapsedMs": 1,
+      "mysqlCode": "HANDSHAKE_FAILED",
+      "originalError": "MySQL handshake failed",
+      "stack": "Error: MySQL handshake failed\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:171:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_09eee2e7-854c-402f-add3-942c22988e6e",
+      "timestamp": "2026-07-28T12:46:52.145Z",
+      "eventType": "DB_CONNECTION_TEST_SUCCESS",
+      "status": "Sucesso",
+      "description": "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785242812139-a722eaee",
+      "stageTimings": [
+        {
+          "stage": "configuration",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "host",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "port",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "handshake",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "auth",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "database",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "schema",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "query",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "readonly",
+          "elapsedMs": 0
+        }
+      ]
+    },
+    {
+      "id": "log_6e066754-706c-4083-b518-489e492ee7d4",
+      "timestamp": "2026-07-28T12:46:52.133Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "port"
+    },
+    {
+      "id": "log_725e7ca4-551e-4902-8474-7634c599d085",
+      "timestamp": "2026-07-28T12:46:52.115Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "readonly",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "auth",
+      "correlationId": "db-1785242812108-40bc842b",
+      "elapsedMs": 3,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_77e3673c-e45c-4257-b425-abba72786110",
+      "timestamp": "2026-07-28T12:46:52.094Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Host 'host-invalido-inexistente-123.com' não encontrado (DNS lookup failed).",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "postgres",
+      "host": "host-invalido-inexistente-123.com",
+      "stage": "host",
+      "error": "getaddrinfo ENOTFOUND host-invalido-inexistente-123.com"
+    },
+    {
+      "id": "log_fbf39f96-1b69-437a-b84d-fd3d7c297615",
+      "timestamp": "2026-07-27T20:00:30.223Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao encerrar a transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785182430214-4a9ae04a",
+      "mysqlCode": "ER_ROLLBACK",
+      "originalError": "rollback failed",
+      "stack": "Error: rollback failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:346:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at rollback (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:961:28)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1134:17)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:353:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_7673999e-cc64-4150-a30f-273f41b59134",
+      "timestamp": "2026-07-27T20:00:30.206Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao configurar transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785182430195-f9b17c9f",
+      "mysqlCode": "ER_CANT_CHANGE_TX_CHARACTERISTICS",
+      "originalError": "READ ONLY transaction rejected",
+      "stack": "Error: READ ONLY transaction rejected\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:329:72)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1080:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:335:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_de564d87-55f9-441a-98de-a21ff16e4558",
+      "timestamp": "2026-07-27T20:00:30.184Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao executar SELECT 1.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "query",
+      "correlationId": "db-1785182430169-88a2b2ac",
+      "elapsedMs": 1,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "read query denied",
+      "stack": "Error: read query denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:312:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1117:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:319:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_7ba456fc-2ea1-489a-9d65-b128fa4f1712",
+      "timestamp": "2026-07-27T20:00:30.156Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Erro ao ler o schema MySQL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "schema",
+      "correlationId": "db-1785182430142-4e84d2a3",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "table access denied",
+      "stack": "Error: table access denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:293:56)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1098:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:301:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_7b033dfb-10e1-49f9-a78d-36d3d0986940",
+      "timestamp": "2026-07-27T20:00:30.129Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao validar o database selecionado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785182430116-62eb8857",
+      "elapsedMs": 1,
+      "mysqlCode": "PROTOCOL_CONNECTION_LOST",
+      "originalError": "database validation failed",
+      "stack": "Error: database validation failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:278:67)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1044:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:284:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_36d6606e-6927-47ca-925c-2b6ba0577445",
+      "timestamp": "2026-07-27T20:00:30.105Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Database selecionado não corresponde ao solicitado: outro.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785182430088-b646930e",
+      "elapsedMs": 1,
+      "mysqlCode": "ER_DATABASE_SELECTION",
+      "originalError": "Database selecionado não corresponde ao solicitado: outro.",
+      "stack": "Error: Database selecionado não corresponde ao solicitado: outro.\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1053:27)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:269:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_999b11a2-92a5-4419-a7fe-e03481b27caf",
+      "timestamp": "2026-07-27T20:00:30.072Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Banco de dados 'consultoria' não foi encontrado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785182430063-49ef6159",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_BAD_DB_ERROR",
+      "originalError": "Unknown database 'consultoria'",
+      "stack": "Error: Unknown database 'consultoria'\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:198:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_a501ec8a-fd38-4494-8145-941bedb6287e",
+      "timestamp": "2026-07-27T20:00:30.054Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "auth",
+      "correlationId": "db-1785182430046-1393a04c",
+      "elapsedMs": 1,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_79703b34-d5b0-4711-867f-6d31b45459dc",
+      "timestamp": "2026-07-27T20:00:30.036Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha no handshake MySQL/SSL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "handshake",
+      "correlationId": "db-1785182430028-171c407e",
+      "elapsedMs": 1,
+      "mysqlCode": "HANDSHAKE_FAILED",
+      "originalError": "MySQL handshake failed",
+      "stack": "Error: MySQL handshake failed\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:171:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_8323bb98-e4a9-49c3-9778-a9bbaacff7d1",
+      "timestamp": "2026-07-27T20:00:30.022Z",
+      "eventType": "DB_CONNECTION_TEST_SUCCESS",
+      "status": "Sucesso",
+      "description": "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785182430016-d95397dc",
+      "stageTimings": [
+        {
+          "stage": "configuration",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "host",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "port",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "handshake",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "auth",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "database",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "schema",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "query",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "readonly",
+          "elapsedMs": 0
+        }
+      ]
+    },
+    {
+      "id": "log_b8b3c86b-4d6a-460e-a2a5-55733004df69",
+      "timestamp": "2026-07-27T20:00:30.012Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "port"
+    },
+    {
+      "id": "log_5ba93ae6-d522-402c-b939-dea5562c84d3",
+      "timestamp": "2026-07-27T20:00:30.002Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "readonly",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "auth",
+      "correlationId": "db-1785182429992-d8f0de51",
+      "elapsedMs": 4,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_440f9665-d95e-4ba0-895f-6437a293136a",
+      "timestamp": "2026-07-27T20:00:29.980Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Host 'host-invalido-inexistente-123.com' não encontrado (DNS lookup failed).",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "postgres",
+      "host": "host-invalido-inexistente-123.com",
+      "stage": "host",
+      "error": "getaddrinfo ENOTFOUND host-invalido-inexistente-123.com"
+    },
+    {
+      "id": "log_901b55e1-3351-4ce4-a0ae-03c53476b716",
+      "timestamp": "2026-07-27T18:33:35.479Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao encerrar a transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785177215470-4f7c9a39",
+      "mysqlCode": "ER_ROLLBACK",
+      "originalError": "rollback failed",
+      "stack": "Error: rollback failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:346:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at rollback (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:961:28)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1134:17)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:353:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_78e64b06-0a2d-4c75-b524-c15c7f31b34d",
+      "timestamp": "2026-07-27T18:33:35.459Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao configurar transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785177215447-eea10674",
+      "mysqlCode": "ER_CANT_CHANGE_TX_CHARACTERISTICS",
+      "originalError": "READ ONLY transaction rejected",
+      "stack": "Error: READ ONLY transaction rejected\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:329:72)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1080:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:335:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_25ee2211-9602-4471-978c-b1a2c86a9bcc",
+      "timestamp": "2026-07-27T18:33:35.438Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao executar SELECT 1.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "query",
+      "correlationId": "db-1785177215426-7a7d5651",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "read query denied",
+      "stack": "Error: read query denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:312:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1117:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:319:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_63a23b0d-0b64-48c2-afa0-2f3809a83d28",
+      "timestamp": "2026-07-27T18:33:35.416Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Erro ao ler o schema MySQL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "schema",
+      "correlationId": "db-1785177215406-e63da8de",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "table access denied",
+      "stack": "Error: table access denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:293:56)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1098:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:301:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_7a627b5c-c1d7-4eed-81ed-cd1c4a55f785",
+      "timestamp": "2026-07-27T18:33:35.395Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao validar o database selecionado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785177215384-2be51275",
+      "elapsedMs": 0,
+      "mysqlCode": "PROTOCOL_CONNECTION_LOST",
+      "originalError": "database validation failed",
+      "stack": "Error: database validation failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:278:67)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1044:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:284:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_e7712e4f-d65a-4a51-a3e4-154c058a1198",
+      "timestamp": "2026-07-27T18:33:35.371Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Database selecionado não corresponde ao solicitado: outro.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785177215350-62b596b5",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_DATABASE_SELECTION",
+      "originalError": "Database selecionado não corresponde ao solicitado: outro.",
+      "stack": "Error: Database selecionado não corresponde ao solicitado: outro.\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1053:27)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:269:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_c20f8f42-869d-41ad-9949-112e5c9ec3cf",
+      "timestamp": "2026-07-27T18:33:35.325Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Banco de dados 'consultoria' não foi encontrado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785177215313-c9f4f99b",
+      "elapsedMs": 1,
+      "mysqlCode": "ER_BAD_DB_ERROR",
+      "originalError": "Unknown database 'consultoria'",
+      "stack": "Error: Unknown database 'consultoria'\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:198:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_48321a78-c7e7-4eb2-bb2a-9bb8a28dc5b2",
+      "timestamp": "2026-07-27T18:33:35.301Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "auth",
+      "correlationId": "db-1785177215290-750526ea",
+      "elapsedMs": 1,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_dce65f8f-ca1b-4d7d-ac40-d3c9f78f1660",
+      "timestamp": "2026-07-27T18:33:35.277Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha no handshake MySQL/SSL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "handshake",
+      "correlationId": "db-1785177215267-fe75d454",
+      "elapsedMs": 1,
+      "mysqlCode": "HANDSHAKE_FAILED",
+      "originalError": "MySQL handshake failed",
+      "stack": "Error: MySQL handshake failed\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:171:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_daafe7a2-75c1-42d7-a1a1-3c91cc2b8185",
+      "timestamp": "2026-07-27T18:33:35.253Z",
+      "eventType": "DB_CONNECTION_TEST_SUCCESS",
+      "status": "Sucesso",
+      "description": "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785177215240-98c14fe0",
+      "stageTimings": [
+        {
+          "stage": "configuration",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "host",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "port",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "handshake",
+          "elapsedMs": 1
+        },
+        {
+          "stage": "auth",
+          "elapsedMs": 1
+        },
+        {
+          "stage": "database",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "schema",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "query",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "readonly",
+          "elapsedMs": 0
+        }
+      ]
+    },
+    {
+      "id": "log_819e394a-014e-4dd7-af08-ee8177943aa9",
+      "timestamp": "2026-07-27T18:33:35.228Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "port"
+    },
+    {
+      "id": "log_089e0d1f-01f0-4ea0-b7ca-9aa09a0afa80",
+      "timestamp": "2026-07-27T18:33:35.204Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "readonly",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "auth",
+      "correlationId": "db-1785177215183-d40e24d7",
+      "elapsedMs": 8,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_0f789b4a-8e7f-4e59-92d5-b679c8d6d35a",
+      "timestamp": "2026-07-27T18:33:35.155Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Host 'host-invalido-inexistente-123.com' não encontrado (DNS lookup failed).",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "postgres",
+      "host": "host-invalido-inexistente-123.com",
+      "stage": "host",
+      "error": "getaddrinfo ENOTFOUND host-invalido-inexistente-123.com"
+    },
+    {
+      "id": "log_42c2506c-711b-4e23-a491-b1b4491b5730",
+      "timestamp": "2026-07-27T18:09:49.556Z",
+      "eventType": "DB_TABLES_LISTED",
+      "status": "Sucesso",
+      "description": "Catalogados de tabelas e colunas gerados com sucesso para MYSQL. Total de tabelas: 42",
+      "user": "consultoria",
+      "type": "mysql",
+      "tablesCount": 42
+    },
+    {
+      "id": "log_5cf0c005-863a-4845-bb05-47b3c9e885d7",
+      "timestamp": "2026-07-27T18:09:36.895Z",
+      "eventType": "DB_CONNECTION_TEST_SUCCESS",
+      "status": "Sucesso",
+      "description": "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785175775402-8f2e8b4f",
+      "stageTimings": [
+        {
+          "stage": "configuration",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "host",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "port",
+          "elapsedMs": 139
+        },
+        {
+          "stage": "handshake",
+          "elapsedMs": 710
+        },
+        {
+          "stage": "auth",
+          "elapsedMs": 710
+        },
+        {
+          "stage": "database",
+          "elapsedMs": 103
+        },
+        {
+          "stage": "schema",
+          "elapsedMs": 70
+        },
+        {
+          "stage": "query",
+          "elapsedMs": 102
+        },
+        {
+          "stage": "readonly",
+          "elapsedMs": 511
+        }
+      ]
+    },
+    {
+      "id": "log_b87582ce-acc9-4bd8-b842-06f3d72f2e2a",
+      "timestamp": "2026-07-27T18:09:34.226Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "port"
+    },
+    {
+      "id": "log_28272331-4146-4036-9ba5-beb986c1b160",
+      "timestamp": "2026-07-27T18:01:10.678Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao encerrar a transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785175270666-65c1a670",
+      "mysqlCode": "ER_ROLLBACK",
+      "originalError": "rollback failed",
+      "stack": "Error: rollback failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:346:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at rollback (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:961:28)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1134:17)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:353:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_5702a16d-727e-418c-8c02-747a2fcced7b",
+      "timestamp": "2026-07-27T18:01:10.655Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao configurar transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785175270645-397c8e89",
+      "mysqlCode": "ER_CANT_CHANGE_TX_CHARACTERISTICS",
+      "originalError": "READ ONLY transaction rejected",
+      "stack": "Error: READ ONLY transaction rejected\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:329:72)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1080:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:335:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_82b74e3f-b986-483c-bf54-65d3d1eb130f",
+      "timestamp": "2026-07-27T18:01:10.631Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao executar SELECT 1.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "query",
+      "correlationId": "db-1785175270620-1f6b9e70",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "read query denied",
+      "stack": "Error: read query denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:312:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1117:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:319:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_ce2ae6b8-2ac6-46e3-9b20-33310982de7a",
+      "timestamp": "2026-07-27T18:01:10.612Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Erro ao ler o schema MySQL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "schema",
+      "correlationId": "db-1785175270604-6487d894",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "table access denied",
+      "stack": "Error: table access denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:293:56)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1098:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:301:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_7f1d4872-eebe-4d90-b176-bf608f1ea160",
+      "timestamp": "2026-07-27T18:01:10.592Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao validar o database selecionado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785175270588-7547e4da",
+      "elapsedMs": 0,
+      "mysqlCode": "PROTOCOL_CONNECTION_LOST",
+      "originalError": "database validation failed",
+      "stack": "Error: database validation failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:278:67)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1044:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:284:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_21faac3c-f055-4f51-b908-9f36558bcd55",
+      "timestamp": "2026-07-27T18:01:10.581Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Database selecionado não corresponde ao solicitado: outro.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785175270571-65c831aa",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_DATABASE_SELECTION",
+      "originalError": "Database selecionado não corresponde ao solicitado: outro.",
+      "stack": "Error: Database selecionado não corresponde ao solicitado: outro.\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1053:27)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:269:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_13878b77-2fcf-44e3-98b7-a2b1a13f9f73",
+      "timestamp": "2026-07-27T18:01:10.559Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Banco de dados 'consultoria' não foi encontrado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785175270550-4abbec05",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_BAD_DB_ERROR",
+      "originalError": "Unknown database 'consultoria'",
+      "stack": "Error: Unknown database 'consultoria'\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:198:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_a6cbc507-12bd-4a26-a131-caaeb1b8f4e1",
+      "timestamp": "2026-07-27T18:01:10.542Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "auth",
+      "correlationId": "db-1785175270535-e1ff7e33",
+      "elapsedMs": 1,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_cb2abeba-8f17-4ad6-9f1c-7f9220c4df36",
+      "timestamp": "2026-07-27T18:01:10.527Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha no handshake MySQL/SSL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "handshake",
+      "correlationId": "db-1785175270520-4ee0a84b",
+      "elapsedMs": 1,
+      "mysqlCode": "HANDSHAKE_FAILED",
+      "originalError": "MySQL handshake failed",
+      "stack": "Error: MySQL handshake failed\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:171:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_779d599b-75c3-4fa4-b2a4-8f42e5b7800d",
+      "timestamp": "2026-07-27T18:01:10.511Z",
+      "eventType": "DB_CONNECTION_TEST_SUCCESS",
+      "status": "Sucesso",
+      "description": "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785175270499-21e8ab76",
+      "stageTimings": [
+        {
+          "stage": "configuration",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "host",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "port",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "handshake",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "auth",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "database",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "schema",
+          "elapsedMs": 1
+        },
+        {
+          "stage": "query",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "readonly",
+          "elapsedMs": 1
+        }
+      ]
+    },
+    {
+      "id": "log_e1e4749a-d78d-4da4-87ec-bcf39279b9f9",
+      "timestamp": "2026-07-27T18:01:10.489Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "port"
+    },
+    {
+      "id": "log_24f31b05-72fe-407b-84fb-223621048891",
+      "timestamp": "2026-07-27T18:01:10.465Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "readonly",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "auth",
+      "correlationId": "db-1785175270445-a5bc4022",
+      "elapsedMs": 7,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_8290cbce-7dd4-4db3-a117-5a5feea3b953",
+      "timestamp": "2026-07-27T18:01:10.418Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Host 'host-invalido-inexistente-123.com' não encontrado (DNS lookup failed).",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "postgres",
+      "host": "host-invalido-inexistente-123.com",
+      "stage": "host",
+      "error": "getaddrinfo ENOTFOUND host-invalido-inexistente-123.com"
+    },
+    {
+      "id": "log_341a477f-a943-48c3-8468-478b89b6b3f0",
+      "timestamp": "2026-07-27T02:07:05.000Z",
+      "eventType": "DB_TABLES_LISTED",
+      "status": "Sucesso",
+      "description": "Catalogados de tabelas e colunas gerados com sucesso para MYSQL. Total de tabelas: 42",
+      "user": "consultoria",
+      "type": "mysql",
+      "tablesCount": 42
+    },
+    {
+      "id": "log_7fb9a796-cd25-4890-a5ac-6ea702ac6d67",
+      "timestamp": "2026-07-27T02:06:51.339Z",
+      "eventType": "DB_CONNECTION_TEST_SUCCESS",
+      "status": "Sucesso",
+      "description": "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785118009436-6670cf7d",
+      "stageTimings": [
+        {
+          "stage": "configuration",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "host",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "port",
+          "elapsedMs": 240
+        },
+        {
+          "stage": "handshake",
+          "elapsedMs": 549
+        },
+        {
+          "stage": "auth",
+          "elapsedMs": 549
+        },
+        {
+          "stage": "database",
+          "elapsedMs": 316
+        },
+        {
+          "stage": "schema",
+          "elapsedMs": 108
+        },
+        {
+          "stage": "query",
+          "elapsedMs": 101
+        },
+        {
+          "stage": "readonly",
+          "elapsedMs": 399
+        }
+      ]
+    },
+    {
+      "id": "log_8ddee8a4-cce8-4dd8-8157-34f2b6a29a09",
+      "timestamp": "2026-07-27T02:06:46.218Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "port"
+    },
+    {
+      "id": "log_c7939d68-f4bd-460c-a53e-e658e553e529",
+      "timestamp": "2026-07-27T02:06:39.838Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "port"
+    },
+    {
+      "id": "log_4a61b368-b1b3-46ee-adea-e680e0f268f3",
+      "timestamp": "2026-07-26T23:23:11.147Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao encerrar a transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785108191132-0f34feec",
+      "mysqlCode": "ER_ROLLBACK",
+      "originalError": "rollback failed",
+      "stack": "Error: rollback failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:346:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at rollback (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:961:28)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1134:17)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:353:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_f0d90a2a-6ed9-4c80-a263-c4fad102f56a",
+      "timestamp": "2026-07-26T23:23:11.119Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao configurar transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785108191111-f26eb694",
+      "mysqlCode": "ER_CANT_CHANGE_TX_CHARACTERISTICS",
+      "originalError": "READ ONLY transaction rejected",
+      "stack": "Error: READ ONLY transaction rejected\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:329:72)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1080:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:335:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_4042bd4a-419b-4463-9129-e3fbb7c6c968",
+      "timestamp": "2026-07-26T23:23:11.104Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao executar SELECT 1.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "query",
+      "correlationId": "db-1785108191096-f64041fe",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "read query denied",
+      "stack": "Error: read query denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:312:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1117:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:319:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_e6a5f1a2-5574-4acd-8989-c0429e00d42c",
+      "timestamp": "2026-07-26T23:23:11.087Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Erro ao ler o schema MySQL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "schema",
+      "correlationId": "db-1785108191079-a85b7982",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "table access denied",
+      "stack": "Error: table access denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:293:56)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1098:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:301:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_0bef6a8f-b3ba-480e-b392-00b4ee09cfe5",
+      "timestamp": "2026-07-26T23:23:11.070Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao validar o database selecionado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785108191061-0fb3abaa",
+      "elapsedMs": 1,
+      "mysqlCode": "PROTOCOL_CONNECTION_LOST",
+      "originalError": "database validation failed",
+      "stack": "Error: database validation failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:278:67)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1044:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:284:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_bc9c1914-a5e7-40cf-96a4-2ace4aeec25a",
+      "timestamp": "2026-07-26T23:23:11.049Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Database selecionado não corresponde ao solicitado: outro.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785108191037-cc8c0970",
+      "elapsedMs": 1,
+      "mysqlCode": "ER_DATABASE_SELECTION",
+      "originalError": "Database selecionado não corresponde ao solicitado: outro.",
+      "stack": "Error: Database selecionado não corresponde ao solicitado: outro.\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1053:27)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:269:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_ff1155b7-f664-4ca8-8739-4c0c4d346a45",
+      "timestamp": "2026-07-26T23:23:11.026Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Banco de dados 'consultoria' não foi encontrado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785108191021-38a702db",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_BAD_DB_ERROR",
+      "originalError": "Unknown database 'consultoria'",
+      "stack": "Error: Unknown database 'consultoria'\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:198:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_e0b28b24-b9dd-404f-8394-53ae0bc8845f",
+      "timestamp": "2026-07-26T23:23:11.015Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "auth",
+      "correlationId": "db-1785108191009-b8f5de2a",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_2d64f5c8-9236-46cc-b90e-ab1c27914ccb",
+      "timestamp": "2026-07-26T23:23:11.002Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha no handshake MySQL/SSL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "handshake",
+      "correlationId": "db-1785108190996-1930e0e3",
+      "elapsedMs": 1,
+      "mysqlCode": "HANDSHAKE_FAILED",
+      "originalError": "MySQL handshake failed",
+      "stack": "Error: MySQL handshake failed\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:171:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_107380dd-0fe1-4700-b6f5-ffc304ff6282",
+      "timestamp": "2026-07-26T23:23:10.985Z",
+      "eventType": "DB_CONNECTION_TEST_SUCCESS",
+      "status": "Sucesso",
+      "description": "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785108190979-f6ba6144",
+      "stageTimings": [
+        {
+          "stage": "configuration",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "host",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "port",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "handshake",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "auth",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "database",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "schema",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "query",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "readonly",
+          "elapsedMs": 0
+        }
+      ]
+    },
+    {
+      "id": "log_54c90703-d6f7-4d9a-ae83-0eba9e9c0323",
+      "timestamp": "2026-07-26T23:23:10.972Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "port"
+    },
+    {
+      "id": "log_f7e40289-f82e-47f3-8d45-3bfe6bed2a67",
+      "timestamp": "2026-07-26T23:23:10.954Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "readonly",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "auth",
+      "correlationId": "db-1785108190937-2b770b1c",
+      "elapsedMs": 6,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_0f9b44d6-7cce-4d69-a9eb-f6fd3c82b23d",
+      "timestamp": "2026-07-26T23:23:10.919Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Host 'host-invalido-inexistente-123.com' não encontrado (DNS lookup failed).",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "postgres",
+      "host": "host-invalido-inexistente-123.com",
+      "stage": "host",
+      "error": "getaddrinfo ENOTFOUND host-invalido-inexistente-123.com"
+    },
+    {
+      "id": "log_db8aaa0c-0d0e-4421-92ef-ab508210a9f5",
+      "timestamp": "2026-07-26T18:29:20.171Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao encerrar a transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785090560168-3a041f79",
+      "mysqlCode": "ER_ROLLBACK",
+      "originalError": "rollback failed",
+      "stack": "Error: rollback failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:346:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at rollback (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:961:28)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1134:17)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:353:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_80008c47-ac2f-44ae-a431-3546f40a6be4",
+      "timestamp": "2026-07-26T18:29:20.165Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao configurar transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785090560161-db818f9c",
+      "mysqlCode": "ER_CANT_CHANGE_TX_CHARACTERISTICS",
+      "originalError": "READ ONLY transaction rejected",
+      "stack": "Error: READ ONLY transaction rejected\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:329:72)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1080:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:335:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_5ee7594f-7a07-4db8-867a-5d0315b6d965",
+      "timestamp": "2026-07-26T18:29:20.158Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao executar SELECT 1.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "query",
+      "correlationId": "db-1785090560154-d261b8c9",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "read query denied",
+      "stack": "Error: read query denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:312:53)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1117:28)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:319:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_831e4c1e-83a4-436a-a4d5-a982180f0661",
+      "timestamp": "2026-07-26T18:29:20.150Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Erro ao ler o schema MySQL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "schema",
+      "correlationId": "db-1785090560147-7e51469b",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_TABLEACCESS_DENIED_ERROR",
+      "originalError": "table access denied",
+      "stack": "Error: table access denied\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:293:56)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1098:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:301:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_2b517851-2355-452f-a24e-65b0923559e0",
+      "timestamp": "2026-07-26T18:29:20.143Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha ao validar o database selecionado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785090560140-57b7f693",
+      "elapsedMs": 0,
+      "mysqlCode": "PROTOCOL_CONNECTION_LOST",
+      "originalError": "database validation failed",
+      "stack": "Error: database validation failed\n    at Object.query (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:278:67)\n    at Object.<anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:116:47)\n    at Object.Mock [as query] (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/spy/dist/index.js:332:34)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1044:48)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:284:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_c1d7fe32-0e6e-4b7e-9f21-e50ef25d7ecb",
+      "timestamp": "2026-07-26T18:29:20.137Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Database selecionado não corresponde ao solicitado: outro.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785090560132-f2f07ddd",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_DATABASE_SELECTION",
+      "originalError": "Database selecionado não corresponde ao solicitado: outro.",
+      "stack": "Error: Database selecionado não corresponde ao solicitado: outro.\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1053:27)\n    at DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:269:20\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:20"
+    },
+    {
+      "id": "log_2b231f0e-a773-4ed1-a4cb-e9bb31876441",
+      "timestamp": "2026-07-26T18:29:20.127Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Banco de dados 'consultoria' não foi encontrado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "database",
+      "correlationId": "db-1785090560123-98d0b102",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_BAD_DB_ERROR",
+      "originalError": "Unknown database 'consultoria'",
+      "stack": "Error: Unknown database 'consultoria'\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:198:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_3ad1faf3-66c2-466f-8946-f963981783d5",
+      "timestamp": "2026-07-26T18:29:20.120Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "auth",
+      "correlationId": "db-1785090560116-b646fc27",
+      "elapsedMs": 0,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_252c54d7-ef8c-4ed7-8f14-19d4dec92d47",
+      "timestamp": "2026-07-26T18:29:20.112Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Falha no handshake MySQL/SSL.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "handshake",
+      "correlationId": "db-1785090560109-2573c00c",
+      "elapsedMs": 0,
+      "mysqlCode": "HANDSHAKE_FAILED",
+      "originalError": "MySQL handshake failed",
+      "stack": "Error: MySQL handshake failed\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:171:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2955:64"
+    },
+    {
+      "id": "log_39512299-1aa2-4c85-b014-7635dea69d32",
+      "timestamp": "2026-07-26T18:29:20.104Z",
+      "eventType": "DB_CONNECTION_TEST_SUCCESS",
+      "status": "Sucesso",
+      "description": "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785090560100-f8327d42",
+      "stageTimings": [
+        {
+          "stage": "configuration",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "host",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "port",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "handshake",
+          "elapsedMs": 1
+        },
+        {
+          "stage": "auth",
+          "elapsedMs": 1
+        },
+        {
+          "stage": "database",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "schema",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "query",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "readonly",
+          "elapsedMs": 0
+        }
+      ]
+    },
+    {
+      "id": "log_515db7a5-1470-43d5-b628-83a1b0605652",
+      "timestamp": "2026-07-26T18:29:20.096Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "port"
+    },
+    {
+      "id": "log_e0974163-e8c1-46c1-9edf-0f12638fbc86",
+      "timestamp": "2026-07-26T18:29:20.087Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "readonly",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "operacional",
+      "stage": "auth",
+      "correlationId": "db-1785090560081-3fd53b10",
+      "elapsedMs": 2,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user",
+      "stack": "Error: Access denied for user\n    at /home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.test.ts:28:65\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at wrapper (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:722:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20\n    at new Promise (<anonymous>)\n    at runWithTimeout (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2272:10)\n    at file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2621:52\n    at run (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1150:20)\n    at limiterFn (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:1162:59)\n    at runHook (file:///home/natalicorreia/Documentos/Sauron-Consultor-BI-main/node_modules/@vitest/runner/dist/chunk-artifact.js:2620:10)"
+    },
+    {
+      "id": "log_21ec7a4a-dfe4-4252-bc24-d22dd8cc4a2c",
+      "timestamp": "2026-07-26T18:29:20.070Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Host 'host-invalido-inexistente-123.com' não encontrado (DNS lookup failed).",
+      "user": "lmarcanjo16@gmail.com",
+      "type": "postgres",
+      "host": "host-invalido-inexistente-123.com",
+      "stage": "host",
+      "error": "getaddrinfo ENOTFOUND host-invalido-inexistente-123.com"
+    },
+    {
+      "id": "log_f486793a-fe07-4848-8388-912c10ac5020",
+      "timestamp": "2026-07-26T15:42:00.252Z",
+      "eventType": "DB_TABLES_LISTED",
+      "status": "Sucesso",
+      "description": "Catalogados de tabelas e colunas gerados com sucesso para MYSQL. Total de tabelas: 42",
+      "user": "consultoria",
+      "type": "mysql",
+      "tablesCount": 42
+    },
+    {
+      "id": "log_702bd51d-749f-4950-8b64-8aad7855d5c7",
+      "timestamp": "2026-07-26T15:41:40.724Z",
+      "eventType": "DB_CONNECTION_TEST_SUCCESS",
+      "status": "Sucesso",
+      "description": "Conexão MySQL validada; consultas de certificação executadas em transação somente leitura.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "readonly",
+      "correlationId": "db-1785080498645-d7063b44",
+      "stageTimings": [
+        {
+          "stage": "configuration",
+          "elapsedMs": 0
+        },
+        {
+          "stage": "host",
+          "elapsedMs": 1
+        },
+        {
+          "stage": "port",
+          "elapsedMs": 155
+        },
+        {
+          "stage": "handshake",
+          "elapsedMs": 950
+        },
+        {
+          "stage": "auth",
+          "elapsedMs": 950
+        },
+        {
+          "stage": "database",
+          "elapsedMs": 138
+        },
+        {
+          "stage": "schema",
+          "elapsedMs": 206
+        },
+        {
+          "stage": "query",
+          "elapsedMs": 204
+        },
+        {
+          "stage": "readonly",
+          "elapsedMs": 812
+        }
+      ]
+    },
+    {
+      "id": "log_be64f0b9-78c9-4b8b-b0a6-3e2203bbe66e",
+      "timestamp": "2026-07-26T15:41:27.939Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Falha na conexão MySQL: Credenciais inválidas. Acesso negado para o usuário informado.",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "auth",
+      "correlationId": "db-1785080486714-24051552",
+      "elapsedMs": 854,
+      "mysqlCode": "ER_ACCESS_DENIED_ERROR",
+      "originalError": "Access denied for user 'consultoria'@'172.30.1.190' (using password: YES)",
+      "stack": "Error: Access denied for user 'consultoria'@'172.30.1.190' (using password: YES)\n    at DatabaseConnectionManager.runConnectionTest (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:1007:44)\n    at async DatabaseConnectionManager.testConnection (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/src/core/connections/DatabaseConnectionManager.ts:617:20)\n    at async <anonymous> (/home/natalicorreia/Documentos/Sauron-Consultor-BI-main/server.ts:156:20)"
+    },
+    {
+      "id": "log_226f017f-c933-4c7a-a817-b30877c5e910",
+      "timestamp": "2026-07-26T15:40:55.269Z",
+      "eventType": "DB_CONNECTION_TEST_WARNING",
+      "status": "Info",
+      "description": "Socket TCP não aberto pelo processo Node em 10.12.22.14:3306",
+      "user": "consultoria",
+      "type": "mysql",
+      "host": "10.12.22.14",
+      "database": "consultoria",
+      "stage": "port"
+    },
+    {
       "id": "log_5646de29-39bf-4048-bfe6-568fcd80abae",
       "timestamp": "2026-07-26T13:00:51.934Z",
       "eventType": "DB_CONNECTION_TEST_WARNING",

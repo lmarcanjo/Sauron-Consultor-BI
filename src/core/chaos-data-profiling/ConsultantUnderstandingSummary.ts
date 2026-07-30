@@ -89,9 +89,13 @@ export function buildConsultantUnderstandingSummary(
 
   const foundDomains = Array.from(domainMap.values());
 
-  // Material ambiguities only (low or medium confidence items)
-  const ambiguities: MaterialAmbiguity[] = sourceDriven.interpretations
+  // Material ambiguities only — GROUP EMPTY FIELDS and exclude tautological suggestions
+  const nonZeroInterpretations = sourceDriven.interpretations.filter(i => i.coverage > 0);
+  const emptyFieldsCount = sourceDriven.interpretations.length - nonZeroInterpretations.length;
+
+  const ambiguities: MaterialAmbiguity[] = nonZeroInterpretations
     .filter(i => i.confidence < 0.85 && i.confidence >= 0.50)
+    .filter(i => i.suggestedMeaning && !i.suggestedMeaning.toLowerCase().includes(`como '${i.physicalName.toLowerCase()}'`))
     .map((i, idx) => ({
       id: `ambig_${idx}`,
       title: `Campo '${i.physicalName}' requer confirmação de uso`,
@@ -99,6 +103,16 @@ export function buildConsultantUnderstandingSummary(
       impact: "Recomendado revisar antes de gerar relatórios avançados.",
       suggestedAction: "Revisar interpretação",
     }));
+
+  if (emptyFieldsCount > 0) {
+    ambiguities.unshift({
+      id: "ambig_empty_group",
+      title: `${emptyFieldsCount} campo(s) sem preenchimento na amostra (0% cobertura)`,
+      description: `Campos vazios identificados na fonte. Recomendado manter como não utilizados sem criar interpretações fictícias.`,
+      impact: "Sem impacto no cálculo de métricas principais.",
+      suggestedAction: "Manter não utilizados",
+    });
+  }
 
   // Build short evidence-backed narrative
   const areaNames = foundDomains.map(d => d.domainName).join(" e ");
