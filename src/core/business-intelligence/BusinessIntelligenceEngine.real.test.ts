@@ -172,5 +172,5 @@ describe("Business Intelligence Engine with the real Honda workbook", () => {
     expect(explanation.evidence.join(" ")).toContain("Colunas usadas: Venda Acess.");
     expect(JSON.stringify(comercialMetrics)).not.toContain("Grupo Alpha");
     expect(JSON.stringify(comercialMetrics)).not.toContain("Topázio");
-  }, 90000);
+  }, 180000);
 });

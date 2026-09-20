@@ -31,7 +31,6 @@ describe("ConsultantUnderstandingSummary", () => {
           probableRole: "metric",
           emptyPercentage: 0.0,
           examples: [100, 250],
-          uniquenessScore: 0.8,
         },
       ],
       detectedBlocks: [],

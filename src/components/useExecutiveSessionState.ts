@@ -281,6 +281,19 @@ export const useExecutiveSessionState = ({
         }
       } catch (e) {}
 
+      // Persistir no WorkspaceRepository para sobreviver a reload e isolar por consultor
+      try {
+        const { consultantWorkspaceManager } = await import("../modules/consultant-workspace/ConsultantWorkspaceManager");
+        await consultantWorkspaceManager.engagementService.saveMeeting(project.id, completedMeeting);
+        if (newActionPlans.length > 0) {
+          for (const plan of newActionPlans) {
+            await consultantWorkspaceManager.engagementService.saveActionPlan(project.id, plan);
+          }
+        }
+      } catch (saveErr) {
+        console.warn("Aviso ao salvar sessão no workspace manager:", saveErr);
+      }
+
       if (onUpdateProject) {
         await onUpdateProject(updatedProject);
       }

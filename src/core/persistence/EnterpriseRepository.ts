@@ -13,8 +13,10 @@ export interface BusinessGroup {
   segment?: string;
   cnpj?: string;
   notes?: string;
+  engagementId?: string;
   companyIds: string[];
   workbookIds?: string[];
+  archived?: boolean;
 }
 
 export interface Company {
@@ -24,10 +26,12 @@ export interface Company {
   segment?: string;
   cnpj?: string;
   notes?: string;
+  engagementId?: string;
   parentId?: string; // links to BusinessGroup
   unitIds: string[];
   workbookIds?: string[];
   contacts?: any[];
+  archived?: boolean;
 }
 
 export interface Unit {
@@ -37,9 +41,11 @@ export interface Unit {
   segment?: string;
   cnpj?: string;
   notes?: string;
+  engagementId?: string;
   parentId?: string; // links to Company
   workbookIds?: string[];
   contacts?: any[];
+  archived?: boolean;
 }
 
 export type SourceBindingStatus = "ACTIVE" | "ARCHIVED" | "REMOVED";

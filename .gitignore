@@ -4,3 +4,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Domain Vocabulary CI artefacts (not versioned)
+domain-vocabulary-report.json
+domain-vocabulary-report.txt
+_domain-vocab-runner.mts
+_domain-vocab-check-runner.mts

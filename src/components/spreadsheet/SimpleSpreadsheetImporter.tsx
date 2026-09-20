@@ -46,7 +46,6 @@ import {
 import { createImportService, resolveImportMode, ImportService } from "../../core/import/ImportService";
 import { UploadedSheetMetadata } from "../../core/import/ImportJobTypes";
 import { workbookRepository } from "../../core/workbook-library";
-import { enterpriseRepository, Enterprise } from "../../core/persistence/EnterpriseRepository";
 import { spreadsheetStorageAdapter } from "../../core/storage/IndexedSpreadsheetStorageAdapter";
 import { workspaceIntelligenceEngine } from "../../core/workspace-intelligence";
 import { activateImportedSources } from "../../core/data/DataActivation";
@@ -54,6 +53,7 @@ import { getEnterpriseContext } from "../../core/enterprise-consolidation/Enterp
 import { activeDatasetStore } from "../../core/data/ActiveDatasetStore";
 import { enterpriseConsolidationService } from "../../core/enterprise-consolidation";
 import { identityEngine } from "../../core/identity/IdentityEngine";
+import { importContextService, ImportContextProjection, ImportOrganizationalScope } from "../../core/import/ImportContextService";
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -64,6 +64,8 @@ interface SimpleSpreadsheetImporterProps {
   /** Usado para isolar a chave de sessionStorage */
   userId?: string;
   workspaceId?: string;
+  /** Engajamento canônico que receberá a fonte. */
+  engagementId?: string;
 }
 
 /**
@@ -78,12 +80,20 @@ interface QueueItem extends QueueItemSnapshot {
   sheetMetadata?: UploadedSheetMetadata[];
   /** fingerprint para detecção de duplicidade */
   fingerprint: string;
+  dataSourceId?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeFingerprint(file: File): string {
   return `${file.name}_${file.size}_${file.lastModified}`;
+}
+
+function originTypeForFile(fileName: string): "EXCEL" | "CSV" | "FILE" {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith(".csv")) return "CSV";
+  if (lower.endsWith(".xls") || lower.endsWith(".xlsx") || lower.endsWith(".xlsb")) return "EXCEL";
+  return "FILE";
 }
 
 function getStatusIcon(status: ImportStatus) {
@@ -138,13 +148,15 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
   initialFiles,
   userId = "default",
   workspaceId = "default",
+  engagementId,
 }) => {
   const importServiceRef = useRef<ImportService>(createImportService());
 
   // ── Estado da fila ───────────────────────────────────────────────────────
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [activeQueueId, setActiveQueueId] = useState<string | null>(null);
-  const [availableEnterprises, setAvailableEnterprises] = useState<Enterprise[]>([]);
+  const [availableEnterprises, setAvailableEnterprises] = useState<ImportOrganizationalScope[]>([]);
+  const [importContext, setImportContext] = useState<ImportContextProjection | null>(null);
   const [activePreviewRows, setActivePreviewRows] = useState<any[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -174,8 +186,21 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
   }, [userId, workspaceId]);
 
   useEffect(() => {
-    enterpriseRepository.getAll().then(setAvailableEnterprises);
-  }, []);
+    let disposed = false;
+    const loadImportContext = async () => {
+      const projection = await importContextService.resolveImportContext(
+        engagementId || "",
+        identityEngine.getCurrentUser()
+      );
+      if (disposed) return;
+      setImportContext(projection);
+      setAvailableEnterprises(projection.availableOrganizationalScopes);
+    };
+    void loadImportContext();
+    return () => {
+      disposed = true;
+    };
+  }, [engagementId]);
 
   // ── Persistência reativa ─────────────────────────────────────────────────
 
@@ -224,19 +249,26 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
 
-    // Entity creation and importer mounting can finish in different ticks.
-    // Read the persisted registry before creating queue items so the source
-    // starts in the current context instead of an empty, unlinked scope.
-    const persistedEnterprises = availableEnterprises.length > 0
-      ? availableEnterprises
-      : await enterpriseRepository.getAll();
-    if (availableEnterprises.length === 0 && persistedEnterprises.length > 0) {
-      setAvailableEnterprises(persistedEnterprises);
+    if (!importContext?.canImport) {
+      showToast(
+        "warning",
+        importContext?.blockingReasons[0] || "Selecione um Engajamento e uma estrutura organizacional antes de importar."
+      );
+      return;
     }
+
+    const scopedEnterprises = availableEnterprises;
     const currentContext = getEnterpriseContext();
-    const initialGroupId = currentContext.groupId || persistedEnterprises.find(e => e.type === "Grupo")?.id || "";
-    const initialCompanyId = currentContext.companyId || persistedEnterprises.find(e => e.type === "Empresa" && (!initialGroupId || e.parentId === initialGroupId))?.id || "";
-    const initialUnitId = currentContext.unitId || persistedEnterprises.find(e => e.type === "Unidade" && (!initialCompanyId || e.parentId === initialCompanyId))?.id || "";
+    const hasScope = (id: string | undefined) => Boolean(id && scopedEnterprises.some(scope => scope.id === id));
+    const initialGroupId = hasScope(currentContext.groupId)
+      ? currentContext.groupId!
+      : scopedEnterprises.find(e => e.type === "Grupo")?.id || "";
+    const initialCompanyId = hasScope(currentContext.companyId)
+      ? currentContext.companyId!
+      : scopedEnterprises.find(e => e.type === "Empresa" && (!initialGroupId || e.groupId === initialGroupId))?.id || "";
+    const initialUnitId = hasScope(currentContext.unitId)
+      ? currentContext.unitId!
+      : scopedEnterprises.find(e => e.type === "Unidade" && (!initialCompanyId || e.companyId === initialCompanyId))?.id || "";
 
     const newItems: QueueItem[] = [];
 
@@ -298,14 +330,14 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
   };
 
   useEffect(() => {
-    if (!initialFiles || initialFiles.length === 0 || initialFilesRef.current === initialFiles) return;
+    if (!initialFiles || initialFiles.length === 0 || !importContext?.canImport || initialFilesRef.current === initialFiles) return;
     initialFilesRef.current = initialFiles;
     // The shared header/drawer flow already represents the consultant's
     // explicit import action. Keep its one-step behavior while preserving
     // the manual queue for files added inside this component.
     autoImportInitialFilesRef.current = true;
     void handleFilesSelected(initialFiles);
-  }, [initialFiles]);
+  }, [initialFiles, importContext?.canImport]);
 
   // ── Parse de metadados ───────────────────────────────────────────────────
 
@@ -468,6 +500,18 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
       return;
     }
 
+    const resolvedImportContext = await importContextService.resolveImportContext(
+      engagementId || "",
+      identityEngine.getCurrentUser()
+    );
+    if (!resolvedImportContext.canImport || !resolvedImportContext.engagement) {
+      showToast(
+        "warning",
+        resolvedImportContext.blockingReasons[0] || "Selecione um Engajamento e uma estrutura organizacional antes de importar."
+      );
+      return;
+    }
+
     setIsSaving(true);
     let successCount = 0;
 
@@ -475,9 +519,9 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
     let nextWbIds = [...(activeContext.workbookIds ?? [])];
     let nextDsIds = [...(activeContext.datasetIds ?? [])];
     let resolvedScope = activeContext.scope;
-    let resolvedGroupId = activeContext.groupId;
-    let resolvedCompanyId = activeContext.companyId;
-    let resolvedUnitId = activeContext.unitId;
+    let resolvedGroupId: string | undefined;
+    let resolvedCompanyId: string | undefined;
+    let resolvedUnitId: string | undefined;
 
     for (const item of validItems) {
       updateItem(item.queueItemId, {
@@ -492,8 +536,22 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
           item.selectedSheets
         );
 
-        // Vincular a entidade escolhida sem duplicar a fonte em empresas irmãs.
-        const entId = item.selectedUnitId || item.selectedCompanyId || item.selectedGroupId;
+        const selectedScope = importContextService.resolveSelectedScope(resolvedImportContext, {
+          groupId: item.selectedGroupId,
+          companyId: item.selectedCompanyId,
+          unitId: item.selectedUnitId,
+        });
+
+        const dataSource = await importContextService.dataSourceService.registerDataSource({
+          engagementId: resolvedImportContext.engagement.id,
+          organizationalScope: {
+            scopeType: selectedScope.scopeType,
+            targetId: selectedScope.targetId,
+          },
+          name: item.fileName,
+          originType: originTypeForFile(item.fileName),
+          format: item.file?.type,
+        }, identityEngine.getCurrentUser());
 
         const { workbook } = workbookRepository.createWorkbookFromActiveDataset(activeWorkbook);
 
@@ -516,51 +574,21 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
           workbookId: workbook.id,
           decisionAction: "create_new_workspace",
           workspaceId: workspaceCurrentId,
-          enterpriseId: entId || undefined,
+          enterpriseId: selectedScope.targetId,
         });
 
-        if (entId) {
-          const entRecord = await enterpriseRepository.getById(entId);
-          if (entRecord) {
-            const company = entRecord.type === "Empresa"
-              ? entRecord
-              : entRecord.type === "Unidade"
-                ? await enterpriseRepository.getById((entRecord as any).parentId || "")
-                : undefined;
-            const group = entRecord.type === "Grupo"
-              ? entRecord
-              : (company as any)?.parentId
-                ? await enterpriseRepository.getById((company as any).parentId)
-                : undefined;
+        await importContextService.dataSourceService.bindImportedSource(
+          dataSource.id,
+          workbook.id,
+          activeWorkbook.datasetId,
+          canonicalWorkspaceId,
+          identityEngine.getCurrentUser()
+        );
 
-            await enterpriseRepository.bindSource({
-              sourceId: activeWorkbook.datasetId,
-              workbookId: workbook.id,
-              datasetId: activeWorkbook.datasetId,
-              workspaceId: canonicalWorkspaceId,
-              groupId: group?.id,
-              companyId: company?.id,
-              unitId: entRecord.type === "Unidade" ? entRecord.id : undefined,
-            });
-
-            if (entRecord.type === "Grupo") {
-              resolvedGroupId = entRecord.id;
-              resolvedCompanyId = undefined;
-              resolvedUnitId = undefined;
-              resolvedScope = "GROUP";
-            } else if (entRecord.type === "Unidade") {
-              resolvedUnitId = entRecord.id;
-              resolvedCompanyId = company?.id;
-              resolvedGroupId = group?.id ?? resolvedGroupId;
-              resolvedScope = "UNIT";
-            } else {
-              resolvedCompanyId = entRecord.id;
-              resolvedUnitId = undefined;
-              resolvedGroupId = group?.id ?? (entRecord as any).parentId ?? resolvedGroupId;
-              resolvedScope = "COMPANY";
-            }
-          }
-        }
+        resolvedGroupId = selectedScope.groupId;
+        resolvedCompanyId = selectedScope.companyId;
+        resolvedUnitId = selectedScope.unitId;
+        resolvedScope = selectedScope.scopeType;
 
         if (!nextWbIds.includes(workbook.id)) nextWbIds.push(workbook.id);
         if (!nextDsIds.includes(activeWorkbook.datasetId)) nextDsIds.push(activeWorkbook.datasetId);
@@ -570,6 +598,7 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
           progress: 100,
           message: "Importado com sucesso!",
           workbookId: workbook.id,
+          dataSourceId: dataSource.id,
         });
         successCount++;
       } catch (err: any) {
@@ -666,6 +695,29 @@ export const SimpleSpreadsheetImporter: React.FC<SimpleSpreadsheetImporterProps>
           Cancelar
         </button>
       </div>
+
+      {importContext && !importContext.canImport && (
+        <div
+          data-testid="import-context-blocked"
+          className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl"
+        >
+          <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-[11px] text-amber-800 dark:text-amber-300 font-bold">
+              Selecione um Engajamento e uma estrutura organizacional antes de importar.
+            </p>
+            <p className="text-[10px] text-amber-700 dark:text-amber-400">
+              {importContext.blockingReasons[0]}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {importContext?.warnings.map((warning) => (
+        <div key={warning} className="text-[10px] text-slate-500 dark:text-slate-400">
+          {warning}
+        </div>
+      ))}
 
       {/* ── Alertas de Recuperação ── */}
       {interruptedCount > 0 && (

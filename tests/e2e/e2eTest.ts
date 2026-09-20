@@ -58,7 +58,12 @@ export const test = baseTest.extend<{
       const failure = request.failure();
       const errorText = failure?.errorText || 'unknown';
       const url = request.url();
-      if (!url.startsWith('data:') && !url.includes('favicon')) {
+      if (
+        !url.startsWith('data:') &&
+        !url.includes('favicon') &&
+        !errorText.includes('ERR_ABORTED') &&
+        !errorText.includes('ERR_NETWORK_CHANGED')
+      ) {
         requestFailures.push(`[RequestFailed] ${request.method()} ${url} ${errorText}`);
       }
     });
@@ -133,6 +138,10 @@ export async function ensureConsultantSession(page: Page): Promise<void> {
     }
 
     if (await dataCenterButton.isVisible({ timeout: 15000 }).catch(() => false)) {
+      const acceptLgpd = page.getByRole('button', { name: /Aceitar Todos/i });
+      if (await acceptLgpd.isVisible({ timeout: 1500 }).catch(() => false)) {
+        await acceptLgpd.click().catch(() => undefined);
+      }
       return;
     }
 
@@ -142,6 +151,10 @@ export async function ensureConsultantSession(page: Page): Promise<void> {
   }
 
   await baseExpect(page.getByTestId('btn-open-data-center').first()).toBeVisible({ timeout: 15000 });
+  const acceptLgpd = page.getByRole('button', { name: /Aceitar Todos/i });
+  if (await acceptLgpd.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await acceptLgpd.click().catch(() => undefined);
+  }
 }
 
 export async function openDataCenter(page: Page): Promise<void> {

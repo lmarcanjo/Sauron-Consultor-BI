@@ -33,6 +33,12 @@ test.describe("Hotfix 25.1 — Column Selection Contract E2E", () => {
         await page.getByRole("button", { name: /Inicializar/i }).click();
       }
 
+      // Navigate to Fontes de Dados
+      const sidebar = page.locator("aside").first();
+      const importNavBtn = sidebar.getByRole("button", { name: /Fontes de Dados/i }).first();
+      await expect(importNavBtn).toBeVisible({ timeout: 15000 });
+      await importNavBtn.click({ force: true });
+
       // Upload file directly using SimpleSpreadsheetImporter if visible or open uploader
       const openUploaderBtn = page.getByRole("button", { name: /^Importar Planilha$/i }).first();
       if (await openUploaderBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -52,15 +58,23 @@ test.describe("Hotfix 25.1 — Column Selection Contract E2E", () => {
       await expect(analyzeBtn).toBeVisible({ timeout: 15000 });
       await analyzeBtn.click();
 
-      // Open technical details drawer
-      const toggleDetailsBtn = page.getByRole("button", { name: /Ver detalhes técnicos/i });
-      await expect(toggleDetailsBtn).toBeVisible({ timeout: 20000 });
-      await toggleDetailsBtn.click();
+      // Verify ConsultantDiscoveryPanel renders
+      await expect(page.getByTestId("consultant-discovery-panel")).toBeVisible({ timeout: 20000 });
+
+      // Click "Revisar dúvidas detalhadas" to open detail panel if available, or click "Ver detalhes técnicos"
+      const reviewBtn = page.getByRole("button", { name: /Revisar dúvidas detalhadas/i });
+      if (await reviewBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await reviewBtn.click();
+      } else {
+        const toggleDetailsBtn = page.getByRole("button", { name: /Ver detalhes técnicos/i });
+        await expect(toggleDetailsBtn).toBeVisible({ timeout: 20000 });
+        await toggleDetailsBtn.click();
+      }
 
       // Click "Salvar revisão" button directly
       const saveDraftBtn = page.getByRole("button", { name: /Salvar revisão/i });
       await expect(saveDraftBtn).toBeVisible();
-      await saveDraftBtn.click();
+      await saveDraftBtn.click({ force: true });
 
       // Verify zero TypeError: columnsToSave.includes is not a function
       const contractErrors = pageErrors.filter(e => e.includes("columnsToSave.includes"));

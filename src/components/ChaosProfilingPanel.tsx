@@ -39,12 +39,27 @@ import { ConsultantDiscoveryPanel } from "./ConsultantDiscoveryPanel";
 import { buildSourceDrivenAnalysis } from "../core/chaos-data-profiling";
 import { buildConsultantUnderstandingSummary } from "../core/chaos-data-profiling/ConsultantUnderstandingSummary";
 import { SourceDrivenInterpretationPanel } from "./SourceDrivenInterpretationPanel";
+import { SourceDrivenSemanticEngine } from "../core/semantic/SourceDrivenSemanticEngine";
+import { SemanticConfirmationService, semanticConfirmationRepository } from "../core/semantic/confirmation";
+import type { SemanticArtifact } from "../core/semantic/SemanticContracts";
+import type { SemanticConfirmationArtifact, FieldDecisionType, CustomInterpretationPayload } from "../core/semantic/confirmation/SemanticConfirmationContracts";
 import { enterpriseDiscoveryEngine } from "../core/enterprise-consolidation/EnterpriseDiscoveryEngine";
 import { generateReconciliationProposal } from "../core/enterprise-consolidation/OrganizationalReconciliationEngine";
 import { ReconciliationPanel } from "./ReconciliationPanel";
 
+import { preliminaryFinancialAnalysisService } from "../core/preliminary-analysis/PreliminaryFinancialAnalysisService";
+import { PreliminaryFinancialAnalysisPanel } from "./PreliminaryFinancialAnalysisPanel";
+import { ExecutiveAnalysisCompletionPanel } from "./ExecutiveAnalysisCompletionPanel";
+import { consultantWorkspaceManager } from "../modules/consultant-workspace/ConsultantWorkspaceManager";
+import { PreliminaryFinancialAnalysisArtifact } from "../core/preliminary-analysis/PreliminaryFinancialAnalysisContracts";
+import { WorkspaceProject } from "../modules/consultant-workspace/types";
+
 interface ChaosProfilingPanelProps {
   activeDataset?: ActiveDataset | null;
+  onOpenExecutiveSummary?: () => void;
+  onOpenExecutiveDashboard?: () => void;
+  onGenerateExecutivePresentation?: () => void;
+  onAnalysisCompleted?: (artifact: PreliminaryFinancialAnalysisArtifact) => void | Promise<void>;
 }
 
 interface ProgressState {
@@ -77,7 +92,13 @@ function actorName(): string {
   return identityEngine.getCurrentUser()?.profile.fullName || "";
 }
 
-export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ activeDataset: activeDatasetProp }) => {
+export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({
+  activeDataset: activeDatasetProp,
+  onOpenExecutiveSummary,
+  onOpenExecutiveDashboard,
+  onGenerateExecutivePresentation,
+  onAnalysisCompleted,
+}) => {
   const [activeDataset, setActiveDataset] = useState<ActiveDataset | null>(activeDatasetProp || activeDatasetStore.getActiveDataset());
   const [profile, setProfile] = useState<ChaosSourceProfile | null>(null);
   const [draftView, setDraftView] = useState<DatasetView | null>(null);
@@ -98,6 +119,10 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
   const [confirmationError, setConfirmationError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  const [preliminaryArtifact, setPreliminaryArtifact] = useState<PreliminaryFinancialAnalysisArtifact | null>(null);
+  const [activeViewMode, setActiveViewMode] = useState<"PRELIMINARY_REPORT" | "FIELD_REVIEW">("PRELIMINARY_REPORT");
+  const [activeEngagement, setActiveEngagement] = useState<WorkspaceProject | null>(null);
+
   useEffect(() => {
     setActiveDataset(activeDatasetProp || activeDatasetStore.getActiveDataset());
   }, [activeDatasetProp]);
@@ -117,13 +142,35 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
     setSelectedColumns([]);
     setSelectedBlockId("");
     setMessage("");
+    setPreliminaryArtifact(null);
+    setActiveViewMode("PRELIMINARY_REPORT");
     if (!sourceId) return;
     let mounted = true;
+
+    const loadLatestAnalysis = async () => {
+      const proj = await consultantWorkspaceManager.getActiveProject();
+      if (mounted) {
+        setActiveEngagement(proj);
+      }
+      if (proj) {
+        try {
+          const latest = await preliminaryFinancialAnalysisService.getLatestForEngagement(proj.id, identityEngine.getCurrentUser());
+          if (mounted && latest && latest.dataSourceId === sourceId) {
+            setPreliminaryArtifact(latest);
+            setActiveViewMode("PRELIMINARY_REPORT");
+          }
+        } catch (e) {
+          console.warn("Failed to load latest preliminary analysis:", e);
+        }
+      }
+    };
+
     Promise.all([
       chaosProfilingRepository.getProfile(sourceId),
       chaosProfilingRepository.getLatestDraft(sourceId),
       chaosProfilingRepository.getConfirmedView(sourceId),
       chaosProfilingRepository.getLatestProposal(sourceId),
+      loadLatestAnalysis()
     ]).then(([savedProfile, savedDraft, savedConfirmed, savedProposal]) => {
       if (!mounted) return;
       setProfile(savedProfile);
@@ -196,6 +243,23 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
       setMessage(duplicateMatch
         ? "Estrutura analisada. Encontramos uma fonte estruturalmente semelhante; revise antes de salvar outra visão."
         : "Estrutura analisada sem alterar a fonte. Proposta inicial ZCX pronta.");
+
+      // Run Preliminary Financial Analysis deterministically
+      const proj = await consultantWorkspaceManager.getActiveProject();
+      if (proj) {
+        const art = await preliminaryFinancialAnalysisService.analyze(
+          {
+            engagementId: proj.id,
+            dataSourceId: result.sourceId,
+            workbookId: activeDataset.datasetId,
+            containerId: activeDataset.activeSheet || "Dados"
+          },
+          identityEngine.getCurrentUser()
+        );
+        setPreliminaryArtifact(art);
+        await onAnalysisCompleted?.(art);
+        setActiveViewMode("PRELIMINARY_REPORT");
+      }
     } catch (error) {
       if ((error as Error)?.message?.toLowerCase().includes("cancelado")) {
         setMessage("Análise cancelada. Nenhuma alteração foi feita na fonte.");
@@ -239,7 +303,6 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
   const saveDraft = async (columnsOverride?: string[] | React.SyntheticEvent | unknown) => {
     if (!profile) return;
 
-    // Normalize input: reject SyntheticEvents or non-array inputs
     let columnsToSave: string[] = [];
     if (Array.isArray(columnsOverride)) {
       columnsToSave = columnsOverride.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
@@ -249,7 +312,6 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
       columnsToSave = selectedColumns;
     }
 
-    // Deduplicate preserving order
     columnsToSave = Array.from(new Set(columnsToSave));
 
     if (!Array.isArray(columnsToSave) || columnsToSave.length === 0) return;
@@ -351,7 +413,7 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
             Análise Estrutural e Reconhecimento da Fonte
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {profile ? "Estrutura mapeada sem alteração nos dados físicos." : "Execute a análise para descobrir a organização e os padrões dos dados."}
+            {profile ? "Estrutura analisada sem alteração nos dados físicos." : "Execute a análise para descobrir a organização e os padrões dos dados."}
           </p>
         </div>
 
@@ -362,7 +424,7 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
             </button>
           ) : (
             <button type="button" onClick={runProfiling} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black" data-testid="chaos-analyze">
-              <Play size={13} /> Analisar estrutura
+              <Play size={13} /> ANALISAR DADOS
             </button>
           )}
           {profile && <button type="button" onClick={() => setIsOpen(open => !open)} className="p-2 rounded-lg border border-slate-200 dark:border-slate-700" aria-label="Abrir resultados da análise">
@@ -380,128 +442,217 @@ export const ChaosProfilingPanel: React.FC<ChaosProfilingPanelProps> = ({ active
       )}
       {message && <p className="text-xs font-semibold text-slate-600 dark:text-slate-300" role="status">{message}</p>}
 
-      {profile && consultantSummary && (
-        <ConsultantDiscoveryPanel
-          summary={consultantSummary}
-          enterpriseModel={enterpriseModel || undefined}
-          onAcceptSuggestedStructure={() => {
-            const highConfNames = zcxProposalState?.fieldProposals
-              .filter(f => f.autoSelected)
-              .map(f => f.physicalName) || [];
-            const targetCols = highConfNames.length > 0 ? highConfNames : selectVisiblePhysicalColumns(profile);
-            setSelectedColumns(targetCols);
-            saveDraft(targetCols);
-          }}
-          onReviewInterpretations={() => setIsOpen(true)}
-          onKeepOriginalNames={() => {
-            const allCols = selectAllPhysicalColumns(profile);
-            setSelectedColumns(allCols);
-            saveDraft(allCols);
-          }}
-          onConfirmSourceUnderstanding={async () => {
-            if (!profile) return;
-            try {
-              setConfirmationStatus("confirming");
-              setConfirmationError(null);
-              const allCols = selectAllPhysicalColumns(profile);
-              setSelectedColumns(allCols);
-              await saveDraft(allCols);
-              if (draftView) {
-                await confirmDatasetView(draftView);
-                setConfirmationStatus("success");
-                setMessage("Fonte confirmada para análises.");
-              } else {
-                setConfirmationStatus("success");
-                setMessage("Fonte confirmada para análises.");
-              }
-            } catch (err: any) {
-              setConfirmationStatus("error");
-              setConfirmationError(err?.message || "Não foi possível confirmar a fonte.");
-            }
-          }}
-          canConfirmSourceUnderstanding={Boolean(profile)}
-          confirmationStatus={confirmationStatus}
-          confirmationError={confirmationError}
-          onGoToAnalysis={() => {
-            const allCols = selectAllPhysicalColumns(profile);
-            setSelectedColumns(allCols);
-            saveDraft(allCols);
-          }}
-        />
-      )}
-
-      {profile && reconciliationProposal && (
-        <ReconciliationPanel
-          proposal={reconciliationProposal}
-          onConfirmReconciliation={(creations, assoc) => {
-            setMessage("Reconciliação organizacional aprovada com sucesso.");
-          }}
-          onKeepUnreconciled={() => {
-            setMessage("Mantido empresa independente sem vínculo.");
-          }}
-        />
-      )}
-
-      {profile && (
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setIsOpen(!isOpen)}
-            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
-          >
-            {isOpen ? "Ocultar detalhes técnicos" : "Ver detalhes técnicos"}
-          </button>
-        </div>
-      )}
-
-      {profile && isOpen && (
-        <div className="space-y-5 border-t border-slate-100 dark:border-slate-800 pt-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-            {[
-              ["Fonte", profile.sourceName],
-              ["Linhas conhecidas", totalKnownRows.toLocaleString("pt-BR")],
-              ["Linhas amostradas", profile.sampledRecords.toLocaleString("pt-BR")],
-              ["Colunas encontradas", totalColumns.toLocaleString("pt-BR")],
-              ["Blocos sugeridos", profile.detectedBlocks.length.toLocaleString("pt-BR")],
-            ].map(([label, value]) => <div key={label} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800"><span className="block text-[10px] uppercase font-bold text-slate-400">{label}</span><strong className="block mt-1 text-slate-800 dark:text-slate-100 truncate">{value}</strong></div>)}
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Blocos encontrados</h4><span className="text-[10px] text-slate-400">Ações ficam registradas</span></div>
-            {profile.detectedBlocks.length === 0 && <p className="text-xs text-slate-500">Nenhum bloco foi sugerido nesta amostra.</p>}
-            {profile.detectedBlocks.map(block => (
-              <div key={block.blockId} className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2"><div><p className="text-xs font-black text-slate-800 dark:text-white">{block.titleSuggestion || "Bloco sem título"}</p><p className="text-[10px] text-slate-500">Linhas {block.startRow}–{block.endRow} · {block.dataRows.length} dados · confiança {confidenceLabel(block.confidence)}</p><p className="text-[10px] text-slate-500">Cabeçalho: {block.headerRows.length > 0 ? block.headerRows.join(", ") : "não identificado"}</p></div><span className="text-[10px] uppercase font-bold text-indigo-600 dark:text-indigo-300">{block.status}</span></div>
-                <p className="text-[10px] text-slate-500">{block.evidence.join(" ")}</p>
-                <div className="flex flex-wrap gap-2"><button type="button" onClick={() => chooseBlock(block.blockId)} className="px-2.5 py-1.5 rounded border border-indigo-200 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">Usar este bloco</button><button type="button" onClick={() => updateBlock(block.blockId, "CONFIRMED")} className="px-2.5 py-1.5 rounded border border-emerald-200 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold"><Check size={12} className="inline mr-1" />Confirmar</button><button type="button" onClick={() => { chooseBlock(block.blockId); updateBlock(block.blockId, "EDITED"); }} className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold">Editar seleção</button><button type="button" onClick={() => updateBlock(block.blockId, "IGNORED")} className="px-2.5 py-1.5 rounded border border-slate-200 dark:border-slate-800 text-slate-500 text-[10px] font-bold"><X size={12} className="inline mr-1" />Ignorar</button></div>
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Colunas encontradas</h4><span className="text-[10px] text-slate-400">{selectedCount} selecionada(s) de {availableColumns.length} visíveis</span></div>
-            <div className="flex flex-wrap gap-2"><button type="button" onClick={chooseAll} className="px-2.5 py-1.5 rounded border border-indigo-200 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">Selecionar todas</button><button type="button" onClick={() => setSelectedColumns([])} className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold">Limpar seleção</button><button type="button" onClick={chooseVisible} className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold">Selecionar visíveis</button><button type="button" onClick={chooseType} disabled={columnType === "all"} className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold disabled:opacity-40">Selecionar por tipo</button></div>
-            <div className="flex flex-col md:flex-row gap-2"><label className="relative flex-1"><Search size={13} className="absolute left-2.5 top-2.5 text-slate-400" /><input value={columnSearch} onChange={event => setColumnSearch(event.target.value)} placeholder="Buscar coluna" className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs" /></label><select value={columnType} onChange={event => setColumnType(event.target.value)} className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs"><option value="all">Todos os tipos</option><option value="text">Texto</option><option value="number">Número</option><option value="date">Data</option><option value="boolean">Booleano</option><option value="object">Objeto</option></select></div>
-            <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-auto" style={{ height: COLUMN_VIEWPORT_HEIGHT }} onScroll={event => setColumnScrollTop(event.currentTarget.scrollTop)} data-testid="chaos-column-selector">
-              <div style={{ height: availableColumns.length * COLUMN_ROW_HEIGHT, position: "relative" }}>
-                <div style={{ transform: `translateY(${visibleStart * COLUMN_ROW_HEIGHT}px)` }}>
-                  {virtualColumns.map(column => <label key={`${column.containerId}:${column.physicalName}`} className="flex items-center gap-3 px-3 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-950" style={{ height: COLUMN_ROW_HEIGHT }}><input type="checkbox" checked={selectedColumns.includes(column.physicalName)} onChange={() => toggleColumn(column.physicalName)} /><span className="font-mono text-xs text-slate-800 dark:text-slate-100 flex-1 truncate" title={column.physicalName}>{column.physicalName}</span><span className="text-[10px] text-slate-500">{typeLabel(column)}</span>{column.examples.length > 0 && <span className="max-w-28 truncate text-[10px] text-slate-400" title={column.examples.join(" · ")}>Ex: {String(column.examples[0])}</span>}<span className="text-[10px] text-slate-400">{Math.round((1 - column.emptyPercentage) * 100)}%</span></label>)}
-                </div>
-              </div>
+      {preliminaryArtifact && activeViewMode === "PRELIMINARY_REPORT" ? (
+        <>
+          <ExecutiveAnalysisCompletionPanel
+            artifact={preliminaryArtifact}
+            onOpenSummary={onOpenExecutiveSummary}
+            onOpenDashboard={onOpenExecutiveDashboard}
+            onGeneratePresentation={onGenerateExecutivePresentation}
+          />
+          <PreliminaryFinancialAnalysisPanel
+            artifact={preliminaryArtifact}
+            clientName={activeEngagement?.client || "Cliente"}
+            engagementName={activeEngagement?.id || "Engajamento"}
+            onReviewInterpretations={() => setActiveViewMode("FIELD_REVIEW")}
+          />
+        </>
+      ) : (
+        <>
+          {activeViewMode === "FIELD_REVIEW" && (
+            <div className="flex justify-start">
+              <button
+                type="button"
+                onClick={() => setActiveViewMode("PRELIMINARY_REPORT")}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
+              >
+                Voltar para Análise Financeira Preliminar
+              </button>
             </div>
-            {selectedBlock && <p className="text-[10px] text-indigo-600 dark:text-indigo-300">Bloco selecionado: linhas {selectedBlock.startRow}–{selectedBlock.endRow}. A escolha será registrada na view.</p>}
-          </div>
+          )}
 
-          <div className="space-y-3"><div className="flex items-center justify-between"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Sugestões de significado</h4><span className="text-[10px] text-slate-400">O nome original é preservado</span></div>{profile.semanticSuggestions.slice(0, 120).map(suggestion => <div key={suggestion.id} className="flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800"><div className="flex-1"><p className="font-mono text-xs text-slate-800 dark:text-slate-100">{suggestion.physicalColumns.join(", ")}</p><p className="text-[10px] text-slate-500">Sugestão de interpretação: {suggestion.suggestedRole} · confiança {confidenceLabel(suggestion.confidence)}</p>{suggestion.warnings.map(warning => <p key={warning} className="text-[10px] text-amber-700 dark:text-amber-300"><AlertTriangle size={11} className="inline mr-1" />{warning}</p>)}</div><input value={labelDrafts[suggestion.id] ?? suggestion.suggestedLabel} onChange={event => setLabelDrafts(current => ({ ...current, [suggestion.id]: event.target.value }))} aria-label={`Nome de exibição de ${suggestion.physicalColumns[0]}`} className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs md:w-36" /><button type="button" onClick={() => updateSuggestion(suggestion.id, "CONFIRMED")} className="px-2 py-1.5 rounded border border-emerald-200 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">Aceitar</button><button type="button" onClick={() => updateSuggestion(suggestion.id, "REJECTED")} className="px-2 py-1.5 rounded border border-rose-200 text-rose-700 dark:text-rose-300 text-[10px] font-bold">Rejeitar</button><button type="button" onClick={() => updateSuggestion(suggestion.id, "IGNORED")} className="px-2 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold">Sem significado</button></div>)}</div>
+          {profile && consultantSummary && (
+            <ConsultantDiscoveryPanel
+              summary={consultantSummary}
+              enterpriseModel={enterpriseModel || undefined}
+              onAcceptSuggestedStructure={() => {
+                const highConfNames = zcxProposalState?.fieldProposals
+                  .filter(f => f.autoSelected)
+                  .map(f => f.physicalName) || [];
+                const targetCols = highConfNames.length > 0 ? highConfNames : selectVisiblePhysicalColumns(profile);
+                setSelectedColumns(targetCols);
+                saveDraft(targetCols);
+              }}
+              onReviewInterpretations={() => setIsOpen(true)}
+              onKeepOriginalNames={() => {
+                const allCols = selectAllPhysicalColumns(profile);
+                setSelectedColumns(allCols);
+                saveDraft(allCols);
+              }}
+              onConfirmSourceUnderstanding={async () => {
+                if (!profile) return;
+                try {
+                  setConfirmationStatus("confirming");
+                  setConfirmationError(null);
+                  const allCols = selectAllPhysicalColumns(profile);
+                  setSelectedColumns(allCols);
+                  await saveDraft(allCols);
 
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20"><div><p className="text-xs font-black text-indigo-900 dark:text-indigo-200">Confirmar visão da fonte</p><p className="text-[10px] text-indigo-700 dark:text-indigo-300 mt-1">Salve uma revisão preliminar e confirme para liberar a estrutura de análises.</p></div><button type="button" onClick={() => saveDraft(selectedColumns)} disabled={selectedColumns.length === 0} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-black disabled:opacity-40"><Save size={13} />Salvar revisão</button></div>
+                  const confirmationService = new SemanticConfirmationService(semanticConfirmationRepository);
+                  const sourceId = sourceIdOf(activeDataset);
+                  const mockSemanticArtifact: SemanticArtifact = {
+                    artifactId: `sem_art_${sourceId}`,
+                    discoveryArtifactId: `disc_${sourceId}`,
+                    qualityArtifactId: `qual_${sourceId}`,
+                    evidenceArtifactId: `evid_${sourceId}`,
+                    dataSourceId: sourceId,
+                    engagementId: activeDataset?.sourceIdentity?.groupId || 'eng_default',
+                    schemaVersionNumber: 1,
+                    fieldInterpretations: profile.physicalColumns.map(col => ({
+                      containerId: col.containerId,
+                      columnId: `${col.containerId}.${col.physicalName}`,
+                      physicalName: col.physicalName,
+                      observedType: col.observedTypes[0] || 'STRING',
+                      interpretationStatus: 'SUGGESTED' as const,
+                      suggestedInterpretations: [
+                        {
+                          interpretationId: `interp_${col.physicalName}`,
+                          label: col.physicalName,
+                          category: 'CATEGORICAL' as const,
+                          confidenceScore: col.confidence,
+                          confidenceBand: col.confidence > 0.8 ? 'HIGH' as const : col.confidence > 0.5 ? 'MEDIUM' as const : 'LOW' as const,
+                          supportingEvidenceIds: ['ev_1'],
+                          contradictingEvidenceIds: [],
+                          status: 'SUGGESTED' as const,
+                          explanation: `Identificado tipo ${col.observedTypes[0]} com ${col.cardinality} valores distintos.`,
+                          assumptions: []
+                        }
+                      ],
+                      sourceEvidenceIds: ['ev_1'],
+                      limitations: []
+                    })),
+                    containerInterpretations: [],
+                    relationshipInterpretations: [],
+                    unresolvedQuestions: [],
+                    groupedUnresolvedQuestions: [],
+                    generatedAt: new Date().toISOString(),
+                    fingerprint: {
+                      discoveryFingerprint: 'disc_fp',
+                      evidenceHash: 'ev_hash',
+                      secondLevelHash: 'ev_hash',
+                      semanticHash: 'sem_hash',
+                      algorithm: 'FNV1A_32_CANONICAL' as const,
+                      generatedAt: new Date().toISOString()
+                    },
+                    metadata: {
+                      engineId: 'chaos_profiler',
+                      engineVersion: '1.0.0',
+                      executionDurationMs: 10,
+                      isEvidenceTruncated: false,
+                      totalFieldsInterpreted: profile.physicalColumns.length,
+                      totalSuggestionsGenerated: profile.physicalColumns.length,
+                      totalQuestionsGenerated: 0,
+                      generatedAt: new Date().toISOString()
+                    }
+                  } as any;
 
-          {draftView && draftView.status === "DRAFT" && <div className="p-3 rounded-lg border border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-900/50 flex flex-col md:flex-row md:items-center justify-between gap-3"><div><p className="text-xs font-black text-amber-900 dark:text-amber-200">Revisão aguardando confirmação</p><p className="text-[10px] text-amber-800 dark:text-amber-300">{draftView.selectedColumns.length} campos selecionados · confirme para utilizar esta visão.</p></div><button type="button" onClick={confirmDraft} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-black"><Check size={13} />Confirmar visão</button></div>}
+                  await confirmationService.confirmSourceUnderstanding(mockSemanticArtifact);
 
-          {confirmedView && <div className="space-y-3 p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50"><div><p className="text-xs font-black text-emerald-900 dark:text-emerald-200">Estrutura confirmada</p><p className="text-[10px] text-emerald-800 dark:text-emerald-300">{confirmedView.selectedColumns.length} campos selecionados · pronta para análises.</p></div><div className="overflow-auto border border-emerald-200/70 dark:border-emerald-900/60 rounded-lg max-h-72"><table className="min-w-full text-[10px] text-left"><thead><tr className="bg-emerald-100/60 dark:bg-emerald-950/50">{confirmedView.selectedColumns.map(column => <th key={column} className="px-2 py-2 font-mono whitespace-nowrap">{confirmedView.consultantLabels[column] || column}</th>)}</tr></thead><tbody>{viewRows.map((row, index) => <tr key={`${confirmedView.datasetViewId}:${index}`} className="border-t border-emerald-200/50 dark:border-emerald-900/50">{confirmedView.selectedColumns.map(column => <td key={`${confirmedView.datasetViewId}:${index}:${column}`} className="px-2 py-1.5 font-mono whitespace-nowrap">{String(row[column] ?? "")}</td>)}</tr>)}{viewRows.length === 0 && <tr><td colSpan={Math.max(1, confirmedView.selectedColumns.length)} className="px-3 py-6 text-center">Nenhuma linha disponível na página selecionada.</td></tr>}</tbody></table></div><p className="text-[10px] text-emerald-800 dark:text-emerald-300">Esta tabela utiliza a estrutura confirmada. A planilha original permanece intacta.</p></div>}
+                  if (draftView) {
+                    await confirmDatasetView(draftView, 'consultant');
+                  }
+                  setConfirmationStatus("success");
+                  setMessage("Fonte confirmada para análises.");
+                } catch (err: any) {
+                  setConfirmationStatus("error");
+                  setConfirmationError(err?.message || "Não foi possível confirmar a fonte.");
+                }
+              }}
+              canConfirmSourceUnderstanding={Boolean(profile)}
+              confirmationStatus={confirmationStatus}
+              confirmationError={confirmationError}
+              onGoToAnalysis={() => {
+                const allCols = selectAllPhysicalColumns(profile);
+                setSelectedColumns(allCols);
+                saveDraft(allCols);
+              }}
+            />
+          )}
 
-          {profile.qualityFindings.length > 0 && <div className="space-y-2"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Achados de qualidade</h4><div className="grid md:grid-cols-2 gap-2">{profile.qualityFindings.slice(0, 12).map(finding => <div key={finding.id} className="p-3 rounded-lg border border-slate-200 dark:border-slate-800"><p className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-200">{finding.code} · {finding.severity}</p><p className="text-[10px] text-slate-500 mt-1">{finding.message}</p></div>)}</div></div>}
-        </div>
+          {profile && reconciliationProposal && (
+            <ReconciliationPanel
+              proposal={reconciliationProposal}
+              onConfirmReconciliation={(creations, assoc) => {
+                setMessage("Reconciliação organizacional aprovada com sucesso.");
+              }}
+              onKeepUnreconciled={() => {
+                setMessage("Mantido empresa independente sem vínculo.");
+              }}
+            />
+          )}
+
+          {profile && (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-2"
+              >
+                {isOpen ? "Ocultar detalhes técnicos" : "Ver detalhes técnicos"}
+              </button>
+            </div>
+          )}
+
+          {profile && isOpen && (
+            <div className="space-y-5 border-t border-slate-100 dark:border-slate-800 pt-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                {[
+                  ["Fonte", profile.sourceName],
+                  ["Linhas conhecidas", totalKnownRows.toLocaleString("pt-BR")],
+                  ["Linhas amostradas", profile.sampledRecords.toLocaleString("pt-BR")],
+                  ["Colunas encontradas", totalColumns.toLocaleString("pt-BR")],
+                  ["Blocos sugeridos", profile.detectedBlocks.length.toLocaleString("pt-BR")],
+                ].map(([label, value]) => <div key={label} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800"><span className="block text-[10px] uppercase font-bold text-slate-400">{label}</span><strong className="block mt-1 text-slate-800 dark:text-slate-100 truncate">{value}</strong></div>)}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Blocos encontrados</h4><span className="text-[10px] text-slate-400">Ações ficam registradas</span></div>
+                {profile.detectedBlocks.length === 0 && <p className="text-xs text-slate-500">Nenhum bloco foi sugerido nesta amostra.</p>}
+                {profile.detectedBlocks.map(block => (
+                  <div key={block.blockId} className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 space-y-2">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2"><div><p className="text-xs font-black text-slate-800 dark:text-white">{block.titleSuggestion || "Bloco sem título"}</p><p className="text-[10px] text-slate-500">Linhas {block.startRow}–{block.endRow} · {block.dataRows.length} dados · confiança {confidenceLabel(block.confidence)}</p><p className="text-[10px] text-slate-500">Cabeçalho: {block.headerRows.length > 0 ? block.headerRows.join(", ") : "não identificado"}</p></div><span className="text-[10px] uppercase font-bold text-indigo-600 dark:text-indigo-300">{block.status}</span></div>
+                    <p className="text-[10px] text-slate-500">{block.evidence.join(" ")}</p>
+                    <div className="flex flex-wrap gap-2"><button type="button" onClick={() => chooseBlock(block.blockId)} className="px-2.5 py-1.5 rounded border border-indigo-200 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">Usar este bloco</button><button type="button" onClick={() => updateBlock(block.blockId, "CONFIRMED")} className="px-2.5 py-1.5 rounded border border-emerald-200 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold"><Check size={12} className="inline mr-1" />Confirmar</button><button type="button" onClick={() => { chooseBlock(block.blockId); updateBlock(block.blockId, "EDITED"); }} className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold">Editar seleção</button><button type="button" onClick={() => updateBlock(block.blockId, "IGNORED")} className="px-2.5 py-1.5 rounded border border-slate-200 dark:border-slate-800 text-slate-500 text-[10px] font-bold"><X size={12} className="inline mr-1" />Ignorar</button></div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Colunas encontradas</h4><span className="text-[10px] text-slate-400">{selectedCount} selecionada(s) de {availableColumns.length} visíveis</span></div>
+                <div className="flex flex-wrap gap-2"><button type="button" onClick={chooseAll} className="px-2.5 py-1.5 rounded border border-indigo-200 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">Selecionar todas</button><button type="button" onClick={() => setSelectedColumns([])} className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold">Limpar seleção</button><button type="button" onClick={chooseVisible} className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold">Selecionar visíveis</button><button type="button" onClick={chooseType} disabled={columnType === "all"} className="px-2.5 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold disabled:opacity-40">Selecionar por tipo</button></div>
+                <div className="flex flex-col md:flex-row gap-2"><label className="relative flex-1"><Search size={13} className="absolute left-2.5 top-2.5 text-slate-400" /><input value={columnSearch} onChange={event => setColumnSearch(event.target.value)} placeholder="Buscar coluna" className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-955 text-xs" /></label><select value={columnType} onChange={event => setColumnType(event.target.value)} className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-955 text-xs"><option value="all">Todos os tipos</option><option value="text">Texto</option><option value="number">Número</option><option value="date">Data</option><option value="boolean">Booleano</option><option value="object">Objeto</option></select></div>
+                <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-auto" style={{ height: COLUMN_VIEWPORT_HEIGHT }} onScroll={event => setColumnScrollTop(event.currentTarget.scrollTop)} data-testid="chaos-column-selector">
+                  <div style={{ height: availableColumns.length * COLUMN_ROW_HEIGHT, position: "relative" }}>
+                    <div style={{ transform: `translateY(${visibleStart * COLUMN_ROW_HEIGHT}px)` }}>
+                      {virtualColumns.map(column => <label key={`${column.containerId}:${column.physicalName}`} className="flex items-center gap-3 px-3 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-955" style={{ height: COLUMN_ROW_HEIGHT }}><input type="checkbox" checked={selectedColumns.includes(column.physicalName)} onChange={() => toggleColumn(column.physicalName)} /><span className="font-mono text-xs text-slate-800 dark:text-slate-100 flex-1 truncate" title={column.physicalName}>{column.physicalName}</span><span className="text-[10px] text-slate-500">{typeLabel(column)}</span>{column.examples.length > 0 && <span className="max-w-28 truncate text-[10px] text-slate-400" title={column.examples.join(" · ")}>Ex: {String(column.examples[0])}</span>}<span className="text-[10px] text-slate-400">{Math.round((1 - column.emptyPercentage) * 100)}%</span></label>)}
+                    </div>
+                  </div>
+                </div>
+                {selectedBlock && <p className="text-[10px] text-indigo-600 dark:text-indigo-300">Bloco selecionado: linhas {selectedBlock.startRow}–{selectedBlock.endRow}. A escolha será registrada na view.</p>}
+              </div>
+
+              <div className="space-y-3"><div className="flex items-center justify-between"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Sugestões de significado</h4><span className="text-[10px] text-slate-400">O nome original é preservado</span></div>{profile.semanticSuggestions.slice(0, 120).map(suggestion => <div key={suggestion.id} className="flex flex-col md:flex-row md:items-center gap-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-955 border border-slate-100 dark:border-slate-800"><div className="flex-1"><p className="font-mono text-xs text-slate-800 dark:text-slate-100">{suggestion.physicalColumns.join(", ")}</p><p className="text-[10px] text-slate-500">Sugestão de interpretação: {suggestion.suggestedRole} · confiança {confidenceLabel(suggestion.confidence)}</p>{suggestion.warnings.map(warning => <p key={warning} className="text-[10px] text-amber-700 dark:text-amber-300"><AlertTriangle size={11} className="inline mr-1" />{warning}</p>)}</div><input value={labelDrafts[suggestion.id] ?? suggestion.suggestedLabel} onChange={event => setLabelDrafts(current => ({ ...current, [suggestion.id]: event.target.value }))} aria-label={`Nome de exibição de ${suggestion.physicalColumns[0]}`} className="px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-905 text-xs md:w-36" /><button type="button" onClick={() => updateSuggestion(suggestion.id, "CONFIRMED")} className="px-2 py-1.5 rounded border border-emerald-200 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold">Aceitar</button><button type="button" onClick={() => updateSuggestion(suggestion.id, "REJECTED")} className="px-2 py-1.5 rounded border border-rose-200 text-rose-700 dark:text-rose-300 text-[10px] font-bold">Rejeitar</button><button type="button" onClick={() => updateSuggestion(suggestion.id, "IGNORED")} className="px-2 py-1.5 rounded border border-slate-200 text-slate-600 dark:text-slate-300 text-[10px] font-bold">Sem significado</button></div>)}</div>
+
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 dark:bg-indigo-950/20"><div><p className="text-xs font-black text-indigo-900 dark:text-indigo-200">Confirmar visão da fonte</p><p className="text-[10px] text-indigo-700 dark:text-indigo-300 mt-1">Salve uma revisão preliminar e confirme para liberar a estrutura de análises.</p></div><button type="button" onClick={() => saveDraft(selectedColumns)} disabled={selectedColumns.length === 0} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs font-black disabled:opacity-40"><Save size={13} />Salvar revisão</button></div>
+
+              {draftView && draftView.status === "DRAFT" && <div className="p-3 rounded-lg border border-amber-200 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-900/50 flex flex-col md:flex-row md:items-center justify-between gap-3"><div><p className="text-xs font-black text-amber-900 dark:text-amber-200">Revisão aguardando confirmação</p><p className="text-[10px] text-amber-800 dark:text-amber-300">{draftView.selectedColumns.length} campos selecionados · confirme para utilizar esta visão.</p></div><button type="button" onClick={confirmDraft} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-xs font-black"><Check size={13} />Confirmar visão</button></div>}
+
+              {confirmedView && <div className="space-y-3 p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50"><div><p className="text-xs font-black text-emerald-900 dark:text-emerald-200">Estrutura confirmada</p><p className="text-[10px] text-emerald-800 dark:text-emerald-300">{confirmedView.selectedColumns.length} campos selecionados · pronta para análises.</p></div><div className="overflow-auto border border-emerald-200/70 dark:border-emerald-900/60 rounded-lg max-h-72"><table className="min-w-full text-[10px] text-left"><thead><tr className="bg-emerald-100/60 dark:bg-emerald-955/50">{confirmedView.selectedColumns.map(column => <th key={column} className="px-2 py-2 font-mono whitespace-nowrap">{confirmedView.consultantLabels[column] || column}</th>)}</tr></thead><tbody>{viewRows.map((row, index) => <tr key={`${confirmedView.datasetViewId}:${index}`} className="border-t border-emerald-200/50 dark:border-emerald-900/50">{confirmedView.selectedColumns.map(column => <td key={`${confirmedView.datasetViewId}:${index}:${column}`} className="px-2 py-1.5 font-mono whitespace-nowrap">{String(row[column] ?? "")}</td>)}</tr>)}{viewRows.length === 0 && <tr><td colSpan={Math.max(1, confirmedView.selectedColumns.length)} className="px-3 py-6 text-center">Nenhuma linha disponível na página selecionada.</td></tr>}</tbody></table></div><p className="text-[10px] text-emerald-800 dark:text-emerald-300">Esta tabela utiliza a estrutura confirmada. A planilha original permanece intacta.</p></div>}
+
+              {profile.qualityFindings.length > 0 && <div className="space-y-2"><h4 className="text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">Achados de qualidade</h4><div className="grid md:grid-cols-2 gap-2">{profile.qualityFindings.slice(0, 12).map(finding => <div key={finding.id} className="p-3 rounded-lg border border-slate-200 dark:border-slate-800"><p className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-200">{finding.code} · {finding.severity}</p><p className="text-[10px] text-slate-500 mt-1">{finding.message}</p></div>)}</div></div>}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

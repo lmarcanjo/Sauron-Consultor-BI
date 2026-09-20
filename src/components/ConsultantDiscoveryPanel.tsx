@@ -18,11 +18,27 @@ import {
 } from "lucide-react";
 import type { ConsultantUnderstandingSummary } from "../core/chaos-data-profiling/ConsultantUnderstandingSummary";
 import type { EnterpriseModel } from "../core/enterprise-consolidation/EnterpriseDiscoveryTypes";
+import type { SemanticArtifact } from "../core/semantic/SemanticContracts";
+import type { SemanticConfirmationArtifact, FieldDecisionType, CustomInterpretationPayload } from "../core/semantic/confirmation/SemanticConfirmationContracts";
+import { SemanticMaterialityPolicy } from "../core/semantic/confirmation/SemanticMaterialityPolicy";
+import { FieldSemanticReviewCard } from "./FieldSemanticReviewCard";
 import { EnterpriseMapView } from "./EnterpriseMapView";
 
 interface ConsultantDiscoveryPanelProps {
   summary: ConsultantUnderstandingSummary;
   enterpriseModel?: EnterpriseModel;
+  semanticArtifact?: SemanticArtifact | null;
+  confirmationArtifact?: SemanticConfirmationArtifact | null;
+  onRecordFieldDecision?: (
+    columnId: string,
+    decisionType: FieldDecisionType,
+    options?: {
+      selectedInterpretationId?: string;
+      consultantLabel?: string;
+      customPayload?: CustomInterpretationPayload;
+      justification?: string;
+    }
+  ) => Promise<void>;
   onAcceptSuggestedStructure: () => void;
   onReviewInterpretations: () => void;
   onKeepOriginalNames: () => void;
@@ -36,6 +52,9 @@ interface ConsultantDiscoveryPanelProps {
 export const ConsultantDiscoveryPanel: React.FC<ConsultantDiscoveryPanelProps> = ({
   summary,
   enterpriseModel,
+  semanticArtifact,
+  confirmationArtifact,
+  onRecordFieldDecision,
   onAcceptSuggestedStructure,
   onReviewInterpretations,
   onKeepOriginalNames,
@@ -171,7 +190,24 @@ export const ConsultantDiscoveryPanel: React.FC<ConsultantDiscoveryPanelProps> =
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-2">
           <HelpCircle size={14} className="text-amber-500" /> 3. O que ainda precisa de revisão
         </h3>
-        {summary.ambiguities.length > 0 ? (
+        {semanticArtifact && onRecordFieldDecision ? (
+          <div className="space-y-3">
+            <span className="text-[10px] font-extrabold uppercase text-slate-400">Revisão e Decisão por Campo Físico da Fonte:</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
+              {semanticArtifact.fieldInterpretations.map(field => {
+                const decision = confirmationArtifact?.fieldDecisions.find(d => d.columnId === field.columnId);
+                return (
+                  <FieldSemanticReviewCard
+                    key={field.columnId}
+                    field={field}
+                    decision={decision}
+                    onRecordDecision={onRecordFieldDecision}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ) : summary.ambiguities.length > 0 ? (
           <div className="space-y-2">
             {summary.ambiguities.map(amb => (
               <div key={amb.id} className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -217,6 +253,19 @@ export const ConsultantDiscoveryPanel: React.FC<ConsultantDiscoveryPanelProps> =
             {confirmationError}
           </div>
         )}
+        {semanticArtifact && (() => {
+          const evalRes = SemanticMaterialityPolicy.evaluateArtifact(semanticArtifact, confirmationArtifact);
+          if (!evalRes.canConfirm && evalRes.pendingMaterialFields.length > 0) {
+            return (
+              <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-300 font-semibold space-y-1">
+                <p className="font-extrabold uppercase text-[10px]">Bloqueio de Confirmação Canônica:</p>
+                <p>Existem {evalRes.pendingMaterialFields.length} campo(s) material(is) pendente(s) de decisão: {evalRes.pendingMaterialFields.map(f => f.physicalName).join(', ')}.</p>
+              </div>
+            );
+          }
+          return null;
+        })()}
+
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <button
@@ -249,15 +298,19 @@ export const ConsultantDiscoveryPanel: React.FC<ConsultantDiscoveryPanelProps> =
               <button
                 type="button"
                 onClick={onConfirmSourceUnderstanding}
-                disabled={!canConfirmSourceUnderstanding || confirmationStatus === "confirming"}
+                disabled={
+                  !canConfirmSourceUnderstanding ||
+                  confirmationStatus === "confirming" ||
+                  (semanticArtifact ? !SemanticMaterialityPolicy.evaluateArtifact(semanticArtifact, confirmationArtifact).canConfirm : false)
+                }
                 aria-busy={confirmationStatus === "confirming"}
                 className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:opacity-60 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-indigo-500/20 cursor-pointer flex items-center gap-2"
                 data-testid="btn-confirm-source-understanding"
               >
                 <CheckCircle2 size={18} />
                 {confirmationStatus === "confirming"
-                  ? "Validando entendimento..."
-                  : "Validar entendimento da empresa"}
+                  ? "Confirmando entendimento..."
+                  : "CONFIRMAR ENTENDIMENTO DA FONTE"}
               </button>
             )}
           </div>

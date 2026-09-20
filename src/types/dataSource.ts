@@ -189,6 +189,11 @@ export interface ActiveDataset {
   physicalColumns?: string[];
   activatedAt?: string;
   version?: number;
+  context?: {
+    groupId?: string | null;
+    companyId?: string | null;
+    unitId?: string | null;
+  };
 }
 
 export interface ActiveWorkbookDataset extends ActiveDataset {

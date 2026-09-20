@@ -5,6 +5,13 @@ import path from "node:path";
 const ROOT = path.resolve(__dirname, "..");
 const COMPONENTS_DIR = path.join(ROOT, "components");
 const CORE_DIR = path.join(ROOT, "core");
+const MVP2_MODULE_WRAPPERS = [
+  "components/FinanceiroTab.tsx",
+  "components/ComercialTab.tsx",
+  "components/EstoqueTab.tsx",
+  "components/ItensTab.tsx",
+  "components/PosVendasTab.tsx",
+] as const;
 
 function walk(dir: string): string[] {
   return fs.readdirSync(dir).flatMap(entry => {
@@ -40,21 +47,52 @@ describe("Platform engine consolidation sanity", () => {
   });
 
   it("keeps module dashboards on engine outputs while the MVP home remains data-first", () => {
-    const dashboardSurfaces = [
-      "components/ComercialTab.tsx",
-      "components/FinanceiroTab.tsx",
+    const legacyDashboardSurfaces = [
       "components/IntelligentDRETab.tsx",
       "components/PeopleIntelligenceTab.tsx",
     ];
 
-    dashboardSurfaces.forEach(relativePath => {
+    legacyDashboardSurfaces.forEach(relativePath => {
       const content = read(relativePath);
       expect(content).toContain("../core/dashboard-engine");
       expect(content).toContain("DashboardBlocksRenderer");
     });
 
-    ["ComercialTab.tsx", "FinanceiroTab.tsx", "IntelligentDRETab.tsx", "PeopleIntelligenceTab.tsx"].forEach(fileName => {
+    ["IntelligentDRETab.tsx", "PeopleIntelligenceTab.tsx"].forEach(fileName => {
       expect(read(`components/${fileName}`)).toContain("buildModuleDashboard");
+    });
+
+    // MVP-2 source-driven modules use the shared activation projection. The
+    // projection delegates artifact rendering to the existing financial view;
+    // wrappers must not reintroduce the retired dashboard calculation path.
+    ["ComercialTab.tsx", "FinanceiroTab.tsx"].forEach(fileName => {
+      expect(read(`components/${fileName}`)).toContain("ModuleActivationView");
+    });
+  });
+
+  it("enforces the canonical MVP-2 ModuleActivationView wrapper contract", () => {
+    const forbiddenPatterns = [
+      /\bPreliminaryMetricsCalculator\b/,
+      /from\s+["'][^"']*Repository(?:["']|\/)/,
+      /\bPersistenceManager\b/,
+      /\blocalStorage\b/,
+      /DashboardBlocksRenderer/,
+      /buildModuleDashboard/,
+      /onClick=\{\(\)\s*=>\s*\{\s*\}\}/,
+      /onClick=\{\(\)\s*=>\s*undefined\}/,
+      /console\.log\s*\(/,
+      /TODO/,
+      /Configura[cç][aã]o\s+pendente/i,
+      /\bmetrics\s*\./,
+      /\.reduce\s*\(/,
+    ];
+
+    MVP2_MODULE_WRAPPERS.forEach(relativePath => {
+      const content = read(relativePath);
+      expect(content, `${relativePath} must delegate to ModuleActivationView`).toContain("ModuleActivationView");
+      forbiddenPatterns.forEach(pattern => {
+        expect(content, `${relativePath} violates canonical wrapper guard: ${pattern}`).not.toMatch(pattern);
+      });
     });
   });
 

@@ -183,11 +183,12 @@ export const ExecutiveSessionRightPanel: React.FC<ExecutiveSessionRightPanelProp
             onChange={e => setNotesText(e.target.value)}
             placeholder="Ex: João vai renegociar frete&#10;Reduzir margem de carros novos..."
             className="w-full h-24 bg-slate-900 border border-slate-850 rounded-xl text-xs px-3 py-2 text-slate-200 focus:outline-none focus:border-blue-600 font-mono resize-none leading-normal"
+            data-testid="meeting-quick-notes-textarea"
           />
 
           {/* Parsed note action converting triggers */}
           {parsedNotesLines.length > 0 && (
-            <div className="space-y-2 pt-2 border-t border-slate-900 bg-slate-900/10 p-2.5 rounded-xl border border-slate-900">
+            <div className="space-y-2 pt-2 border-t border-slate-900 bg-slate-900/10 p-2.5 rounded-xl border border-slate-900" data-testid="parsed-notes-list">
               <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest block">Anotações Capturadas (Sincronizar)</span>
               <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                 {parsedNotesLines.map(line => (
@@ -197,24 +198,28 @@ export const ExecutiveSessionRightPanel: React.FC<ExecutiveSessionRightPanelProp
                       <button 
                         onClick={() => convertNoteToObservation(line.text)}
                         className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded text-[9px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                        data-testid="convert-note-observation"
                       >
                         💡 Obs
                       </button>
                       <button 
                         onClick={() => convertNoteToDecision(line.text)}
                         className="px-1.5 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded text-[9px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                        data-testid="convert-note-decision"
                       >
                         ⚖️ Decisão
                       </button>
                       <button 
                         onClick={() => convertNoteToActionForm(line.text)}
                         className="px-1.5 py-0.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded text-[9px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                        data-testid="convert-note-action"
                       >
                         🔨 Ação
                       </button>
                       <button 
                         onClick={() => convertNoteToPending(line.text)}
                         className="px-1.5 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded text-[9px] font-black uppercase flex items-center gap-0.5 cursor-pointer"
+                        data-testid="convert-note-pending"
                       >
                         📌 Pend
                       </button>

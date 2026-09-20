@@ -6,7 +6,7 @@
 import {
   Users, Database, Presentation, MonitorPlay, Settings, Briefcase, FolderOpen, Building,
   ShieldCheck, BarChart3, Target, FileText, BrainCircuit, Calculator,
-  ShieldAlert, ClipboardList, CheckSquare, History, Key, Layers, Lock, TrendingUp
+  ShieldAlert, ClipboardList, CheckSquare, History, Key, Layers, Lock, TrendingUp, Archive, Package, Wrench
 } from 'lucide-react';
 import { ModuleCapabilityState } from "./moduleCapabilities";
 
@@ -100,6 +100,9 @@ export function getConsultingFlowStructure(options?: ConsultingStructureOptions 
         { title: "Visão Executiva", id: "resumo", icon: BarChart3, accessibleLabel: "Visão Executiva — Diagnóstico Executivo" },
         { title: "Financeiro", id: "financeiro", icon: Calculator },
         { title: "Comercial", id: "comercial", icon: TrendingUp },
+        { title: "Estoque", id: "estoque", icon: Archive },
+        { title: "Itens", id: "itens", icon: Package },
+        { title: "Pós-vendas", id: "posvendas", icon: Wrench },
         { title: "Pessoas", id: "comissoes", icon: Users, accessibleLabel: "Pessoas — People Intelligence — Vendedores — Comissões" },
         { title: "Anomalias", id: "obstaculos", icon: ShieldAlert },
         { title: "Recomendações", id: "consultor_ia", icon: BrainCircuit }

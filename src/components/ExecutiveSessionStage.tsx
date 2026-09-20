@@ -402,11 +402,10 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
         {/* Bottom Navigation of Story */}
         <div className="flex items-center justify-between border-t border-slate-900 pt-5 mt-6 shrink-0">
           <button 
-            onClick={() => {
-              if (activeChapterIndex > 0) setActiveChapterIndex(activeChapterIndex - 1);
-            }}
             disabled={activeChapterIndex === 0}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            onClick={() => setActiveChapterIndex(Math.max(0, activeChapterIndex - 1))}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none text-slate-300 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+            data-testid="meeting-prev-chapter-btn"
           >
             <ChevronLeft size={14} /> Capítulo Anterior
           </button>
@@ -442,6 +441,7 @@ export const ExecutiveSessionStage: React.FC<ExecutiveSessionStageProps> = ({
               }
             }}
             className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black flex items-center gap-1 transition-all cursor-pointer"
+            data-testid="meeting-next-chapter-btn"
           >
             {activeChapterIndex === visibleChapters.length - 1 ? 'Concluir Reunião' : 'Próximo Capítulo'} <ChevronRight size={14} />
           </button>

@@ -26,8 +26,9 @@ Para compreender o ASTERION do início ao fim, siga a sequência abaixo:
 14. [**BUILD_BACKLOG_V1.md**](build/BUILD_BACKLOG_V1.md): Backlog oficial de construção e épicos de desenvolvimento da V1.
 15. [**SPRINT_01_IMPLEMENTATION_PLAN.md**](build/SPRINT_01_IMPLEMENTATION_PLAN.md): Plano de execução técnica da Sprint 1 (Épico 1).
 16. [**SPRINT_01_ACCEPTANCE_SPEC.md**](build/SPRINT_01_ACCEPTANCE_SPEC.md): Especificação oficial de aceite e matriz de testes da Sprint 1.
-17. [**09_ROADMAP.md**](09_ROADMAP.md): O direcionamento estratégico e próximas fases da plataforma.
-18. [**CHANGELOG.md**](CHANGELOG.md): Registro de versões e alterações históricas do produto.
+17. [**MIGRATION_AUDIT_V1.md**](engineering/MIGRATION_AUDIT_V1.md): Relatório de auditoria de código e plano de migração do SAURON para ASTERION.
+18. [**09_ROADMAP.md**](09_ROADMAP.md): O direcionamento estratégico e próximas fases da plataforma.
+19. [**CHANGELOG.md**](CHANGELOG.md): Registro de versões e alterações históricas do produto.
 
 ---
 

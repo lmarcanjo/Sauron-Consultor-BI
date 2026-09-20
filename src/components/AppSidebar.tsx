@@ -167,7 +167,9 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
       : ["diagnostico", "financeiro", "dre", "comercial", "pessoas", "comissao", "apresentacao", "reuniao", "plano", "historico"];
     
     let filteredSubItems = group.subItems.filter((item: any) => {
-      if (!hasActiveDataset && ["dre_inteligente", "financeiro", "comercial", "comissoes", "obstaculos", "consultor_ia", "relatorios"].includes(item.id)) return false;
+      // MVP-2 modules remain reachable without a source so they can explain
+      // their state and offer the next action instead of disappearing.
+      if (!hasActiveDataset && ["dre_inteligente", "comissoes", "obstaculos", "consultor_ia", "relatorios"].includes(item.id)) return false;
       const resultCapability = resolveResultModuleCapability(item.id, {
         hasActiveDataset,
         hasConfirmedDatasetView: Boolean(confirmedView),
@@ -176,13 +178,13 @@ const AppSidebarContent: React.FC<SidebarProps> = ({
         numericColumns,
         textColumns,
       });
-      if (["financeiro", "comercial", "comissoes", "vendedores", "dre_inteligente", "obstaculos", "consultor_ia", "contabil", "itens", "estoque"].includes(item.id)
+      if (["comissoes", "vendedores", "dre_inteligente", "obstaculos", "consultor_ia", "contabil"].includes(item.id)
         && resultCapability !== "AVAILABLE") return false;
       if (hasActiveDataset && item.id === "apresentacoes" && !hasSelectedContent) return false;
       if (hasActiveDataset && ["preparacao_reuniao", "modo_reuniao", "reuniao_ata", "reuniao_notes"].includes(item.id) && !hasSelectedContent) return false;
       if (item.id === "dre_inteligente" && !enabledModules.includes("dre")) return false;
-      if (item.id === "financeiro" && !enabledModules.includes("financeiro")) return false;
-      if (item.id === "comercial" && !enabledModules.includes("comercial")) return false;
+      // Financeiro and Comercial are source-driven MVP-2 entry points. Their
+      // availability is resolved inside the module, not by legacy mappings.
       if (item.id === "comissoes" && !enabledModules.includes("pessoas")) return false;
       if (item.id === "apresentacoes" && !enabledModules.includes("apresentacao") && !hasSelectedContent) return false;
       if (item.id === "preparacao_reuniao" && !enabledModules.includes("reuniao") && !hasSelectedContent) return false;

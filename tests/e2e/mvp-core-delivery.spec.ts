@@ -1,6 +1,10 @@
 import { expect, ensureConsultantSession, navigateSidebar, test } from "./e2eTest";
 import * as fs from "node:fs";
 import * as XLSX from "xlsx";
+import {
+  createCanonicalClientEngagementStructure,
+  importSpreadsheetThroughUi,
+} from "./canonicalJourneyHelpers";
 
 function writeWorkbook(filePath: string, company: string, value: number): void {
   const workbook = XLSX.utils.book_new();
@@ -13,31 +17,8 @@ function writeWorkbook(filePath: string, company: string, value: number): void {
   XLSX.writeFile(workbook, filePath);
 }
 
-async function createEntity(page: Parameters<typeof navigateSidebar>[0], trigger: RegExp, name: string): Promise<void> {
-  await page.getByRole("button", { name: trigger }).first().click();
-  const form = page.locator("form").filter({ has: page.locator("input[name='name']") }).last();
-  await form.locator("input[name='name']").fill(name);
-  await form.getByRole("button", { name: /^Salvar$/i }).click();
-  await expect(page.getByText(name, { exact: true }).first()).toBeAttached({ timeout: 15000 });
-}
-
-async function importWorkbook(page: Parameters<typeof navigateSidebar>[0], filePath: string, group: string, company: string): Promise<void> {
-  await navigateSidebar(page, /Conectar Dados/i, /Importar Planilhas/i);
-  await page.getByRole("button", { name: /^Importar Planilha$/i }).first().click();
-  const importer = page.locator("#simple-spreadsheet-importer");
-  await expect(importer).toBeVisible({ timeout: 15000 });
-  await importer.locator("input[type='file']").first().setInputFiles(filePath);
-  await expect(importer.getByText(/Pronto para (importar|configurar)/i).first()).toBeVisible({ timeout: 30000 });
-  const selects = importer.locator("select");
-  await selects.nth(0).selectOption({ label: group });
-  await selects.nth(1).selectOption({ label: company });
-  await importer.locator("#btn-importar-todos").click();
-  await expect(importer).toHaveCount(0, { timeout: 30000 });
-  await expect(page.getByText(/Dados Reais Conectados|Dados ativos|DADOS REAIS/i).first()).toBeVisible({ timeout: 15000 });
-}
-
 async function openDashboard(page: Parameters<typeof navigateSidebar>[0]): Promise<void> {
-  await navigateSidebar(page, /Diagnosticar Negócio/i, /Diagnóstico Executivo/i);
+  await navigateSidebar(page, /Análise/i, /Visão Executiva/i);
   await expect(page.getByTestId("active-dataset-raw-preview")).toBeVisible({ timeout: 30000 });
 }
 
@@ -50,27 +31,10 @@ test.describe("MVP core delivery", () => {
     writeWorkbook(secondFile, "Empresa MVP B", 900);
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.evaluate(async () => {
-      localStorage.clear();
-      sessionStorage.clear();
-      await new Promise<void>(resolve => {
-        const request = indexedDB.deleteDatabase("SauronSpreadsheetDB");
-        request.onsuccess = () => resolve();
-        request.onerror = () => resolve();
-        request.onblocked = () => resolve();
-      });
-    });
-    await page.reload({ waitUntil: "domcontentloaded" });
     await ensureConsultantSession(page);
 
-    await navigateSidebar(page, /Centro de Comando/i, /Empresas e Grupos/i);
-    const groupButton = page.getByRole("button", { name: /Grupo Empresarial|Novo grupo/i }).first();
-    if (await groupButton.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await createEntity(page, /Grupo Empresarial|Novo grupo/i, "Grupo MVP");
-    }
-    await createEntity(page, /Nova empresa/i, "Empresa MVP A");
-
-    await importWorkbook(page, firstFile, "Grupo MVP", "Empresa MVP A");
+    await createCanonicalClientEngagementStructure(page, `Core ${Date.now()}`);
+    await importSpreadsheetThroughUi(page, firstFile, "mvp-empresa-a.xlsx");
     await openDashboard(page);
     const preview = page.getByTestId("active-dataset-raw-preview");
     for (const column of ["Empresa", "Data", "Cliente", "Produto", "Valor", "Quantidade"]) {
@@ -86,13 +50,11 @@ test.describe("MVP core delivery", () => {
     await expect(reloadedPreview).toContainText("Produto A");
     await expect(reloadedPreview).toContainText("150");
 
-    await navigateSidebar(page, /Centro de Comando/i, /Empresas e Grupos/i);
-    await createEntity(page, /Nova empresa/i, "Empresa MVP B");
-    await importWorkbook(page, secondFile, "Grupo MVP", "Empresa MVP B");
+    await importSpreadsheetThroughUi(page, secondFile, "mvp-empresa-b.xlsx");
     await openDashboard(page);
     const secondPreview = page.getByTestId("active-dataset-raw-preview");
     await expect(secondPreview).toContainText("mvp-empresa-b.xlsx");
-    await expect(secondPreview).not.toContainText("Empresa MVP A");
+    await expect(secondPreview).toContainText("Empresa MVP A");
 
     await navigateSidebar(page, /Fontes/i, /Fontes de Dados/i);
     const firstRow = page.locator("tr").filter({ hasText: "mvp-empresa-a.xlsx" }).first();

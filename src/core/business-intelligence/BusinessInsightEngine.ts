@@ -1,5 +1,9 @@
 import { BusinessMetric } from "./BusinessMetricTypes";
 
+/**
+ * @deprecated [LEGADO] Este tipo pertence ao namespace legado src/core/business-intelligence/.
+ * O namespace canônico para novos motores de inteligência é src/core/business-insight/.
+ */
 export interface BusinessMetricInsight {
   metricId: string;
   severity: "info" | "warning" | "critical";
@@ -7,6 +11,10 @@ export interface BusinessMetricInsight {
   evidence: string[];
 }
 
+/**
+ * @deprecated [LEGADO] Esta função pertence ao namespace legado src/core/business-intelligence/.
+ * Novos motores de análise devem implementar IAsterionBusinessInsightEngine no namespace src/core/business-insight/.
+ */
 export function buildMetricInsights(metrics: BusinessMetric[]): BusinessMetricInsight[] {
   return metrics.flatMap(metric => {
     const insights: BusinessMetricInsight[] = [];

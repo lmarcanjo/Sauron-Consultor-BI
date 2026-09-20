@@ -10,11 +10,13 @@ import {
 } from 'lucide-react';
 import { LancamentoFinanceiro } from '../types';
 import { activeDatasetStore } from "../core/data/ActiveDatasetStore";
-import { getDefaultProjectId, listModuleMappings } from "../core/data/moduleMapping";
 import { Enterprise, enterpriseRepository } from "../core/persistence/EnterpriseRepository";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence";
-import { executivePresentationEngine, ExecutivePresentation } from "../core/business-intelligence/ExecutivePresentationEngine";
+import { ExecutivePresentation } from "../core/business-intelligence/ExecutivePresentationEngine";
+import type { PresentationSlide } from "../core/business-intelligence/ExecutivePresentationEngine";
 import { FinancialConsistencyStatus } from "./FinancialConsistencyStatus";
+import { executiveDeliverablesService } from "../core/executive-deliverables";
+import { identityEngine } from "../core/identity/IdentityEngine";
 
 interface PresentationBuilderPageProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -34,9 +36,9 @@ interface SlideConfig {
 }
 
 export const PresentationBuilderPage: React.FC<PresentationBuilderPageProps> = ({
-  dataOrigem = [],
-  filteredData = [],
-  formatCurrency = (v: number) => "R$ " + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  dataOrigem: _dataOrigem = [],
+  filteredData: _filteredData = [],
+  formatCurrency: _formatCurrency = (v: number) => "R$ " + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }) => {
   const activeDataset = activeDatasetStore.getActiveDataset();
   
@@ -49,6 +51,7 @@ export const PresentationBuilderPage: React.FC<PresentationBuilderPageProps> = (
   const [currentMeetingIndex, setCurrentMeetingIndex] = useState<number>(0);
   const [meetingActionTasks, setMeetingActionTasks] = useState<string[]>([]);
   const [newActionTask, setNewActionTask] = useState<string>("");
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   // Load available enterprises
   useEffect(() => {
@@ -63,38 +66,39 @@ export const PresentationBuilderPage: React.FC<PresentationBuilderPageProps> = (
     });
   }, []);
 
-  // Generate presentation dynamically using ExecutivePresentationEngine
+  // The builder edits the persisted MVP-3 composition. It never reads all rows.
   useEffect(() => {
-    const ws = workspaceIntelligenceEngine.getCurrentIntelligentWorkspace();
-    const activePreviewRows = activeDataset?.previewRows?.map(row => row.raw as LancamentoFinanceiro) || [];
-    executivePresentationEngine.generatePresentation({
-      enterpriseId: selectedEnterpriseId || undefined,
-      workspace: ws,
-      activeDataset,
-      allRows: filteredData.length > 0 ? filteredData : dataOrigem.length > 0 ? dataOrigem : activePreviewRows,
-      allowActiveDatasetPreviewFallback: activePreviewRows.length > 0,
-      moduleMappings: activeDataset ? listModuleMappings(activeDataset.datasetId, getDefaultProjectId(activeDataset)) : [],
-    }).then(async res => {
-      setPresentation(res);
-      if (res.status === "ready") {
-        const mappedSlides = res.slides.map(slide => ({
-          id: slide.id,
-          title: slide.title,
-          subtitle: slide.subtitle,
-          type: slide.type,
-          visible: true,
-          notes: slide.content.summary || slide.content.points?.join("\n") || slide.content.lineage || "",
-          content: slide.content
-        }));
-        setSlides(mappedSlides);
-        if (mappedSlides.length > 0) {
-          setSelectedSlideId(mappedSlides[0].id);
-        }
-      } else {
-        setSlides([]);
+    let mounted = true;
+    if (!activeDataset) {
+      setPresentation(null);
+      setSlides([]);
+      return () => { mounted = false; };
+    }
+    void executiveDeliverablesService.loadActiveArtifact(activeDataset, identityEngine.getCurrentUser()).then(async result => {
+      if (!mounted || !result.artifact) {
+        if (mounted) { setPresentation(null); setSlides([]); }
+        return;
       }
+      const composed = await executiveDeliverablesService.ensurePresentation(result.artifact, identityEngine.getCurrentUser());
+      if (!mounted) return;
+      const res = composed.presentation;
+      setPresentation(res);
+      const mappedSlides = res.slides.map(slide => ({
+        id: slide.id,
+        title: slide.title,
+        subtitle: slide.subtitle,
+        type: slide.type,
+        visible: true,
+        notes: slide.content.summary || slide.content.points?.join("\n") || slide.content.lineage || "",
+        content: slide.content
+      }));
+      setSlides(mappedSlides);
+      setSelectedSlideId(mappedSlides[0]?.id || "");
+    }).catch(() => {
+      if (mounted) { setPresentation(null); setSlides([]); }
     });
-  }, [selectedEnterpriseId, activeDataset, filteredData, dataOrigem]);
+    return () => { mounted = false; };
+  }, [activeDataset?.datasetId, activeDataset?.importedAt]);
 
   const selectedSlide = slides.find(s => s.id === selectedSlideId) || slides[0] || null;
 
@@ -127,6 +131,24 @@ Sauron OS - Inteligência BI de Alta Performance
     link.download = `ata_reuniao_${(presentation?.targetName || "consultoria").toLowerCase().replace(/\s+/g, '_')}.txt`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleSavePresentation = async () => {
+    if (!presentation) return;
+    try {
+      const persistedSlides: PresentationSlide[] = slides.map(slide => ({
+        id: slide.id,
+        title: slide.title,
+        subtitle: slide.subtitle,
+        type: slide.type as PresentationSlide["type"],
+        content: slide.content,
+      }));
+      const updated = await executiveDeliverablesService.persistEditedPresentation(presentation.id, persistedSlides, identityEngine.getCurrentUser());
+      setPresentation(updated);
+      setSaveMessage("Edição salva. A próxima exportação usará esta versão.");
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : "Não foi possível salvar a edição.");
+    }
   };
 
   const renderSlideContent = (slide: SlideConfig) => {
@@ -240,11 +262,11 @@ Sauron OS - Inteligência BI de Alta Performance
 
   if (!presentation || presentation.status === "insufficient_data") {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans animate-fade-in">
+      <div className="flex flex-col items-center justify-center p-12 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-sm font-sans animate-fade-in" data-testid="presentation-empty">
         <Presentation className="text-emerald-500 w-12 h-12 animate-pulse" />
-        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Configuração Pendente</h3>
+        <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Nenhuma apresentação executiva disponível</h3>
         <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
-          Não há itens selecionados para a apresentação. Escolha campos, indicadores, gráficos ou uma tabela na configuração da fonte.
+          Execute a análise da fonte para gerar uma apresentação executiva com os materiais disponíveis.
         </p>
       </div>
     );
@@ -253,7 +275,7 @@ Sauron OS - Inteligência BI de Alta Performance
   const currentMeetingSlide = slides.filter(s => s.visible)[currentMeetingIndex];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] font-sans animate-fade-in text-slate-850 dark:text-slate-100" id="presentations-master-page">
+    <div className="flex flex-col h-[calc(100vh-120px)] font-sans animate-fade-in text-slate-850 dark:text-slate-100" id="presentations-master-page" data-testid="presentation-editor">
       
       {activeMode === 'builder' ? (
         <div className="flex flex-col h-full gap-4">
@@ -292,6 +314,16 @@ Sauron OS - Inteligência BI de Alta Performance
               </button>
 
               <button
+                type="button"
+                onClick={handleSavePresentation}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-[10px] uppercase tracking-wider rounded-xl cursor-pointer transition-colors flex items-center gap-1.5"
+                data-testid="save-presentation-edits"
+              >
+                <CheckSquare size={13} />
+                Salvar edição
+              </button>
+
+              <button
                 onClick={() => {
                   setCurrentMeetingIndex(0);
                   setActiveMode('meeting');
@@ -305,6 +337,7 @@ Sauron OS - Inteligência BI de Alta Performance
           </div>
 
           {presentation.consistency && <FinancialConsistencyStatus consistency={presentation.consistency} />}
+          {saveMessage && <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300" role="status" data-testid="presentation-save-status">{saveMessage}</p>}
 
           <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0 overflow-hidden">
             
@@ -314,7 +347,7 @@ Sauron OS - Inteligência BI de Alta Performance
                 <Layers size={13} /> Lâminas da Apresentação
               </span>
 
-              <div className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+              <div className="space-y-1.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-1" data-testid="presentation-slides">
                 {slides.map((s, idx) => (
                   <div
                     key={s.id}
@@ -401,8 +434,9 @@ Sauron OS - Inteligência BI de Alta Performance
               {selectedSlide ? (
                 <div className="space-y-4">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Título do Slide</label>
+                    <label htmlFor="presentation-slide-title" className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Título do Slide</label>
                     <input 
+                      id="presentation-slide-title"
                       type="text" 
                       value={selectedSlide.title}
                       onChange={(e) => {
@@ -413,8 +447,9 @@ Sauron OS - Inteligência BI de Alta Performance
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Subtítulo Estratégico</label>
+                    <label htmlFor="presentation-slide-subtitle" className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Subtítulo Estratégico</label>
                     <input 
+                      id="presentation-slide-subtitle"
                       type="text" 
                       value={selectedSlide.subtitle}
                       onChange={(e) => {
@@ -425,8 +460,9 @@ Sauron OS - Inteligência BI de Alta Performance
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Notas do Slide</label>
+                    <label htmlFor="presentation-slide-notes" className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Notas do Slide</label>
                     <textarea 
+                      id="presentation-slide-notes"
                       value={selectedSlide.notes}
                       onChange={(e) => {
                         setSlides(slides.map(s => s.id === selectedSlide.id ? { ...s, notes: e.target.value } : s));

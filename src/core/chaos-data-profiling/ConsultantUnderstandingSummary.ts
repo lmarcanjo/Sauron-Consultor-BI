@@ -68,7 +68,7 @@ export function buildConsultantUnderstandingSummary(
   const totalTables = profile.physicalContainers.length;
   const totalRecords = profile.totalKnownRows || profile.sampledRecords;
   const totalFields = profile.physicalColumns.length;
-  const overallQuality = Math.round((profile.confidenceScore || 0.85) * 100);
+  const overallQuality = Math.round(((profile as any).confidenceScore || 0.85) * 100);
 
   // Group domains by found items without inventing
   const domainMap = new Map<string, FoundDomainSummary>();

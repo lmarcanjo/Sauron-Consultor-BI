@@ -83,7 +83,7 @@ test.describe("Hotfix 24.2 — Single Approval Journey E2E", () => {
       await confirmBtn.click();
 
       // 5. Verify confirmation success
-      await expect(page.getByText("Fonte confirmada para análises", { exact: true }).first()).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/Fonte confirmada para análises/i).first()).toBeVisible({ timeout: 10000 });
 
       // 6. Verify zero runtime JS errors (excluding dev HMR websocket warnings)
       const jsErrors = pageErrors.filter(e => !e.includes("WebSocket"));

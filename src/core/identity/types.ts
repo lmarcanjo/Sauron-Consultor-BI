@@ -78,9 +78,9 @@ export interface PlatformUser {
   id: string;
   profile: UserProfile;
   role: Role;
-  organizationId: string;
-  createdAt: string;
-  updatedAt: string;
+  organizationId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Membership {

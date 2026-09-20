@@ -7,22 +7,83 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build-and-test:
+  # ── Job 1: Domain Vocabulary Governance ───────────────────────────────────
+  # Runs FIRST and independently so it provides fast feedback without waiting
+  # for the full test suite. Fails on new unauthorized vocabulary violations.
+  domain-vocabulary-governance:
+    name: Domain Vocabulary Governance
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Use Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js (project minimum)
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
-      - run: npm ci
-      - run: npm run typecheck
-      - name: Vitest and architecture gates
+          # Must match the minimum declared in package.json engines.node (>=18).
+          # Using Node 20 LTS to support RegExp flag 'v' (Unicode Sets).
+          # On Node 18 the scanner automatically falls back to flag 'u', which
+          # is functionally identical for our vocabulary patterns.
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check domain vocabulary against baseline
+        # This script READS the baseline (never writes it).
+        # Exit 0 = no violations. Exit 1 = new violation detected. Exit 2 = configuration error.
+        run: npm run quality:domain-vocabulary:check
+
+      - name: Upload vocabulary governance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: domain-vocabulary-report
+          path: domain-vocabulary-report.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  # ── Job 2: Build and Test ──────────────────────────────────────────────────
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    # Run in parallel with governance — both must pass for merge
+    needs: []
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Vitest (unit + integration)
+        # The domain vocabulary baseline tests are included here.
+        # The scanner-specific tests (domainVocabularyScanner.test.ts,
+        # domainVocabularyBaseline.test.ts) run as part of the full suite.
         run: npm run test
-      - name: Domain, compatibility, and production sanity scanners
-        run: npx vitest run src/core/quality src/core/compatibility
-      - run: npm run build
-      - run: npx playwright install --with-deps
-      - run: npm run test:e2e
-      - name: Diff check
+
+      - name: Domain Vocabulary Scanner tests (explicit gate)
+        # Run the scanner tests explicitly as an additional gate.
+        # This is separate from the :check command so that test failures
+        # and violation failures produce distinct exit codes in CI.
+        run: npx vitest run src/core/quality/domainVocabularyScanner.test.ts src/core/quality/domainVocabularyBaseline.test.ts --reporter=verbose
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: E2E tests
+        run: npm run test:e2e
+
+      - name: Git diff check (no uncommitted whitespace issues)
         run: git diff --check

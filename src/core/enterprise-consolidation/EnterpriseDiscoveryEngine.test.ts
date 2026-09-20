@@ -30,7 +30,6 @@ describe("EnterpriseDiscoveryEngine", () => {
           probableRole: "metric",
           emptyPercentage: 0.0,
           examples: [150.0, 320.0],
-          uniquenessScore: 0.9,
         },
         {
           containerId: "c1",
@@ -39,7 +38,6 @@ describe("EnterpriseDiscoveryEngine", () => {
           probableRole: "code",
           emptyPercentage: 0.01,
           examples: ["OS1001", "OS1002"],
-          uniquenessScore: 0.8,
         },
         {
           containerId: "c1",
@@ -48,7 +46,6 @@ describe("EnterpriseDiscoveryEngine", () => {
           probableRole: "name",
           emptyPercentage: 0.02,
           examples: ["Carlos Silva", "Mariana Costa"],
-          uniquenessScore: 0.5,
         },
         {
           containerId: "c1",
@@ -57,7 +54,6 @@ describe("EnterpriseDiscoveryEngine", () => {
           probableRole: "metric",
           emptyPercentage: 0.05,
           examples: [25.0, 40.0],
-          uniquenessScore: 0.7,
         },
       ],
       detectedBlocks: [],

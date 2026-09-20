@@ -47,24 +47,41 @@ export interface IPersistenceProvider {
  * 1. LocalProvider: Client-side LocalStorage implementation
  */
 export class LocalProvider implements IPersistenceProvider {
+  private fallbackStore = new Map<string, string>();
+
   public async getItem(key: string): Promise<string | null> {
-    if (typeof window === "undefined" || !window.localStorage) return null;
-    return window.localStorage.getItem(key);
+    const storage = typeof window !== "undefined" ? window.localStorage : (globalThis as any).localStorage;
+    if (!storage) {
+      return this.fallbackStore.get(key) || null;
+    }
+    return storage.getItem(key);
   }
 
   public async setItem(key: string, value: string): Promise<void> {
-    if (typeof window === "undefined" || !window.localStorage) return;
-    window.localStorage.setItem(key, value);
+    const storage = typeof window !== "undefined" ? window.localStorage : (globalThis as any).localStorage;
+    if (!storage) {
+      this.fallbackStore.set(key, value);
+      return;
+    }
+    storage.setItem(key, value);
   }
 
   public async removeItem(key: string): Promise<void> {
-    if (typeof window === "undefined" || !window.localStorage) return;
-    window.localStorage.removeItem(key);
+    const storage = typeof window !== "undefined" ? window.localStorage : (globalThis as any).localStorage;
+    if (!storage) {
+      this.fallbackStore.delete(key);
+      return;
+    }
+    storage.removeItem(key);
   }
 
   public async clear(): Promise<void> {
-    if (typeof window === "undefined" || !window.localStorage) return;
-    window.localStorage.clear();
+    const storage = typeof window !== "undefined" ? window.localStorage : (globalThis as any).localStorage;
+    if (!storage) {
+      this.fallbackStore.clear();
+      return;
+    }
+    storage.clear();
   }
 
   public async healthCheck(): Promise<boolean> {

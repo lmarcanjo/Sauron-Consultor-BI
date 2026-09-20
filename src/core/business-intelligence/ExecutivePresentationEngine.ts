@@ -45,6 +45,14 @@ export interface ExecutivePresentation {
   targetType: string;
   slides: PresentationSlide[];
   status: "ready" | "insufficient_data";
+  /** Optional provenance used by the MVP-3 artifact projection. */
+  artifactId?: string;
+  artifactFingerprint?: string;
+  sourceFingerprint?: string;
+  engagementId?: string;
+  generatedAt?: string;
+  version?: number;
+  origin?: "MVP3_EXECUTIVE_DELIVERABLES" | "LEGACY_PRESENTATION_ENGINE";
   consistency?: ConsistencyReadinessReport;
   certifiedSnapshot?: CertifiedMetricSnapshot;
 }

@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
@@ -13,7 +16,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "quality:domain-vocabulary:baseline": "node scripts/domain-vocabulary-baseline.mjs",
+    "quality:domain-vocabulary:baseline:dry-run": "node scripts/domain-vocabulary-baseline.mjs --dry-run",
+    "quality:domain-vocabulary:check": "node scripts/domain-vocabulary-check.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

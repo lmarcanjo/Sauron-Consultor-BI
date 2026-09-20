@@ -1,5 +1,6 @@
 import { ExecutiveSummary, Recommendation, Anomaly, Trend, BenchmarkResult } from '../../core/analytics/types';
 import type { CertifiedMetricSnapshot } from '../../core/financial-consistency';
+import type { ExecutiveSnapshot } from '../../core/executive-deliverables/ExecutiveDeliverablesTypes';
 
 export interface ActionPlan {
   id: string;
@@ -32,7 +33,18 @@ export interface WorkspaceImportProfile { id: string; name: string; rules: any; 
 export interface WorkspaceFilter { id: string; name: string; expression: string; }
 export interface WorkspaceKpi { id: string; name: string; target: number; }
 export interface WorkspaceDashboard { id: string; name: string; layout: any; }
-export interface WorkspacePresentation { id: string; name: string; slides: any[]; }
+export interface WorkspacePresentation {
+  id: string;
+  name: string;
+  slides: any[];
+  artifactId?: string;
+  artifactFingerprint?: string;
+  sourceFingerprint?: string;
+  engagementId?: string;
+  generatedAt?: string;
+  version?: number;
+  status?: "CURRENT" | "OUTDATED";
+}
 export interface WorkspaceHistoryEvent { id: string; event: string; timestamp: string; }
 export interface WorkspaceAuditEvent { id: string; action: string; user: string; timestamp: string; }
 
@@ -45,9 +57,22 @@ export interface AnalysisResult {
   lastUpdated: string;
 }
 
+export interface ClientEntity {
+  id: string;
+  legalName: string;
+  tradeName?: string;
+  document: string; // CNPJ ou identificador único
+  segment?: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdAt: string;
+  updatedAt: string;
+  assignedConsultantId?: string;
+}
+
 export interface WorkspaceProject {
   id: string;
   client: string;
+  clientId?: string;
   group: string;
   segment: string;
   companies: string[];
@@ -67,5 +92,8 @@ export interface WorkspaceProject {
   auditLog: WorkspaceAuditEvent[];
   lastUpdated: string;
   isArchived: boolean;
+  canonicalState?: 'NO_SOURCE' | 'SOURCE_CONNECTED' | 'DISCOVERING' | 'WAITING_CONFIRMATION' | 'READY';
+  assignedConsultantId?: string;
   analysis?: AnalysisResult;
+  executiveSnapshots?: ExecutiveSnapshot[];
 }

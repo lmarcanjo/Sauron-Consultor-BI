@@ -22,6 +22,9 @@ import { getEnterpriseContext } from "../core/enterprise-consolidation";
 import { certifiedMetricSnapshotStore } from "../core/financial-consistency";
 import type { CertifiedMetricSnapshot } from "../core/financial-consistency";
 
+import { consultantWorkspaceManager } from "../modules/consultant-workspace/ConsultantWorkspaceManager";
+import { identityEngine } from "../core/identity/IdentityEngine";
+
 interface MeetingModePageProps {
   onExit: () => void;
   activeProject?: WorkspaceProject | null;
@@ -45,8 +48,14 @@ export const MeetingModePage: React.FC<MeetingModePageProps> = ({
 
   useEffect(() => {
     let mounted = true;
-    const context = getEnterpriseContext();
-    void enterpriseRepository.getAll().then(entities => {
+    void consultantWorkspaceManager.getActiveProject().then(async activeEngagement => {
+      if (!mounted) return;
+      if (activeEngagement) {
+        setContextProject(activeEngagement);
+        return;
+      }
+      const context = getEnterpriseContext();
+      const entities = await enterpriseRepository.getAll();
       if (!mounted) return;
       const company = entities.find(entity => entity.id === context.companyId);
       const group = entities.find(entity => entity.id === context.groupId);

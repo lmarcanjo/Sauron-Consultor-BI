@@ -36,11 +36,11 @@ import { IPersistenceProvider, LocalProvider } from "./IPersistenceProvider";
  * Enterprise Persistence Manager (Legacy Compatibility Wrapper)
  * Backed by modern IPersistenceProvider interfaces.
  */
-class PersistenceManager {
+export class PersistenceManager {
   private provider: IPersistenceProvider;
 
-  constructor() {
-    this.provider = new LocalProvider();
+  constructor(provider?: IPersistenceProvider) {
+    this.provider = provider || new LocalProvider();
   }
 
   /**
@@ -95,6 +95,27 @@ class PersistenceManager {
       await this.provider.clear();
     } catch (e) {
       console.error("PersistenceManager error clearing storage:", e);
+    }
+  }
+
+  /**
+   * List all keys in storage.
+   */
+  public async keys(): Promise<string[]> {
+    try {
+      if ((this.provider as any).store instanceof Map) {
+        return Array.from((this.provider as any).store.keys());
+      }
+      const storage = typeof window !== "undefined" ? window.localStorage : (globalThis as any).localStorage;
+      if (!storage) return [];
+      const result: string[] = [];
+      for (let i = 0; i < storage.length; i++) {
+        const k = storage.key(i);
+        if (k) result.push(k);
+      }
+      return result;
+    } catch {
+      return [];
     }
   }
 }

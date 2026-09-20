@@ -27,6 +27,7 @@ export const ExecutiveSessionControls: React.FC<ExecutiveSessionControlsProps> =
       <button 
         onClick={onEndMeeting}
         className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-[11px] font-black tracking-wider uppercase rounded-lg shadow-lg hover:shadow-emerald-950 transition-all flex items-center gap-1.5 border border-emerald-500/30 cursor-pointer"
+        data-testid="end-meeting-btn"
       >
         <CheckCircle2 size={13} /> Encerrar Reunião
       </button>

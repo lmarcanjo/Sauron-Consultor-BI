@@ -1,6 +1,18 @@
 /**
  * RC-3 baseline for vocabulary that still exists in pre-Domain-Pack code.
  * New production files cannot use these terms without an explicit migration.
+ *
+ * TRACKED DEBT — RC-3.1.1 baseline (2026-08-01)
+ * ──────────────────────────────────────────────
+ * Files listed here contain known domain vocabulary OUTSIDE of designated
+ * Domain Pack directories. Each entry represents technical debt that must be
+ * remediated by migrating the term into the appropriate Domain Pack.
+ *
+ * Rules:
+ *   1. Only files that already existed in the RC-3 snapshot may be added.
+ *   2. New files written after RC-3.1 may NOT be added; they must use Domain Packs.
+ *   3. Removing a file from this list is encouraged when the debt is paid.
+ *   4. Adding a file requires a comment explaining what terms are present and why.
  */
 export const DOMAIN_VOCABULARY_LEGACY_PATHS = new Set([
   "src/types/dataSource.ts",
@@ -95,4 +107,34 @@ export const DOMAIN_VOCABULARY_LEGACY_PATHS = new Set([
   "src/components/SauronArchitectPanel.tsx",
   "src/components/CustomAreaTab.tsx",
   "src/core/business-intelligence/CustomAreaViewModel.ts",
+
+  // ── RC-3.1.1 Tracked Debt additions (2026-08-01) ──────────────────────────
+  // The following files were discovered by the real scanner during the RC-3.1.1
+  // hotfix. They contain domain vocabulary outside Domain Pack directories and
+  // must be migrated in a future sprint. Each is documented below.
+
+  // Debt: uses "indústria", "varejo", "serviços" in sector-selection UI.
+  // Migration target: move sector enum/labels to DomainPacks; UI renders labels
+  // from domain metadata instead of hardcoding them here.
+  "src/components/ClientManagementModal.tsx",
+
+  // Debt: uses "serviços", "varejo", "indústria" in engagement-type selector.
+  // Migration target: engagement types should reference DomainPack category names.
+  "src/components/EngagementModal.tsx",
+
+  // Debt: uses "construção" as a string literal in evidence classification.
+  // Migration target: replace with DomainVocabularyCategory enum reference.
+  "src/core/evidence/EvidenceEngine.ts",
+
+  // Debt: uses "construção" in semantic classification logic.
+  // Migration target: delegate industry-label resolution to ConstructionPack.
+  "src/core/semantic/SourceDrivenSemanticEngine.ts",
+
+  // Debt: uses "serviços" in engagement-service-type initialization.
+  // Migration target: ServicesPack should own this vocabulary.
+  "src/modules/consultant-workspace/EngagementService.ts",
+
+  // Debt: uses "fazenda" (agribusiness) in organization type definitions.
+  // Migration target: AgribusinessPack should own organization-type vocabulary.
+  "src/modules/consultant-workspace/OrganizationService.ts",
 ]);

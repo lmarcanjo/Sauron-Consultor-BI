@@ -24,7 +24,8 @@ import { getEnterpriseContext, setEnterpriseContext, subscribeEnterpriseContext 
 import { enterpriseConsolidationService } from "../core/enterprise-consolidation";
 import { activateImportedSources } from "../core/data/DataActivation";
 import { workbookRepository as libraryWorkbookRepository } from "../core/workbook-library/WorkbookRepository";
-import { enterpriseRepository, Enterprise, BusinessGroup, Company, Unit } from "../core/persistence/EnterpriseRepository";
+import { enterpriseRepository, SourceEnterpriseBinding, BusinessGroup, Company, Unit } from "../core/persistence/EnterpriseRepository";
+import { DataSource } from "../core/datasource/DataSource";
 import { timelineRepository } from "../core/persistence/TimelineRepository";
 import { identityEngine } from "../core/identity/IdentityEngine";
 import { workspaceIntelligenceEngine } from "../core/workspace-intelligence/WorkspaceIntelligenceEngine";
@@ -33,6 +34,7 @@ import { EnterpriseTimeline } from "./EnterpriseTimeline";
 import { getDomainDisplayLabel, getDomainDisplayOptions } from "../core/business-domains";
 import { repairLegacyLocalState } from "../core/migrations/LegacyLocalStateRepairService";
 import { ChaosProfilingPanel } from "./ChaosProfilingPanel";
+import { consultantWorkspaceManager } from "../modules/consultant-workspace/ConsultantWorkspaceManager";
 
 interface CentralDadosTabProps {
   dataOrigem: LancamentoFinanceiro[];
@@ -44,6 +46,10 @@ interface CentralDadosTabProps {
   visibleFilters?: string[];
   fieldMappings?: Record<string, string>;
   initialStep?: number;
+  onOpenExecutiveSummary?: () => void;
+  onOpenExecutiveDashboard?: () => void;
+  onGenerateExecutivePresentation?: () => void;
+  onAnalysisCompleted?: (artifact: import("../core/preliminary-analysis/PreliminaryFinancialAnalysisContracts").PreliminaryFinancialAnalysisArtifact) => void | Promise<void>;
 }
 
 export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
@@ -56,6 +62,10 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   visibleFilters = [],
   fieldMappings = {},
   initialStep = 0,
+  onOpenExecutiveSummary,
+  onOpenExecutiveDashboard,
+  onGenerateExecutivePresentation,
+  onAnalysisCompleted,
 }) => {
   // Tabs Selection:
   // 0: Saúde da fonte
@@ -143,12 +153,13 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
   }, [sharedFiles]);
 
   // Enterprise / Context structures state
-  const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [groups, setGroups] = useState<BusinessGroup[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [units, setUnitList] = useState<Unit[]>([]);
-  const [sourceBindings, setSourceBindings] = useState<Awaited<ReturnType<typeof enterpriseRepository.listSourceBindings>>>([]);
+  const [sourceBindings, setSourceBindings] = useState<SourceEnterpriseBinding[]>([]);
+  const [scopedDataSources, setScopedDataSources] = useState<DataSource[]>([]);
   const [currentWorkspace, setCurrentWorkspace] = useState<any>(null);
+  const [activeEngagementId, setActiveEngagementId] = useState<string | undefined>();
 
   // Subscribe to context updates
   const [contextTick, setContextTick] = useState(0);
@@ -185,12 +196,28 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
 
   // Load context structures
   const loadData = React.useCallback(async () => {
-    const list = await enterpriseRepository.getAll();
-    setEnterprises(list);
-    setGroups(list.filter(e => e.type === "Grupo") as BusinessGroup[]);
-    setCompanies(list.filter(e => e.type === "Empresa") as Company[]);
-    setUnitList(list.filter(e => e.type === "Unidade") as Unit[]);
+    const activeEngagement = await consultantWorkspaceManager.getActiveProject();
+    setActiveEngagementId(activeEngagement?.id);
+    const organizationService = consultantWorkspaceManager.organizationService;
+    const nextGroups = activeEngagement
+      ? await organizationService.listGroupsByEngagement(activeEngagement.id, identityEngine.getCurrentUser())
+      : [];
+    const nextCompanies: Company[] = [];
+    const nextUnits: Unit[] = [];
+    for (const group of nextGroups) {
+      const groupCompanies = await organizationService.listCompaniesByGroup(group.id, identityEngine.getCurrentUser());
+      nextCompanies.push(...groupCompanies);
+      for (const company of groupCompanies) {
+        nextUnits.push(...await organizationService.listUnitsByCompany(company.id, identityEngine.getCurrentUser()));
+      }
+    }
+    setGroups(nextGroups);
+    setCompanies(nextCompanies);
+    setUnitList(nextUnits);
     setSourceBindings(await enterpriseRepository.listSourceBindings());
+    setScopedDataSources(activeEngagement
+      ? await consultantWorkspaceManager.dataSourceService.listDataSourcesByEngagement(activeEngagement.id, identityEngine.getCurrentUser())
+      : []);
 
     const activeWs = identityEngine.getCurrentWorkspace() as any;
     if (activeWs) {
@@ -230,8 +257,15 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
       };
     });
     const byId = new Map(libraryFiles.map(file => [file.id, file]));
-    return Array.from(byId.values());
-  }, [libraryTick, contextTick]);
+    const sourceIds = new Set(scopedDataSources.map(source => source.id));
+    const scopedWorkbookIds = new Set(
+      sourceBindings
+        .filter(binding => sourceIds.has(binding.sourceId) || sourceIds.has(binding.datasetId) || sourceIds.has(binding.workbookId))
+        .map(binding => binding.workbookId)
+    );
+    if (!activeEngagementId) return [];
+    return Array.from(byId.values()).filter(file => scopedWorkbookIds.has(file.id));
+  }, [libraryTick, contextTick, activeEngagementId, scopedDataSources, sourceBindings]);
 
   const bindingFor = (workbookId: string) => sourceBindings.find(binding => binding.workbookId === workbookId || binding.sourceId === workbookId);
   const linkedCompanyFor = (workbookId: string) => {
@@ -760,7 +794,13 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
         {localRepairMessage && <p className="mt-3 text-xs font-bold text-emerald-700 dark:text-emerald-300" role="status">{localRepairMessage}</p>}
       </div>
 
-      <ChaosProfilingPanel activeDataset={activeDataset} />
+      <ChaosProfilingPanel
+        activeDataset={activeDataset}
+        onOpenExecutiveSummary={onOpenExecutiveSummary}
+        onOpenExecutiveDashboard={onOpenExecutiveDashboard}
+        onGenerateExecutivePresentation={onGenerateExecutivePresentation}
+        onAnalysisCompleted={onAnalysisCompleted}
+      />
 
 
 
@@ -1576,10 +1616,12 @@ export const CentralDadosTab: React.FC<CentralDadosTabProps> = ({
             </div>
             <SimpleSpreadsheetImporter
               initialFiles={pendingFiles}
+              engagementId={activeEngagementId}
               onImported={async (dataset) => {
                 setIsUploaderOpen(false);
                 setPendingFiles([]);
                 setLibraryTick(value => value + 1);
+                await loadData();
                 await timelineRepository.log("IMPORT", "Planilha importada com sucesso", dataset.sourceName);
                 showToast("success", "Planilha importada com sucesso.");
               }}

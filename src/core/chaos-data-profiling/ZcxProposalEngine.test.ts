@@ -39,7 +39,6 @@ describe("ZcxProposalEngine", () => {
           probableRole: "date",
           emptyPercentage: 0.01,
           examples: ["2026-01-01", "2026-01-02"],
-          uniquenessScore: 0.8,
         },
         {
           containerId: "c1",
@@ -48,7 +47,6 @@ describe("ZcxProposalEngine", () => {
           probableRole: "metric",
           emptyPercentage: 0.0,
           examples: [150.5, 300.0],
-          uniquenessScore: 0.9,
         },
         {
           containerId: "c1",
@@ -57,7 +55,6 @@ describe("ZcxProposalEngine", () => {
           probableRole: "name",
           emptyPercentage: 0.05,
           examples: ["Ana", "Bruno"],
-          uniquenessScore: 0.3,
         },
         {
           containerId: "c1",
@@ -66,7 +63,6 @@ describe("ZcxProposalEngine", () => {
           probableRole: "unknown",
           emptyPercentage: 0.98,
           examples: [],
-          uniquenessScore: 0.0,
         },
       ],
       detectedBlocks: [],
@@ -79,7 +75,7 @@ describe("ZcxProposalEngine", () => {
           confidence: 0.95,
           evidence: ["Data no formato ISO"],
           warnings: [],
-          status: "PROPOSED",
+          status: "SUGGESTED",
         },
         {
           id: "sug_2",
@@ -89,7 +85,7 @@ describe("ZcxProposalEngine", () => {
           confidence: 0.92,
           evidence: ["Valores numéricos positivos"],
           warnings: [],
-          status: "PROPOSED",
+          status: "SUGGESTED",
         },
       ],
       qualityFindings: [],

@@ -39,7 +39,7 @@ function canUseStorage(): boolean {
 }
 
 function emptyState(): ChaosProfilingState {
-  return { profiles: {}, latestProfileBySource: {}, decisions: {}, views: {} };
+  return { profiles: {}, latestProfileBySource: {}, decisions: {}, views: {}, proposals: {} };
 }
 
 function readState(): ChaosProfilingState {

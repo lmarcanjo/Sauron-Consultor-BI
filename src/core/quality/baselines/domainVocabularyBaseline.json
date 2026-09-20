@@ -1,0 +1,2523 @@
+{
+  "schemaVersion": "1",
+  "generatedAt": "2026-08-09T22:06:31.825Z",
+  "scannerVersion": "3.1.1-R2",
+  "root": "src",
+  "nodeVersion": "v22.23.1",
+  "platform": "linux",
+  "regexFlag": "iv",
+  "filesScanned": 618,
+  "linesScanned": 86463,
+  "totalFindings": 267,
+  "allowedFindings": 168,
+  "trackedDebtFindings": 99,
+  "unauthorizedFindings": 0,
+  "performanceMs": 905,
+  "budgetTargetMs": 3000,
+  "budgetAlertMs": 4000,
+  "budgetFailureMs": 5000,
+  "findings": [
+    {
+      "file": "src/App.tsx",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "28a8a89a11fe82d2",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/App.tsx",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "e12b1c7c7d4d0841",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/App.tsx",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "bf286966bc04339e",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/AppSidebar.tsx",
+      "term": "construction",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "bfb57940bf5aa9e2",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/ClientManagementModal.tsx",
+      "term": "indústria",
+      "category": "industry",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "ad66921f84baaa4d",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "DomainPack category labels (sector enum/labels)"
+    },
+    {
+      "file": "src/components/ClientManagementModal.tsx",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "8db5c56a0e0781d3",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "DomainPack category labels (sector enum/labels)"
+    },
+    {
+      "file": "src/components/ClientManagementModal.tsx",
+      "term": "varejo",
+      "category": "retail",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "8a7ff464c2e0bd88",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "DomainPack category labels (sector enum/labels)"
+    },
+    {
+      "file": "src/components/ComissoesTab.tsx",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "4d24ec51d3e886d5",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/CommissionClosingPanel.tsx",
+      "term": "matrícula",
+      "category": "education",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "5a87825a63fe48db",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/ConsultorAreaTab.tsx",
+      "term": "varejo",
+      "category": "retail",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "90146ae952914c5c",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/DatabaseConnector.tsx",
+      "term": "consulta",
+      "category": "healthcare",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "d2b8a163dbb2d371",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/EngagementModal.tsx",
+      "term": "indústria",
+      "category": "industry",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "4e9ef75d77edeeeb",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "DomainPack engagement type names"
+    },
+    {
+      "file": "src/components/EngagementModal.tsx",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "99cc715c6cc90a46",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "DomainPack engagement type names"
+    },
+    {
+      "file": "src/components/EngagementModal.tsx",
+      "term": "varejo",
+      "category": "retail",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "fe895884888d304a",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "DomainPack engagement type names"
+    },
+    {
+      "file": "src/components/ExecutiveSessionStage.tsx",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "4a82eba273b92b38",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/FechamentoMensalTab.tsx",
+      "term": "construção",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "0214cfdd7e615c39",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/MeetingPrepTab.tsx",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "118129f04be12cca",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/ModeloConsultivoTab.tsx",
+      "term": "produtor",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "b210f2ccc116f9b0",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/PeopleIntelligenceTab.tsx",
+      "term": "matrícula",
+      "category": "education",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "7e7fa49b8651afab",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/PeopleIntelligenceTab.tsx",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "c33023b736422bec",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/PerfisConfigTab.tsx",
+      "term": "consulta",
+      "category": "healthcare",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "4ea8ea2b190db654",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/components/PerfisConfigTab.tsx",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "b9e0195b54763e44",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/adaptive-ui/WorkspaceDictionaryRepository.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "72f620597d4998e2",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/adaptive-ui/WorkspaceDictionaryRepository.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "7fcc742bf0d1b7b4",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/adaptive-ui/WorkspaceDictionaryRepository.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "39bf402703891022",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/adaptive-ui/WorkspaceDictionaryRepository.ts",
+      "term": "produtor",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "ef5ba5a66b7caccc",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/adaptive-ui/WorkspaceDictionaryRepository.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "f94c887792014f1d",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/adaptive-ui/WorkspaceDictionaryRepository.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "8009573054c6b652",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/adaptive-ui/WorkspaceDictionaryRepository.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "796da9b9a24e8f9d",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/hierarchy.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "df2524c9d0abc0b3",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/kpis.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "656c241ee6d5382b",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/manifest.ts",
+      "term": "agronegócio",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "d71b20a4c88ba55d",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/manifest.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "0f04a5811a6f29ed",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/mapping.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "1db7c56651a32d69",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/mapping.ts",
+      "term": "produtor",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "aaf0de4cc41c1b6d",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/mapping.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "ee53acd72930cd99",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/meeting.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "928b8c5c0eddc9f3",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/presentation.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "9cd9fd4907d503a7",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/terminology.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "13ef482f27c9dafd",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/terminology.ts",
+      "term": "produtor",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "0912442d71bdd264",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/terminology.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "3b67c471b9b690c5",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/vocabulary.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "1d184e263fbdb516",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/vocabulary.ts",
+      "term": "produtor",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "876f5cbf6ba5ea71",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/agribusiness/vocabulary.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "471248b559e0b4df",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/hierarchy.ts",
+      "term": "concessionária",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "1e422e41c745b15a",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/kpis.ts",
+      "term": "montadora",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "80e295c719d1a347",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/kpis.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "5461c48508f15d86",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/kpis.ts",
+      "term": "pecas",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "bf08c03767333eb2",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/kpis.ts",
+      "term": "peças",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "7bc94e2c98d3e76a",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/kpis.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "39d5af0399d5090e",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/kpis.ts",
+      "term": "veículo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "0fdc0c3091373935",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/manifest.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "59d2dea0e27c596c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/manifest.ts",
+      "term": "automotivo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "586809335eb3402b",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/manifest.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "67859f12db35b012",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/manifest.ts",
+      "term": "pecas",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "8b8f11c2880eb5a5",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/manifest.ts",
+      "term": "workshop",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "87d3efa6ebb7cc61",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/mapping.ts",
+      "term": "chassi",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "88cc61c8e363e38d",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/mapping.ts",
+      "term": "concessionária",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "b36898269023f84d",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/mapping.ts",
+      "term": "montadora",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "8ec7b65d73e79d7b",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/mapping.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "821d334ec6e35047",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/mapping.ts",
+      "term": "veículo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "22525f74aacafdd4",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/meeting.ts",
+      "term": "concessionária",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "fd0dbdfce4f0c8f7",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/meeting.ts",
+      "term": "f&i",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "3810f15dfccc2431",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/meeting.ts",
+      "term": "montadora",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "ed0eed0b731a58ad",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/meeting.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "ab1768e768608685",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/meeting.ts",
+      "term": "pecas",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "c631f3e3465ca848",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/meeting.ts",
+      "term": "veículo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "f027d0b9d2e3d74e",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/presentation.ts",
+      "term": "concessionária",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "c9665b34ebcc8ceb",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/presentation.ts",
+      "term": "f&i",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "3b485f6f4478158b",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/presentation.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "a723b513cabdffe6",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/rules.ts",
+      "term": "f&i",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "e13a09563d500778",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/rules.ts",
+      "term": "veiculo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "2caffe96f74e3a38",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/terminology.ts",
+      "term": "concessionária",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "fa83132c8cb8d3a5",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/terminology.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "b597d3781bc549c5",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/terminology.ts",
+      "term": "veículo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "703efd3051348586",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/vocabulary.ts",
+      "term": "chassi",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "eeb1598985774ef0",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/vocabulary.ts",
+      "term": "concessionária",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "2d7fad05f6a26ad9",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/vocabulary.ts",
+      "term": "f&i",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "a52927e46caf0437",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/vocabulary.ts",
+      "term": "montadora",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "bf4c6333d61c8812",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/vocabulary.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "4603860b9978c9e2",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/vocabulary.ts",
+      "term": "peças",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "c9344365f686adf9",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/vocabulary.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "8c3784112f4bcd62",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/automotive/vocabulary.ts",
+      "term": "veículo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "02adfaf0b2bc6bfe",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/construction/manifest.ts",
+      "term": "construção",
+      "category": "construction",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "3b002dba6d4f0220",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/construction/manifest.ts",
+      "term": "construction",
+      "category": "construction",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "3335ba64164bed88",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/construction/vocabulary.ts",
+      "term": "construção",
+      "category": "construction",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "7ba620b4753fc740",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/hierarchy.ts",
+      "term": "turma",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "fd4195d525532ded",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/manifest.ts",
+      "term": "aluno",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "44eab493a5bebce7",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/manifest.ts",
+      "term": "education",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "9036396b79ab5528",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/manifest.ts",
+      "term": "turma",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "3b0b946c3d8c0146",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/mapping.ts",
+      "term": "aluno",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "a9bbb83d0e7ce6a0",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/mapping.ts",
+      "term": "turma",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "6298dcc8d5bdc924",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/terminology.ts",
+      "term": "aluno",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "fb9a7feca6a1cffa",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/terminology.ts",
+      "term": "turma",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "6475d5488254fbdb",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/vocabulary.ts",
+      "term": "aluno",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "e3f7b40832883ea1",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/education/vocabulary.ts",
+      "term": "turma",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "ec5aa06df8014aa1",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/healthcare/kpis.ts",
+      "term": "paciente",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "5ff1f69b82d47b48",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/healthcare/manifest.ts",
+      "term": "healthcare",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "20c020114828d566",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/healthcare/manifest.ts",
+      "term": "paciente",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "17c8a1492e186e8b",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/healthcare/mapping.ts",
+      "term": "paciente",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "2984e34ddaefb577",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/healthcare/terminology.ts",
+      "term": "paciente",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "44610866b4bcac98",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/healthcare/vocabulary.ts",
+      "term": "consulta",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "2b97c1809c236f7c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/healthcare/vocabulary.ts",
+      "term": "leito",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "ac3d5c9927561c7f",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/healthcare/vocabulary.ts",
+      "term": "paciente",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "fa2ba4b5b0d3216f",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/index.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "041f33ec10068f42",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/index.ts",
+      "term": "construction",
+      "category": "construction",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "b25f3e916d819476",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/index.ts",
+      "term": "education",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "72aad0ebc2c09b18",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/index.ts",
+      "term": "healthcare",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "60ec412f81b54361",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/index.ts",
+      "term": "retail",
+      "category": "retail",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "a25f06ec53668e7f",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/index.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "a3620e5580e84ae9",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/industry/manifest.ts",
+      "term": "indústria",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "76aab2ea6024920c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/industry/manifest.ts",
+      "term": "industrial",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "7f7aa1e9951d2faa",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/industry/presentation.ts",
+      "term": "industrial",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "be213b5924f6f9a3",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/industry/vocabulary.ts",
+      "term": "industrial",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "25a470a52dbfc59e",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/retail/kpis.ts",
+      "term": "retail",
+      "category": "retail",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "1761a35f83d3f47d",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/retail/manifest.ts",
+      "term": "retail",
+      "category": "retail",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "511525cb89dbf5bd",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/retail/manifest.ts",
+      "term": "varejo",
+      "category": "retail",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "54b2b6da950ade50",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/retail/meeting.ts",
+      "term": "retail",
+      "category": "retail",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "ef2e50707c523b57",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/retail/presentation.ts",
+      "term": "retail",
+      "category": "retail",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "b5b96370420f9769",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/services/kpis.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "af3248f44ad6a331",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/services/kpis.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "31c7b9954178a3fb",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/services/manifest.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "0afc1e995013b850",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/services/manifest.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "13afdb8efb2b17d6",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/services/meeting.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "f70d38ed2d445dc8",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/services/presentation.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "db4a333f26763e7c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/services/presentation.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "04013c06b0e4f569",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-domains/services/terminology.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "678debef6cc3ab95",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/business-intelligence/ConsultingReadinessService.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "7da19190798c6010",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business-intelligence/ExecutivePresentationEngine.ts",
+      "term": "agronegócio",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "2d6e59071398e12a",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business-intelligence/ExecutivePresentationEngine.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "004ea3d0d7bdc3ec",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business-intelligence/ProjectDNA.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "fac18c5846e7809a",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business-intelligence/ProjectDNA.ts",
+      "term": "industria",
+      "category": "industry",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "7699ef0a57f1d27a",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business-intelligence/ProjectDNA.ts",
+      "term": "industrial",
+      "category": "industry",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "88dc1f6aa6bbb8e9",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business-intelligence/ProjectDNA.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "3381f8d7c7648776",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business/BusinessEngine.ts",
+      "term": "industria",
+      "category": "industry",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "be12365e6dc21312",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business/BusinessEngine.ts",
+      "term": "industrial",
+      "category": "industry",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "2f7d8f788d327706",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business/BusinessEngine.ts",
+      "term": "servicos",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "9fadea17b4735841",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business/BusinessEngine.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "75d98bb7b060fdf5",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business/businessObjects.ts",
+      "term": "industria",
+      "category": "industry",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "a37197ae1ec16a31",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business/businessObjects.ts",
+      "term": "servicos",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "bc753ad3a7e8e960",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/business/businessObjects.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "e22175e9f4e1dc09",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/connections/ConnectorSDK.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "6cc3c61580d73ab1",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/connections/DatabaseConnectionManager.ts",
+      "term": "consulta",
+      "category": "healthcare",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "eb4a22cf60e33a0f",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/data/moduleMapping.ts",
+      "term": "matricula",
+      "category": "education",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "be37e93bbde13135",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/data/moduleMapping.ts",
+      "term": "matrícula",
+      "category": "education",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "112f4dda388e43f0",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/enterprise-consolidation/EnterpriseDiscoveryEngine.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "5dc10383a0890404",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/enterprise-consolidation/EnterpriseDiscoveryEngine.ts",
+      "term": "peças",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "2cf447fa101fc644",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/enterprise-consolidation/EnterpriseDiscoveryTypes.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "a7c8b549f1b16ae2",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/enterprise-consolidation/EnterpriseDiscoveryTypes.ts",
+      "term": "peças",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "f6c7b9cedd847b3a",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/enterprise-consolidation/EnterpriseDiscoveryTypes.ts",
+      "term": "veículo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "5085e6056227fd37",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/evidence/EvidenceEngine.ts",
+      "term": "construção",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "009ceb43ca6f7f14",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "DomainVocabularyCategory enum reference"
+    },
+    {
+      "file": "src/core/identity/digitalTwin/CompanyTwin.ts",
+      "term": "servicos",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "82212bbb8b3b037c",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/knowledge-graph/KnowledgeGraphDiagnostics.ts",
+      "term": "construção",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "15f12b972cbd2f48",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/DomainMarketPackMapper.ts",
+      "term": "agronegocio",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "6ea8f2c935adbb43",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/DomainMarketPackMapper.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "a21891bc391ac46a",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/DomainMarketPackMapper.ts",
+      "term": "construcao",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "ee450286374d6bf2",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/DomainMarketPackMapper.ts",
+      "term": "construction",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "3e6985db10be5fac",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/DomainMarketPackMapper.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "da25d6d9e0a96a44",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/DomainMarketPackMapper.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "b50db6b71b04b99b",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketNewsProvider.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "1681b8017fe9f2e8",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketNewsProvider.ts",
+      "term": "construção",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "37b80b28c09a017d",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketNewsProvider.ts",
+      "term": "construction",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "2b2c012421316c1b",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketNewsProvider.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "79cc34fae227084a",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketNewsProvider.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "bdf4e54e2a8850d9",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketQuoteProvider.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "0e3bb6615ed6b5ab",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketQuoteProvider.ts",
+      "term": "construção",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "11b4bcb56a7defa2",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketQuoteProvider.ts",
+      "term": "construction",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "f2d1e3878a90f8f0",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketSignalProvider.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "6bbc08bb29f2e3dd",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketSignalProvider.ts",
+      "term": "construction",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "b775a7b0bd6caf6f",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketSignalProvider.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "4bd239794d90e387",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/market-intelligence/MarketSignalProvider.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "93692ccea94407eb",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/navigation/consultingFlowStructure.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "c2519eb3f3654a27",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/persistence/EnterpriseRepository.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "0a1d3b19e6711da0",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/persistence/TransactionManager.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "c024623eebdee006",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/plugins/agro/AgroPlugin.ts",
+      "term": "agroplugin",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "5b23a6ebb05f312d",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/agro/AgroPlugin.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "bc0621f73464b379",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/agro/AgroPlugin.ts",
+      "term": "matrícula",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "2308b103542b437c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/agro/AgroPlugin.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "28a5f2a55abd7c4f",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/automotive/AutomotivePlugin.ts",
+      "term": "f&i",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "a7d59c496dc6fb43",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/automotive/AutomotivePlugin.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "1a49d9605d585d2e",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/industry/IndustryPlugin.ts",
+      "term": "industria",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "4fbd6d46b3c70417",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/industry/IndustryPlugin.ts",
+      "term": "industrial",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "512a5c9ad7704155",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/PluginEngine.ts",
+      "term": "industria",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "b3a3c78b35550bdb",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/PluginEngine.ts",
+      "term": "servicos",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "d0b759f5ff74456c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/plugins/services/ServicesPlugin.ts",
+      "term": "servicos",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "701efd6a5e13d2f5",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/domainVocabularyAllowlist.ts",
+      "term": "construção",
+      "category": "construction",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "bbcbbf844efec483",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/domainVocabularyAllowlist.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "a56bdd74ff56b412",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/domainVocabularyAllowlist.ts",
+      "term": "indústria",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "6f61bcf5d1844dc9",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/domainVocabularyAllowlist.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "6d694915cfae7f73",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/domainVocabularyAllowlist.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "f59fbdc880d0b066",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/domainVocabularyAllowlist.ts",
+      "term": "varejo",
+      "category": "retail",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "37423874e162e300",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "agronegocio",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "54f8ad9ef41eb977",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "agronegócio",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "c14db2ed9aa99af7",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "agroplugin",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "387c7f0c15c4bd84",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "aluno",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "12dc88a0004dd07c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "afacd92dc1b3b7a5",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "automotivo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "14264c869380cc14",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "chassi",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "1f9ff01540338ed5",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "clinica",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "2513b0663f594ecd",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "clínica",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "9be719b71469d3db",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "concessionaria",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "bee4cf5a94a6f1d4",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "concessionária",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "6c7c4cc4058e5361",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "construcao",
+      "category": "construction",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "9aa8e2a1f0055f7c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "construção",
+      "category": "construction",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "ad1a5e2a83ee0863",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "construction",
+      "category": "construction",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "4375f20e2a7682fb",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "consulta",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "cb6322776f6d20ef",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "dealer",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "0f13d13ea25eca00",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "defensivos",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "5ce386ea22a6a29c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "education",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "2b789ba4684e3d86",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "f&i",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "5d8676f6f5e07810",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "94e4d477ac04be31",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "healthcare",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "4c115100574c3994",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "honda",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "4a6a1831eb2e0e79",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "industria",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "ffba4bff0e1f5ea8",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "indústria",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "63009eb41b53ed4f",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "industrial",
+      "category": "industry",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "1b35056c4a973982",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "leito",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "aa6b62ab6ea47965",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "matricula",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "939013955e1d13f5",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "matrícula",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "882f1a8ebc68e87c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "montadora",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "1fe1eb381dd38595",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "nissan",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "266de5c9d9dbbdf8",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "oficina",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "44ee664fe57cfded",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "paciente",
+      "category": "healthcare",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "846045a21a5b7a38",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "pecas",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "d49111c2305b07d8",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "peças",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "8f0b98ba3c533b10",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "produtor",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "83c5576cc9fec74f",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "renault",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "5ce7e1f111f38ddc",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "retail",
+      "category": "retail",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "3776fbea4dbdb462",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "safra",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "95176fffb25361c2",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "sementes",
+      "category": "agribusiness",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "31f2d875349e864b",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "seminovo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "580c46ef64b6f293",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "7ca38ea82f6f2cee",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "servicos",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "55afb8235c8dd0cf",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "e564634ff1dc707c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "turma",
+      "category": "education",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "cd8a3c35816628c9",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "varejo",
+      "category": "retail",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "21d532985d4e3bdf",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "veiculo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "6a63b8fd2d77aa2c",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "veículo",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "de24936c2a9cb435",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/quality/DomainVocabularyScanner.ts",
+      "term": "workshop",
+      "category": "automotive",
+      "classification": "ALLOWED",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "317b2e3140f4fc6f",
+      "reason": "File is in an authorized Domain Pack prefix or is a scanner infrastructure file."
+    },
+    {
+      "file": "src/core/rule-engine/FormulaClassifier.ts",
+      "term": "consulta",
+      "category": "healthcare",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "86f5b094e1053fff",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/security/SecurityEngine.ts",
+      "term": "consulta",
+      "category": "healthcare",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "014db66532229d11",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/semantic/SourceDrivenSemanticEngine.ts",
+      "term": "construção",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "400b64da980de48e",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "ConstructionPack.getLabel()"
+    },
+    {
+      "file": "src/core/smart-configuration/ColumnRoleSuggestionEngine.ts",
+      "term": "matrícula",
+      "category": "education",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "8c1cefa72569bc74",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workbook-reverse/KpiCandidateDetector.ts",
+      "term": "matricula",
+      "category": "education",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "6c56185721e4023c",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workbook-reverse/SheetRoleClassifier.ts",
+      "term": "matricula",
+      "category": "education",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "9543fb2fceddeb64",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/BusinessDomainClassifier.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "4903859eadb8c0ba",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/BusinessDomainClassifier.ts",
+      "term": "construction",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "11feabc87eba229f",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/BusinessDomainClassifier.ts",
+      "term": "education",
+      "category": "education",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "2705eba7324d7d2b",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/BusinessDomainClassifier.ts",
+      "term": "healthcare",
+      "category": "healthcare",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "2902b517d89dbc72",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/BusinessDomainClassifier.ts",
+      "term": "retail",
+      "category": "retail",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "1c90112e40022d8e",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/BusinessDomainClassifier.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "c761224c4586c331",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/WorkspaceIntelligenceTypes.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "f48d73fc51f82e8e",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/WorkspaceIntelligenceTypes.ts",
+      "term": "construction",
+      "category": "construction",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_CONSTRUCTION",
+      "stableIdentity": "4f31a0d6f5a9f291",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/WorkspaceIntelligenceTypes.ts",
+      "term": "education",
+      "category": "education",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_EDUCATION",
+      "stableIdentity": "35b8ef9d222683af",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/WorkspaceIntelligenceTypes.ts",
+      "term": "healthcare",
+      "category": "healthcare",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "24443f05e823fa52",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/WorkspaceIntelligenceTypes.ts",
+      "term": "retail",
+      "category": "retail",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_RETAIL",
+      "stableIdentity": "21ec860385370a4a",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/core/workspace-intelligence/WorkspaceIntelligenceTypes.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "60f935ca6a6408e1",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/modules/consultant-workspace/EngagementService.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "f1b6641acf0cb33e",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "ServicesPack vocabulary"
+    },
+    {
+      "file": "src/modules/consultant-workspace/OrganizationService.ts",
+      "term": "fazenda",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "1a2a0d04c3112581",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "AgribusinessPack organization types"
+    },
+    {
+      "file": "src/utils/industryTemplates.ts",
+      "term": "agronegócio",
+      "category": "agribusiness",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AGRIBUSINESS",
+      "stableIdentity": "30cccd16fe0b074e",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/utils/industryTemplates.ts",
+      "term": "automotive",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "c810bfbf2e5ed5c4",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/utils/industryTemplates.ts",
+      "term": "f&i",
+      "category": "automotive",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_AUTOMOTIVE",
+      "stableIdentity": "e2bb25879efce147",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/utils/industryTemplates.ts",
+      "term": "indústria",
+      "category": "industry",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_INDUSTRY",
+      "stableIdentity": "600c2df8baf40c54",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/utils/industryTemplates.ts",
+      "term": "services",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "2e250f22877f1071",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/utils/industryTemplates.ts",
+      "term": "servicos",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "e98e7e9cf1e3c5f5",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/utils/industryTemplates.ts",
+      "term": "serviços",
+      "category": "services",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_SERVICES",
+      "stableIdentity": "5686f10a361dcb2d",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    },
+    {
+      "file": "src/utils/profileManager.ts",
+      "term": "consulta",
+      "category": "healthcare",
+      "classification": "TRACKED_DEBT",
+      "ruleId": "DOMAIN_VOCAB_HEALTHCARE",
+      "stableIdentity": "9db16b76a0c9833b",
+      "reason": "Pre-Domain-Pack vocabulary. Registered as RC-3 technical debt.",
+      "migrationTarget": "PENDING_INVESTIGATION"
+    }
+  ]
+}

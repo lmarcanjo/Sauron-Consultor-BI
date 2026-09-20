@@ -284,6 +284,7 @@ export const ExecutiveSessionSummary: React.FC<ExecutiveSessionSummaryProps> = (
             <button 
               onClick={() => setShowSummaryModal(false)}
               className="flex-1 md:flex-none px-5 py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer"
+              data-testid="summary-cancel-btn"
             >
               Voltar
             </button>
@@ -291,6 +292,7 @@ export const ExecutiveSessionSummary: React.FC<ExecutiveSessionSummaryProps> = (
               onClick={handleFinalizeSession}
               disabled={isSyncing}
               className="flex-1 md:flex-none px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg cursor-pointer transition-all disabled:opacity-55"
+              data-testid="finalize-meeting-session-btn"
             >
               {isSyncing ? 'Sincronizando Base...' : 'Sincronizar e Concluir'}
             </button>

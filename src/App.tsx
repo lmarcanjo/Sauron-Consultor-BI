@@ -58,6 +58,7 @@ import { ClientFilterManager } from "./services/clientFilterManager";
 import { exportToCSV } from "./utils/dataGenerator";
 import { parseCSV } from "./utils/csvParser";
 import { DynamicFilterDrawer } from "./components/DynamicFilterDrawer";
+import { PortfolioTab } from "./components/PortfolioTab";
 
 // Modular Sector Components
 import { ContabilTab } from "./components/ContabilTab";
@@ -86,7 +87,7 @@ import { FechamentoMensalTab } from "./components/FechamentoMensalTab";
 import { MeetingModePage } from "./components/MeetingModePage";
 import { MeetingPrepTab } from "./components/MeetingPrepTab";
 import { PresentationBuilderPage } from "./components/PresentationBuilderPage";
-import { DashboardPage } from "./components/pages/DashboardPage";
+import { ExecutiveDashboardPage } from "./components/ExecutiveDashboardPage";
 import { ReportsPage } from "./components/pages/ReportsPage";
 import { EnterpriseCenter } from "./components/EnterpriseCenter";
 import { CommandPalette } from "./components/CommandPalette";
@@ -104,6 +105,7 @@ import {
   SettingsErrorBoundary
 } from "./components/ErrorBoundaries";
 
+import { ConsultingHomePage } from "./components/ConsultingHomePage";
 import { AppSidebar } from "./components/AppSidebar";
 import { GlobalContextBar } from "./components/GlobalContextBar";
 import { availableTemplates } from "./utils/industryTemplates";
@@ -119,6 +121,8 @@ import { runLegacyCompatibilityMigration } from "./core/migrations/LegacyCompati
 import { repairLegacyLocalState } from "./core/migrations/LegacyLocalStateRepairService";
 import { platformLogger } from "./core/platform/PlatformLogger";
 import { applicationContextResolver } from "./core/enterprise-consolidation/ApplicationContextResolver";
+import { executiveDeliverablesService } from "./core/executive-deliverables";
+import type { PreliminaryFinancialAnalysisArtifact } from "./core/preliminary-analysis/PreliminaryFinancialAnalysisContracts";
 
 function resolveSafeActiveTab(requestedTab: string, currentUser: any): string {
   const result = resolveNavigationTarget(requestedTab, {
@@ -1298,6 +1302,18 @@ export default function App() {
     runDbValidationCheck(data);
   };
 
+  const handleAnalysisCompleted = useCallback(async (artifact: PreliminaryFinancialAnalysisArtifact) => {
+    try {
+      await executiveDeliverablesService.ensurePresentation(artifact, identityEngine.getCurrentUser());
+    } catch (error) {
+      platformLogger.warn("A análise foi concluída, mas a apresentação executiva não pôde ser persistida.", error);
+    }
+  }, []);
+
+  const openExecutiveSummary = useCallback(() => setActiveTab("resumo"), [setActiveTab]);
+  const openExecutiveDashboard = useCallback(() => setActiveTab("resumo"), [setActiveTab]);
+  const openExecutivePresentation = useCallback(() => setActiveTab("apresentacoes"), [setActiveTab]);
+
   const triggerFileSelect = () => {
     setActiveTab("central_dados");
     fileInputRef.current?.click();
@@ -1714,7 +1730,7 @@ export default function App() {
               )}
 
            {/* TAB ENTRANCE: ACTIVE PAGE CONDITIONAL RENDERING */}
-          {!activeDataset && dataOrigemReal.length === 0 && !isBusinessAreaRoute(activeTab) && !["enterprise_center", "central_dados", "analise_estrutura", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias"].includes(activeTab) ? (
+          {!activeDataset && dataOrigemReal.length === 0 && !isBusinessAreaRoute(activeTab) && !["enterprise_center", "consulting_home", "minha_carteira", "central_dados", "analise_estrutura", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias"].includes(activeTab) ? (
             <div id="real-data-empty-state" className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center max-w-xl mx-auto my-12 space-y-6 shadow-md animate-fade-in flex flex-col items-center">
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-500 border border-blue-100 dark:border-blue-900">
                 <Database size={26} className="text-blue-500" />
@@ -1749,7 +1765,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-          ) : !activeDataset && !approvedByConsultant && !isBusinessAreaRoute(activeTab) && !["enterprise_center", "central_dados", "analise_estrutura", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias"].includes(activeTab) ? (
+          ) : !activeDataset && !approvedByConsultant && !isBusinessAreaRoute(activeTab) && !["enterprise_center", "consulting_home", "minha_carteira", "central_dados", "analise_estrutura", "perfis", "organizacao_twin", "usuarios_twin", "permissoes_twin", "admin_invites", "admin_shares", "auditoria_logs", "admin_security", "area_consultor", "plano_executivo", "plano_responsaveis", "plano_prazos", "plano_followup", "plano_pendencias"].includes(activeTab) ? (
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 max-w-xl mx-auto my-12 text-center shadow-md space-y-6 animate-fadeIn">
               <div className="mx-auto w-16 h-16 bg-amber-50 dark:bg-amber-950/30 text-amber-500 rounded-full flex items-center justify-center border border-amber-200 dark:border-amber-900">
                 <ShieldAlert size={32} className="animate-pulse text-amber-500" />
@@ -1779,9 +1795,23 @@ export default function App() {
                 <ProductQAConsole setActivePage={setActiveTab} />
               )}
 
-              {activeTab === "enterprise_center" && (
+              {activeTab === "consulting_home" && (
                 <EnterpriseCenterErrorBoundary>
-                  <EnterpriseCenter onSelectTab={setActiveTab} />
+                  <ConsultingHomePage onNavigateTab={setActiveTab} />
+                </EnterpriseCenterErrorBoundary>
+              )}
+
+              {["enterprise_center", "minha_carteira"].includes(activeTab) && (
+                <EnterpriseCenterErrorBoundary>
+                  <PortfolioTab
+                    onSelectEngagement={(projectId) => {
+                      // Ao selecionar um engajamento na carteira, abre a Consulting Home
+                      setActiveTab("consulting_home");
+                    }}
+                    onCreateNewEngagement={() => {
+                      setActiveTab("enterprise_center");
+                    }}
+                  />
                 </EnterpriseCenterErrorBoundary>
               )}
 
@@ -1829,6 +1859,10 @@ export default function App() {
                 visibleFilters={visibleFilters}
                 fieldMappings={fieldMappings}
                 initialStep={activeTab === "analise_estrutura" ? 0 : 1}
+                onOpenExecutiveSummary={openExecutiveSummary}
+                onOpenExecutiveDashboard={openExecutiveDashboard}
+                onGenerateExecutivePresentation={openExecutivePresentation}
+                onAnalysisCompleted={handleAnalysisCompleted}
               />
             </DataLibraryErrorBoundary>
           )}
@@ -1858,7 +1892,7 @@ export default function App() {
           )}
           {["modo_reuniao", "reuniao_ata", "reuniao_decisoes", "reuniao_perguntas", "reuniao_notas"].includes(activeTab) && (
             <MeetingErrorBoundary>
-              <MeetingModePage onExit={() => setActiveTab("apresentacoes")} />
+              <MeetingModePage onExit={() => setActiveTab("consulting_home")} />
             </MeetingErrorBoundary>
           )}
 
@@ -1878,6 +1912,8 @@ export default function App() {
               <PosVendasTab
                 metrics={metrics}
                 formatCurrency={formatCurrencyValue}
+                activeDataset={activeDataset}
+                onOpenSourceAnalysis={() => setActiveTab("analise_estrutura")}
               />
             </DashboardErrorBoundary>
           )}
@@ -1887,6 +1923,8 @@ export default function App() {
               <ItensTab
                 metrics={metrics}
                 formatCurrency={formatCurrencyValue}
+                activeDataset={activeDataset}
+                onOpenSourceAnalysis={() => setActiveTab("analise_estrutura")}
               />
             </DashboardErrorBoundary>
           )}
@@ -1896,6 +1934,8 @@ export default function App() {
               <EstoqueTab
                 metrics={metrics}
                 formatCurrency={formatCurrencyValue}
+                activeDataset={activeDataset}
+                onOpenSourceAnalysis={() => setActiveTab("analise_estrutura")}
               />
             </DashboardErrorBoundary>
           )}
@@ -2000,7 +2040,11 @@ export default function App() {
           )}
 
           {(["resumo", "resultados_consolidados", "comparativos_mensais"].includes(activeTab)) && (
-            <DashboardPage filteredData={filteredData} formatCurrency={formatCurrencyValue} activeDataset={activeDataset} />
+            <ExecutiveDashboardPage
+              activeDataset={activeDataset}
+              onOpenPresentation={openExecutivePresentation}
+              onOpenAnalysis={() => setActiveTab("analise_estrutura")}
+            />
           )}
 
           {["relatorios", "historico_executivo"].includes(activeTab) && (

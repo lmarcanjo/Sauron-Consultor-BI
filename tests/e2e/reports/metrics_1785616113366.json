@@ -1,0 +1,15 @@
+{
+  "testName": "importacao-multipla",
+  "startAt": "2026-08-01T20:28:30.746Z",
+  "stepsCompleted": [
+    "1. Acessou a aplicacao",
+    "2-6. Upload real concluido pela Central de Dados",
+    "16. Reload preservou a fonte visivel"
+  ],
+  "stepsFailed": [],
+  "clickCount": 2,
+  "retries": 0,
+  "errorsEncountered": [],
+  "endAt": "2026-08-01T20:28:33.366Z",
+  "durationMs": 2620
+}

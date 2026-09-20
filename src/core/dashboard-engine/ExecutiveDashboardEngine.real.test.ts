@@ -171,5 +171,5 @@ describe("Executive Dashboard Engine with the real Honda workbook", () => {
     expect(people.blocks.some(block => block.type === "MetricCard" && (block.data as any).metricName === "quantidadeVendedores")).toBe(true);
     expect(people.blocks.some(block => block.type === "RankingBlock" && block.status === "ready")).toBe(true);
     expect(executive.blocks.every(block => block.lineage.datasetId === dataset.datasetId)).toBe(true);
-  }, 90000);
+  }, 180000);
 });

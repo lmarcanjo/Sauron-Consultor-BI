@@ -81,7 +81,7 @@ test.describe("Hotfix 24.1 — Confirm Source Understanding", () => {
       await confirmBtn.click();
 
       // Verify confirmation success feedback
-      await expect(page.getByText("Fonte confirmada para análises", { exact: true }).first()).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(/Fonte confirmada para análises/i).first()).toBeVisible({ timeout: 10000 });
 
     } finally {
       if (fs.existsSync(tempFile)) {

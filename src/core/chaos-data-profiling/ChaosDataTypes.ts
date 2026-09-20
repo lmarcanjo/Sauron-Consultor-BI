@@ -65,34 +65,35 @@ export interface ColumnEvidence {
 export interface PhysicalColumnProfile {
   physicalName: string;
   containerId: string;
-  containerName: string;
-  position: number;
+  containerName?: string;
+  position?: number;
   observedTypes: ChaosValueType[];
-  typePercentages: Partial<Record<ChaosValueType, number>>;
-  numericPercentage: number;
-  textPercentage: number;
-  datePercentage: number;
-  booleanPercentage: number;
+  typePercentages?: Partial<Record<ChaosValueType, number>>;
+  numericPercentage?: number;
+  textPercentage?: number;
+  datePercentage?: number;
+  booleanPercentage?: number;
   emptyPercentage: number;
-  cardinality: number;
-  distinctValues: string[];
-  mostFrequentValues: Array<{ value: string; count: number }>;
+  cardinality?: number;
+  distinctValues?: string[];
+  mostFrequentValues?: Array<{ value: string; count: number }>;
   examples: unknown[];
-  averageLength: number;
-  minValue: string | number | null;
-  maxValue: string | number | null;
-  patterns: string[];
-  repeatedValueCount: number;
-  mixedTypes: boolean;
-  probableIdentifier: boolean;
-  probableCode: boolean;
-  probableName: boolean;
-  probableDimension: boolean;
-  probableMetric: boolean;
-  probableDate: boolean;
-  probableRoles: ProbableColumnRole[];
-  confidence: number;
-  evidence: ColumnEvidence[];
+  averageLength?: number;
+  minValue?: string | number | null;
+  maxValue?: string | number | null;
+  patterns?: string[];
+  repeatedValueCount?: number;
+  mixedTypes?: boolean;
+  probableIdentifier?: boolean;
+  probableCode?: boolean;
+  probableName?: boolean;
+  probableDimension?: boolean;
+  probableMetric?: boolean;
+  probableDate?: boolean;
+  probableRoles?: ProbableColumnRole[];
+  probableRole?: ProbableColumnRole;
+  confidence?: number;
+  evidence?: ColumnEvidence[];
 }
 
 export type RowClassificationKind =
@@ -124,15 +125,15 @@ export interface SemanticSuggestion {
   id: string;
   suggestedLabel: string;
   suggestedRole: string;
-  scope: SuggestionScope;
-  sourceId: string;
+  scope?: SuggestionScope;
+  sourceId?: string;
   containerId?: string;
   blockId?: string;
   physicalColumns: string[];
   confidence: number;
   evidence: string[];
-  sampleValues: unknown[];
-  possibleRelations: string[];
+  sampleValues?: unknown[];
+  possibleRelations?: string[];
   warnings: string[];
   status: SuggestionStatus;
 }
@@ -187,10 +188,11 @@ export interface PhysicalContainerProfile {
   name: string;
   type: PhysicalContainerType;
   rowCount: number | null;
-  sampledRecords: number;
-  columns: string[];
-  rows: ProfiledRow[];
-  blocks: DetectedBlock[];
+  sampledRecords?: number;
+  columns?: string[];
+  records?: PhysicalRecord[];
+  rows?: ProfiledRow[];
+  blocks?: DetectedBlock[];
   metadata?: Record<string, unknown>;
 }
 
@@ -210,9 +212,9 @@ export interface RawZoneReference {
 }
 
 export interface ChaosSourceProfile {
-  profileId: string;
+  profileId?: string;
   sourceId: string;
-  sourceType: ChaosSourceType;
+  sourceType?: ChaosSourceType;
   groupId: string;
   companyId?: string;
   sourceName: string;
@@ -220,14 +222,16 @@ export interface ChaosSourceProfile {
   physicalContainers: PhysicalContainerProfile[];
   physicalColumns: PhysicalColumnProfile[];
   sampledRecords: number;
-  profilingStatus: "READY" | "PENDING" | "FAILED";
+  profilingStatus?: "READY" | "PENDING" | "FAILED";
   detectedBlocks: DetectedBlock[];
   semanticSuggestions: SemanticSuggestion[];
   qualityFindings: QualityFinding[];
-  rawZone: RawZoneReference;
-  createdAt: string;
+  rawZone?: RawZoneReference;
+  totalKnownRows?: number;
+  confidenceScore?: number;
+  createdAt?: string;
   updatedAt: string;
-  version: number;
+  version?: number;
 }
 
 export interface ChaosProfilingOptions {
